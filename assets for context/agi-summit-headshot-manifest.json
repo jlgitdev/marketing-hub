@@ -1,0 +1,36 @@
+{
+  "source": "https://agisummit.ai/",
+  "verifiedAt": "2026-07-13",
+  "speakers": [
+    {
+      "displayName": "Rohan Varma",
+      "profileKey": "rohanvarma",
+      "imageBasename": "img-mpvilg44-9cd8152f4e71.webp"
+    },
+    {
+      "displayName": "Raymond Chen",
+      "profileKey": "raymondchen",
+      "imageBasename": "img-mqb75qij-dde0c87a228f.webp"
+    },
+    {
+      "displayName": "Christopher Manning",
+      "profileKey": "christophermanning",
+      "imageBasename": "img-mpw2zqmw-70e37bbd820a.webp"
+    },
+    {
+      "displayName": "Dong Meng",
+      "profileKey": "dongmeng",
+      "imageBasename": "dong-meng-2.webp"
+    },
+    {
+      "displayName": "Zihan Wang",
+      "profileKey": "zihanwang",
+      "imageBasename": "img-mpvilmik-76b2a63ee75f.webp"
+    },
+    {
+      "displayName": "Jeremiah Owyang",
+      "profileKey": "jeremiahowyang",
+      "imageBasename": "img-mpvilpn2-a8789e25a22f.webp"
+    }
+  ]
+}
