@@ -13,7 +13,7 @@ vi.mock("@/server/ai/openai-provider", () => {
     ProviderFailure,
     speakerHeadshotQaWithOpenAI: vi.fn(async () => ({
       requestId: "req_headshot_qa",
-      bundle: { approved: true, singlePerson: true, usablePortrait: true, notLogoGraphicOrThumbnail: true, notVisiblyCorrupted: true, issues: [] }
+      bundle: { faceVisible: true, approved: true, singlePerson: true, usablePortrait: true, notLogoGraphicOrThumbnail: true, notVisiblyCorrupted: true, issues: [] }
     })),
     speakerPostWithOpenAI: vi.fn(async () => ({
       requestId: "req_caption",

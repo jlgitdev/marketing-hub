@@ -9,11 +9,11 @@ export const MAX_FILES = 100;
 export const KEY_SESSION_TTL_MS = 8 * 60 * 60 * 1000;
 
 export const PROMPT_VERSIONS = {
-  research: "lead-research-v2-auto-context",
+  research: "summit-sales-research-v3-qualified-funnel",
   outreach: "outreach-v2-auto-context",
   content: "social-content-v2-auto-context",
   image: "campaign-image-v1",
-  speakerSpotlight: "speaker-spotlight-v5-split-editorial-poster"
+  speakerSpotlight: "speaker-spotlight-v6-condensed-logo-poster"
 } as const;
 
 export const SPEAKER_SPOTLIGHT_IMAGE_SPEC = {

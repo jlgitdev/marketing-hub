@@ -16,6 +16,48 @@ export type Confidence = "high" | "medium" | "low";
 export type ReviewStatus = "unreviewed" | "reviewed" | "rejected" | "needs_review";
 export type Platform = "x" | "linkedin" | "instagram";
 
+export type LeadTargetSegment =
+  | "ai_professionals"
+  | "technology_employees"
+  | "founders_operators"
+  | "researchers_academics"
+  | "college_students"
+  | "college_prep_education"
+  | "educators"
+  | "community_leaders"
+  | "investors_executives"
+  | "general_technology";
+
+export type LeadSalesMotion =
+  | "direct_ticket_sales"
+  | "group_ticket_sales"
+  | "partner_distribution"
+  | "employer_learning_budget"
+  | "education_distribution"
+  | "cross_promotion"
+  | "sponsorship";
+
+export type LeadPriorityTier = "hot" | "strong" | "promising" | "nurture";
+
+export interface LeadQualification {
+  audienceFit: "weak" | "moderate" | "strong" | "exact";
+  buyingSignal: "none" | "weak" | "moderate" | "strong";
+  distributionPotential: "none" | "limited" | "moderate" | "high";
+  localRelevance: "none" | "adjacent" | "local";
+  timingFit: "poor" | "neutral" | "good" | "urgent";
+  decisionMakerAccess: "unknown" | "influencer" | "decision_maker";
+  audienceSizeLabel: string | null;
+  scoreBreakdown: {
+    audienceFit: number;
+    revenuePotential: number;
+    distribution: number;
+    contactability: number;
+    localRelevance: number;
+    timing: number;
+    evidenceQuality: number;
+  };
+}
+
 export type AiOperationKind =
   | "research"
   | "outreach_create"
@@ -133,6 +175,16 @@ export interface LeadRecord {
   recommendedAction: string;
   fitExplanation: string;
   evidenceSummary: string;
+  targetSegment: LeadTargetSegment;
+  salesMotion: LeadSalesMotion;
+  priorityScore: number;
+  priorityTier: LeadPriorityTier;
+  qualification: LeadQualification;
+  outreachAngle: string;
+  nextBestAction: string;
+  canonicalKey: string;
+  lastVerifiedAt: string;
+  rejectionReason: string | null;
   confidence: Confidence;
   verificationStatus: "source_backed" | "contact_page_only" | "requires_review";
   warnings: string[];
@@ -180,7 +232,7 @@ export interface OutreachRecipient {
 export interface OutreachCampaign {
   id: string;
   name: string;
-  mode: "partner_share" | "direct_invitation";
+  mode: "partner_share" | "direct_invitation" | "sales_motion";
   status: "draft" | "reviewed";
   contextDocumentIds: string[];
   subjectTemplate: string;

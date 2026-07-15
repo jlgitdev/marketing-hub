@@ -68,14 +68,14 @@ Every AI preflight shows the selected documents, approximate character count, an
 
 1. Validate the editable region, objective, organization/event categories, target and audience roles, date range, keywords, result cap, and selected context.
 2. Persist a running record with model, prompt version, settings, and context IDs.
-3. Make one bounded Responses request using the current `{ type: "web_search" }` tool, medium reasoning, explicit current date, and Bay Area approximate location when appropriate.
-4. Request strict Zod-backed Structured Outputs containing organizations/events, nullable contacts, recommended marketing action, fit, confidence, warnings, and supporting sources.
+3. Make a bounded discovery Responses request using `{ type: "web_search" }`, medium reasoning, explicit current date, and Bay Area approximate location when appropriate; search across customer segments and sales motions.
+4. Enrich an oversized, diversity-balanced candidate pool in bounded cited batches and conditionally backfill shortages. Isolate malformed batches while preserving valid results. Request strict Zod-backed Structured Outputs containing organizations/events, nullable contacts, customer segment, sales motion, qualification signals, recommended sales action, fit, confidence, warnings, and supporting sources.
 5. Preserve output URL annotations and complete search-source metadata.
 6. Reject private/non-HTTP URLs, malformed dates/emails, unsupported enums, and any email lacking an exact accepted public source whose claim contains that address.
 7. Flag consumer domains, third-party-only email evidence, domain mismatches, stale events, and conflicting information.
-8. Deduplicate by normalized email, domain, and organization/event identity while retaining all evidence and warnings.
-9. Persist raw sanitized provider output, source rows, lead/source joins, model, usage, and outcome.
-10. Require human selection and review before outreach/export.
+8. Compute a deterministic 100-point summit-sales score, enforce request constraints, and deduplicate by canonical identity within and across runs while retaining all evidence and warnings. Multi-tenant platform domains never collapse distinct hosted groups into one lead.
+9. Persist raw sanitized provider output, source rows, lead/source joins, qualification details, review feedback, model, per-pass usage, and outcome.
+10. Require human selection before lead-intelligence export and human review before any address is eligible for outreach export. Unverified emails are withheld from lead CSVs.
 
 No crawler, guessed-email generator, SMTP probe, data broker, attendee list, paywall bypass, or private database is introduced. A relevant lead without an email remains as contact-page-only.
 
@@ -83,7 +83,7 @@ No crawler, guessed-email generator, SMTP probe, data broker, attendee list, pay
 
 Selected leads create either a partner-share request with forwardable announcement or a direct invitation. Generation receives only selected context, stored lead facts, source-backed recipient facts, and user campaign instructions. Event claims may not be invented.
 
-The saved campaign contains subject/body templates, preview text, CTA, announcement, prompt/model/provider metadata, warnings, and recipient-specific drafts. Users can edit the master or recipient, regenerate one/all, reset to master, exclude, copy, acknowledge missing-context warnings, and mark reviewed. Personalized evidence remains one click away. CSV exports only reviewed, non-excluded recipients with emails and neutralizes spreadsheet formulas while preserving commas, quotes, line breaks, and Unicode.
+The saved campaign contains subject/body templates, preview text, CTA, announcement, prompt/model/provider metadata, warnings, and recipient-specific drafts. Users can edit the master or recipient, regenerate one/all, reset to master, exclude, copy, acknowledge missing-context warnings, and mark reviewed. Personalized evidence remains one click away. Outreach CSV exports only reviewed, non-excluded recipients with source-backed emails. A separate selected-lead CSV exports priority, segment, sales motion, next action, evidence, contact pages, and source URLs while withholding unverified emails. Both neutralize spreadsheet formulas while preserving commas, quotes, line breaks, and Unicode.
 
 An interface defines the future approved email-delivery boundary, but this MVP provides no implementation, credentials, Send control, or scheduled follow-up.
 

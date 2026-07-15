@@ -211,6 +211,25 @@ const migrations = [
         AND status = 'partially_completed'
         AND COALESCE(completed_units, 0) = 0;
     `
+  },
+  {
+    version: 11,
+    sql: `
+      ALTER TABLE leads ADD COLUMN target_segment TEXT NOT NULL DEFAULT 'general_technology';
+      ALTER TABLE leads ADD COLUMN sales_motion TEXT NOT NULL DEFAULT 'partner_distribution';
+      ALTER TABLE leads ADD COLUMN priority_score INTEGER NOT NULL DEFAULT 0;
+      ALTER TABLE leads ADD COLUMN priority_tier TEXT NOT NULL DEFAULT 'nurture';
+      ALTER TABLE leads ADD COLUMN qualification TEXT NOT NULL DEFAULT '{}';
+      ALTER TABLE leads ADD COLUMN outreach_angle TEXT NOT NULL DEFAULT '';
+      ALTER TABLE leads ADD COLUMN next_best_action TEXT NOT NULL DEFAULT '';
+      ALTER TABLE leads ADD COLUMN canonical_key TEXT NOT NULL DEFAULT '';
+      ALTER TABLE leads ADD COLUMN last_verified_at TEXT NOT NULL DEFAULT '';
+      ALTER TABLE leads ADD COLUMN rejection_reason TEXT;
+      CREATE INDEX IF NOT EXISTS leads_priority_idx ON leads(priority_score DESC);
+      CREATE INDEX IF NOT EXISTS leads_segment_idx ON leads(target_segment);
+      CREATE INDEX IF NOT EXISTS leads_sales_motion_idx ON leads(sales_motion);
+      CREATE INDEX IF NOT EXISTS leads_canonical_key_idx ON leads(canonical_key);
+    `
   }
 ];
 

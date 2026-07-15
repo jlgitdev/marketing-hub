@@ -12,7 +12,7 @@ import type { OperationReporter } from "@/server/operations/types";
 
 export const OutreachInputSchema = z.object({
   name: z.string().min(2).max(120),
-  mode: z.enum(["partner_share", "direct_invitation"]),
+  mode: z.enum(["partner_share", "direct_invitation", "sales_motion"]),
   leadIds: z.array(z.string().uuid()).min(1).max(50),
   contextDocumentIds: z.array(z.string().uuid()).default([]),
   contextMode: z.enum(["auto", "manual"]).default("auto"),

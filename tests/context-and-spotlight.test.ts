@@ -6,7 +6,7 @@ import { agiSummitSiteDirectory, projectContextDirectory } from "@/server/config
 import { closeDatabase } from "@/server/db/database";
 import { createContextDocument, listContextDocuments, resetAllData, updateSpeakerSpotlightResult } from "@/server/db/repository";
 import { deriveContextMetadata, ensureProjectContextImported, selectRelevantContext } from "@/server/services/context-service";
-import { createSpeakerSpotlights, extractSpeakerProfile, retrySpeakerSpotlight } from "@/server/services/speaker-spotlight-service";
+import { createSpeakerSpotlights, extractSpeakerProfile, resolveSpeakerOrganizationBrand, retrySpeakerSpotlight } from "@/server/services/speaker-spotlight-service";
 import { hasExternalSpeakerSite } from "./external-speaker-site";
 
 beforeEach(() => resetAllData());
@@ -64,6 +64,23 @@ describe.skipIf(!hasExternalSpeakerSite)("Speaker Spotlight workflow", () => {
     const metadata = await sharp(path.resolve(imagePath)).metadata();
     expect(metadata).toMatchObject({ width: 1024, height: 1536, format: "png" });
   }, 30_000);
+
+  it("resolves the website's organization branding and gives Marco Pavone the NVIDIA lockup", () => {
+    const bundle = fs.readdirSync(agiSummitSiteDirectory(), { recursive: true }).map(String).find((name) => /index-.*\.js$/i.test(name));
+    expect(bundle).toBeTruthy();
+    const bundlePath = path.join(agiSummitSiteDirectory(), bundle!);
+    const marco = extractSpeakerProfile("Marco Pavone", bundlePath);
+    const joe = extractSpeakerProfile("Joe Palermo", bundlePath);
+
+    expect(resolveSpeakerOrganizationBrand(marco, bundlePath, agiSummitSiteDirectory())).toMatchObject({
+      name: "NVIDIA",
+      sourceFileName: expect.stringMatching(/nvidia.*\.png$/i)
+    });
+    expect(resolveSpeakerOrganizationBrand(joe, bundlePath, agiSummitSiteDirectory())).toMatchObject({
+      name: "OpenAI",
+      sourceFileName: expect.stringMatching(/openai.*\.svg$/i)
+    });
+  });
 
   it("resolves verified opaque headshot filenames from the live-page manifest", async () => {
     const batch = await createSpeakerSpotlights({ speakerNames: ["Rohan Varma", "Raymond Chen", "Christopher Manning"] }, null);

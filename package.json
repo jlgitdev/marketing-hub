@@ -18,6 +18,8 @@
     "db:migrate": "node --import tsx scripts/db-init.ts",
     "db:seed:demo": "node --import tsx scripts/seed-demo.ts",
     "data:reset": "node --import tsx scripts/reset-data.ts",
+    "benchmark:leads": "node --env-file=.env.local --import tsx scripts/live-lead-benchmark.ts",
+    "benchmark:leads:revalidate": "node --import tsx scripts/revalidate-lead-benchmark.ts",
     "verify": "npm run lint && npm run typecheck && npm run test && npm run build"
   },
   "dependencies": {

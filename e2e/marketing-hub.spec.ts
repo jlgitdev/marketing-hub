@@ -11,22 +11,30 @@ test.beforeEach(async ({ page }) => {
 test("completes and reopens the deterministic marketing workflow", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
   await page.getByRole("link", { name: "Leads" }).click();
-  await expect(page.getByRole("heading", { name: "Leads", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Find, qualify, and act on the right leads", exact: true })).toBeVisible();
+  const ticketBuyerStrategy = page.getByRole("button", { name: "Ticket buyers Individuals, teams, and learning budgets", exact: true });
+  await ticketBuyerStrategy.click();
+  await expect(ticketBuyerStrategy).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByText("5 audiences · 3 paths")).toBeVisible();
+  await page.getByRole("button", { name: "Balanced pipeline Ticket buyers and distribution partners", exact: true }).click();
   const researchResponse = page.waitForResponse((response) => response.url().endsWith("/api/research") && response.request().method() === "POST");
-  await page.getByRole("button", { name: "Find opportunities" }).click();
+  await page.getByRole("button", { name: "Find qualified leads" }).click();
   expect((await researchResponse).status()).toBe(202);
-  await expect(page.locator(".operation-card").filter({ hasText: "Bay Area AI opportunity scan" }).first()).toBeVisible();
+  await expect(page.locator(".operation-card").filter({ hasText: "Bay Area AI summit sales pipeline" }).first()).toBeVisible();
   await page.getByRole("link", { name: "Content" }).click();
   await expect(page.locator(".activity-trigger")).toBeVisible();
-  const researchToast = page.locator(".operation-toast").filter({ hasText: "Bay Area AI opportunity scan" });
+  const researchToast = page.locator(".operation-toast").filter({ hasText: "Bay Area AI summit sales pipeline" });
   await expect(researchToast).toBeVisible({ timeout: 20_000 });
   await researchToast.getByRole("link", { name: "View" }).click();
   const leadCard = page.locator(".lead-card").filter({ hasText: "Bay Circuit AI Community" });
   await expect(leadCard).toBeVisible();
-  await leadCard.getByText(/Inspect .* supporting sources and edit/).click();
+  await leadCard.getByText(/Inspect qualification, .* sources?, and review notes/).click();
   await expect(leadCard.getByRole("link", { name: /Bay Circuit partnerships/ })).toBeVisible();
   await leadCard.getByLabel("Select Bay Circuit AI Community").check();
-  await page.getByRole("button", { name: "Create outreach campaign" }).click();
+  const leadCsvDownload = page.waitForEvent("download");
+  await page.getByRole("link", { name: "Export leads" }).click();
+  expect((await leadCsvDownload).suggestedFilename()).toBe("summit-sales-leads.csv");
+  await page.getByRole("button", { name: "Create sales outreach" }).click();
   const recipientCard = page.locator(".recipient-card").filter({ hasText: "Bay Circuit AI Community" });
   await expect(recipientCard).toBeVisible({ timeout: 20_000 });
   await recipientCard.locator(":scope > summary").click();
@@ -52,11 +60,11 @@ test("completes and reopens the deterministic marketing workflow", async ({ page
   await page.reload();
   await expect(page.getByText("Applied Intelligence Forum launch").first()).toBeVisible();
   await page.getByRole("link", { name: "Runs" }).click();
-  await expect(page.getByText("Bay Area AI opportunity scan")).toBeVisible();
+  await expect(page.getByText("Bay Area AI summit sales pipeline")).toBeVisible();
   await expect(page.getByText("Applied Intelligence Forum launch")).toBeVisible();
-  const researchRun = page.locator(".run-card").filter({ hasText: "Bay Area AI opportunity scan" });
+  const researchRun = page.locator(".run-card").filter({ hasText: "Bay Area AI summit sales pipeline" });
   await researchRun.getByRole("link", { name: "Reopen" }).click();
-  await expect(page.getByText("Showing saved run: Bay Area AI opportunity scan")).toBeVisible();
+  await expect(page.getByText("Bay Area AI summit sales pipeline").first()).toBeVisible();
   await page.getByRole("link", { name: "Runs" }).click();
   const contentRun = page.locator(".run-card").filter({ hasText: "Applied Intelligence Forum launch" });
   await contentRun.getByRole("link", { name: "Reopen" }).click();
@@ -89,10 +97,10 @@ test.describe("Speaker Spotlight with downloaded site fixture", () => {
 
 test("restores progress after reload and cancels queued work before it starts", async ({ page }) => {
   await page.getByRole("link", { name: "Leads" }).click();
-  await page.getByRole("button", { name: "Find opportunities" }).click();
-  await expect(page.locator(".operation-card").filter({ hasText: "Bay Area AI opportunity scan" }).first()).toBeVisible();
+  await page.getByRole("button", { name: "Find qualified leads" }).click();
+  await expect(page.locator(".operation-card").filter({ hasText: "Bay Area AI summit sales pipeline" }).first()).toBeVisible();
   await page.reload();
-  await expect(page.locator(".operation-card").filter({ hasText: "Bay Area AI opportunity scan" }).first()).toBeVisible();
+  await expect(page.locator(".operation-card").filter({ hasText: "Bay Area AI summit sales pipeline" }).first()).toBeVisible();
 
   await page.getByRole("link", { name: "Content" }).click();
   await page.getByRole("button", { name: "Generate platform drafts" }).click();

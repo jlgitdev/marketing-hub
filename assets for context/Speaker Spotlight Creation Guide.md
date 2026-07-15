@@ -9,7 +9,7 @@ The workflow accepts any positive number of names. For every speaker, it must:
 1. Extract and verify the speaker's AGI Summit profile data.
 2. Find and verify the correct headshot.
 3. Use the OpenAI Image API with `gpt-image-2` to create a personalized speaker spotlight graphic.
-4. Make the graphic look as close as possible to `speaker spotlight social media image example.jpeg`, while replacing the example speaker with the current speaker's verified identity and information.
+4. Make the graphic look as close as possible to `speaker spotlight social media image reference v2.png`, while replacing Marco Pavone, NVIDIA, and all example-specific content with the current speaker's verified identity, organization logo, and condensed information.
 5. Produce the final graphic at an exact **2:3 aspect ratio**.
 6. Write the accompanying social post using `speaker_spotlight_text_example.md` as the style and structure reference.
 7. Validate every output and clearly report failures instead of inventing or guessing information.
@@ -21,7 +21,7 @@ This is intended to be implemented as a backend workflow for a website using the
 The workflow uses these files as its local sources of truth:
 
 - `agi-summit-speaker-extraction-guide.md`
-- `speaker spotlight social media image example.jpeg`
+- `speaker spotlight social media image reference v2.png`
 - `speaker_spotlight_text_example.md`
 
 Configure the downloaded AGI Summit site with `AGI_SUMMIT_SITE_DIR`. For example:
@@ -283,13 +283,7 @@ Check dimensions and visually inspect the image:
 sips -g pixelWidth -g pixelHeight "/path/to/headshot.webp"
 ```
 
-Confirm that it is:
-
-- the requested person;
-- a usable head-and-shoulders or portrait image;
-- not a logo, event graphic, thumbnail, or different speaker;
-- large enough for the final card;
-- not visibly corrupted.
+Confirm that it maps to the requested speaker and contains a discernible human face. Continue generation whenever a face is visible. Rough masking, jagged cutout edges, imperfect background removal, unusual framing, low resolution, multiple people, and other cosmetic defects should be recorded as warnings, not treated as blockers. Stop only when no human face is discernible or no speaker image can be mapped at all.
 
 Copy the original, without altering it, to:
 
@@ -299,7 +293,7 @@ output/speaker_spotlights/<speaker-slug>/<speaker-slug>-headshot.<extension>
 
 Record how the mapping was verified: filename match, live-page `alt` match, or manual confirmation.
 
-If the headshot cannot be verified, stop that speaker's image workflow and mark it for review.
+If no speaker image can be mapped or the mapped image contains no discernible human face, stop that speaker's image workflow and mark it for review. If the automated face check is temporarily unavailable, continue with the locally matched site headshot and record a warning.
 
 ## Stage 4: Prepare the visible card copy
 
@@ -327,15 +321,15 @@ Prepare these fields from the verified profile:
 
 Rules:
 
-- Use exactly three concise, verified highlight rows in the left information panel.
-- Use up to three verified topic labels in the right-side detail rows.
-- Never invent a highlight merely to fill the design.
-- Keep the description to one or two short sentences.
+- Use no more than two concise, verified role or credential blocks below the organization logo.
+- Use no more than two verified topic labels in one compact row.
+- Resolve the primary company or university from the verified profile and the downloaded site's organization-brand registry.
+- For a speaker with multiple affiliations, choose the organization that controls the supplied canonical reference or use an explicit reviewed override; Marco Pavone uses NVIDIA.
+- Do not include an ABOUT paragraph, quote, statistics, or highlight cards in the image.
 - Preserve proper nouns exactly.
 - Shorten only by removing redundant wording; do not change meaning.
-- Use `industries[]` and `tags[]` for the compact topic line when available.
-- Use `highlights[]` for the three icon-led fact rows.
-- Use `roleLine` or `bio` for the descriptive sentence.
+- Use `industries[]` and `tags[]` for the two-item topic line when available.
+- Use `roleLine`, `subtitle`, and verified organization references to build the compact role blocks.
 
 Save the final visible copy before image generation. The same frozen copy must be used for both the image prompt and image QA.
 
@@ -343,10 +337,11 @@ Save the final visible copy before image generation. The same frozen copy must b
 
 ### 5.1 Use the correct API operation
 
-Use the OpenAI **Image API edits endpoint**, not a text-only image generation request, because this workflow requires two image references:
+Use the OpenAI **Image API edits endpoint**, not a text-only image generation request, because this workflow requires three image references:
 
 1. the current speaker's verified headshot; and
-2. `speaker spotlight social media image example.jpeg` as the visual style and layout reference.
+2. `speaker spotlight social media image reference v2.png` as the visual style and layout reference; and
+3. a locally normalized PNG of the verified company or university logo from the downloaded site's organization-brand registry.
 
 Use:
 
@@ -362,11 +357,12 @@ The Image API supports one or more reference images for an edit/reference workfl
 Always send and describe the images in this order:
 
 - **Image 1 — identity reference:** the verified headshot for the current speaker.
-- **Image 2 — style/layout reference:** `speaker spotlight social media image example.jpeg`.
+- **Image 2 — style/layout reference:** `speaker spotlight social media image reference v2.png`.
+- **Image 3 — organization-brand reference:** the verified company or university logo/lockup for the current speaker, normalized onto a clean white canvas without changing its geometry or colors.
 
-The prompt must explicitly state that Image 1 controls the person's identity and Image 2 controls the graphic's style, composition, layout, and visual hierarchy.
+The prompt must explicitly state that Image 1 controls the person's identity, Image 2 controls the graphic's style and layout, and Image 3 controls the large organization branding.
 
-The prompt must also state that the example speaker's face, name, biography, topics, and highlights must not appear in the output.
+The prompt must also state that Marco Pavone's identity, NVIDIA branding, Stanford copy, and all other example-specific content must not appear unless verified for the current speaker.
 
 ### 5.3 Exact 2:3 output size
 
@@ -398,54 +394,44 @@ Asset type: final 2:3 portrait social-media speaker spotlight poster, exactly 10
 
 Input images:
 - Image 1 is the verified identity reference for {{SPEAKER_NAME}}. Preserve this person's recognizable identity, facial structure, skin tone, eyes, expression, hairstyle, wardrobe, and professional appearance faithfully. Use only this person.
-- Image 2 is the canonical AGI Summit speaker spotlight visual reference. Follow its split-panel editorial composition, visual hierarchy, spacing, white left information wedge, near-black right portrait field, diagonal dividing edge, blue-to-violet gradient accents, condensed uppercase typography, neon outlined header, icon-led fact rows, oversized speaker name, and compact event footer as closely as possible. Do not retain Holly Zheng, her face, red clothing, or any of her speaker-specific text.
+- Image 2 is the canonical Marco Pavone AGI Summit speaker spotlight reference. Follow its white-left/black-right diagonal split, minimal editorial hierarchy, electric-blue accents, large stacked speaker name, large organization-logo area, top-right AGI Summit masthead, compact role lines, topic row, and icon-led event footer. Do not retain Marco Pavone, his face, NVIDIA branding, Stanford copy, or other example-specific content unless verified for the current speaker.
+- Image 3 is the verified {{ORGANIZATION_NAME}} logo/lockup extracted from the downloaded AGI Summit site's organization-brand registry. Reproduce it prominently without redesigning, recoloring, distorting, or replacing it.
 
 Primary request:
 Create a personalized AGI Summit 2026 speaker spotlight poster for {{SPEAKER_NAME}}. It should look as close as possible to Image 2 while replacing all speaker-specific content with the verified identity and facts supplied below.
 
 Exact visible text, verbatim:
-"BAY AI CIRCLE"
-"CONNECT · LEARN · BUILD · IMPACT"
-"AGI SUMMIT"
-"WHERE AGI CONVERGES"
-"AGI SUMMIT SF 2026"
-"SPEAKER SPOTLIGHT"
-"THE WORLD’S"
-"LARGEST"
-"AGI SUMMIT"
 "FEATURED SPEAKER"
-"{{HIGHLIGHT_1}}"
-"{{HIGHLIGHT_2}}"
-"{{HIGHLIGHT_3}}"
-"ABOUT"
-"{{DESCRIPTION}}"
+"{{FIRST_NAME}}"
+"{{REMAINING_NAME}}"
+"{{ORGANIZATION_NAME}}"
+"{{ROLE_BLOCK_1}}"
+"{{ROLE_BLOCK_2}}"
+"{{TOPIC_1}} • {{TOPIC_2}}"
 "{{EVENT_DATES}}"
 "{{EVENT_VENUE}}"
-"{{SPEAKER_NAME}}"
-"{{ROLE_LINE}}"
-"{{TOPIC_LINE}}"
 "{{EVENT_WEBSITE}}"
 
 Composition:
-Closely follow Image 2. Reserve roughly 40% of the canvas for the white left information panel and 60% for the near-black right portrait panel, separated by the reference's strong diagonal edge. Put the Bay AI Circle and AGI Summit masthead at top left; the neon “AGI SUMMIT SF 2026 / SPEAKER SPOTLIGHT” badge at top right; the “THE WORLD’S / LARGEST / AGI SUMMIT” event headline, featured-speaker label, three icon-led verified highlight rows, ABOUT copy, date, and venue down the left; and a large three-quarter speaker portrait on the right with the speaker name and compact verified detail rows below it. Keep generous safe margins.
+Closely follow Image 2. Reserve roughly 40% of the canvas for the white information panel and 60% for the near-black portrait panel, separated by the reference's strong diagonal edge. Put FEATURED SPEAKER and a two-line adaptive speaker name at upper left; the large verified organization logo immediately below the name; no more than two compact role blocks and one two-topic row below the logo; the icon-led event footer at bottom left; the AGI Summit masthead at upper right; and a large three-quarter speaker portrait on the right. Keep at least 44 pixels of side margin around the name and generous clear space around the logo.
 
 Typography:
 Use bold condensed uppercase display type for headlines and the speaker name, with a clean sans-serif for detail copy. Render every word accurately and keep all copy inside safe margins.
 
 Visual style:
-Crisp premium editorial conference poster; stark white and near-black split; black and white text; electric blue-to-violet gradient accents; restrained neon glow; bold condensed display type; thin dividers; simple purple line icons.
+Crisp premium editorial conference poster; stark white and near-black split; black text with electric cobalt-blue accents; bold condensed display type; clean sans-serif details; thin dividers; simple cobalt line icons; generous whitespace.
 
 Constraints:
 - Output must be exactly 2:3 portrait.
 - Use only the verified claims supplied above.
 - Preserve the speaker's identity.
 - Keep all copy legible and spelled exactly.
-- Use exactly three supplied verified highlight rows.
+- Keep image copy deliberately condensed: name, organization logo, up to two role blocks, up to two topics, and the event footer only.
 - Do not label a speaker “KEYNOTE SPEAKER” unless that status is explicitly verified; use the supplied “FEATURED SPEAKER” label.
-- Do not add credentials, dates, handles, logos, affiliations, statistics, or organizations.
+- Do not add an ABOUT paragraph, biography, quote, statistics, highlight cards, credentials, handles, affiliations, or organizations that were not supplied.
 - Do not add a ticket URL to the image.
 - No watermark, QR code, fake logo, duplicated copy, or placeholder text.
-- Do not include any face, name, wardrobe, or speaker-specific text from Image 2.
+- Do not include any face, name, wardrobe, logo, or speaker-specific text from Image 2.
 ```
 
 For short but difficult proper nouns, abbreviations, or model names, append spelling guidance such as:
@@ -473,6 +459,7 @@ const client = new OpenAI({
 async function generateSpeakerSpotlight({
   headshotPath,
   styleReferencePath,
+  organizationLogoPath,
   prompt,
   outputPath,
 }) {
@@ -481,7 +468,10 @@ async function generateSpeakerSpotlight({
       type: "image/webp",
     }),
     toFile(fs.createReadStream(styleReferencePath), null, {
-      type: "image/jpeg",
+      type: "image/png",
+    }),
+    toFile(fs.createReadStream(organizationLogoPath), null, {
+      type: "image/png",
     }),
   ]);
 
@@ -541,13 +531,13 @@ Use visual inspection and, when available, OCR or a vision-capable QA step to ve
 
 - the portrait depicts the correct speaker;
 - the face remains recognizable and undistorted;
-- the example speaker is absent;
+- Marco Pavone and all other example-specific content are absent unless verified for the current speaker;
 - the speaker's name is spelled exactly;
+- the large company or university logo matches Image 3 and the verified affiliation;
 - every visible fact matches the frozen card copy;
 - the event date, venue, and website are correct;
-- there are exactly three icon-led verified highlight rows;
+- there are no more than two compact role blocks and two topic labels;
 - the split white-left/near-black-right composition and diagonal divider match the reference;
-- the number of highlight rows matches the supplied data;
 - no text is clipped, duplicated, garbled, or pushed outside safe margins;
 - the style closely matches the supplied example;
 - no unsupported social handle, logo, statistic, or credential was added;
@@ -560,7 +550,8 @@ Reject the image if any of the following is true:
 - wrong person or materially changed identity;
 - misspelled speaker name;
 - inaccurate or invented fact;
-- any remaining example-speaker content;
+- any remaining example-speaker face, name, logo, role, or topic;
+- missing, incorrect, distorted, or invented organization branding;
 - incorrect date, venue, or website;
 - wrong dimensions or aspect ratio;
 - unreadable, clipped, duplicated, or corrupted text;
@@ -579,14 +570,14 @@ Regenerate the card while keeping the same verified speaker identity and layout.
 ```
 
 ```text
-Regenerate at exactly 1024 × 1536. Keep all footer text fully inside the safe margins and do not remove any verified highlight.
+Regenerate at exactly 1024 × 1536. Keep the name, logo, role lines, topics, and footer fully inside the safe margins.
 ```
 
 ```text
 Use Image 1 more faithfully for facial identity. Do not alter the speaker's facial structure, eyes, hairstyle, skin tone, or expression.
 ```
 
-Always submit the original verified headshot and style reference again. Do not allow previous failed output to become the only identity reference.
+Always submit the original verified headshot, canonical style reference, and normalized organization logo again. Do not allow previous failed output to become the only identity or brand reference.
 
 If the image still fails after the retry limit, set the status to `image_review_required`, preserve all attempts, and continue processing other speakers.
 

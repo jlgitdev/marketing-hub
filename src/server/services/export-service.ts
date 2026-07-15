@@ -33,3 +33,27 @@ export function outreachCsv(campaignId: string) {
   });
   return `\uFEFF${[headers, ...rows].map((row) => row.map(escapeCsvCell).join(",")).join("\r\n")}`;
 }
+
+export function leadsCsv(input: { runId?: string | null; selectedOnly?: boolean; minimumPriorityScore?: number } = {}) {
+  const leads = listLeads()
+    .filter((lead) => !input.runId || lead.researchRunId === input.runId)
+    .filter((lead) => !input.selectedOnly || lead.selected)
+    .filter((lead) => lead.priorityScore >= (input.minimumPriorityScore ?? 0))
+    .sort((a, b) => b.priorityScore - a.priorityScore || a.organizationName.localeCompare(b.organizationName));
+  if (!leads.length) throw new Error(input.selectedOnly ? "Select at least one lead before exporting lead data." : "No lead data matches this export.");
+  const headers = [
+    "priority_score", "priority_tier", "target_segment", "sales_motion", "opportunity_type", "organization", "event_name", "event_date",
+    "city", "region", "contact_name", "contact_role", "source_backed_email", "contact_page", "verification_status", "evidence_confidence",
+    "next_best_action", "sales_angle", "fit_explanation", "evidence_summary", "organization_website", "event_url", "review_status", "last_verified_at",
+    "source_urls", "warnings"
+  ];
+  const rows = leads.map((lead) => [
+    lead.priorityScore, lead.priorityTier, lead.targetSegment, lead.salesMotion, lead.opportunityClass, lead.organizationName, lead.eventName, lead.eventStartDate,
+    lead.city, lead.region, lead.contactName, lead.contactRole,
+    lead.verificationStatus === "source_backed" ? lead.contactEmail : null,
+    lead.contactPageUrl, lead.verificationStatus, lead.confidence, lead.nextBestAction || lead.recommendedAction, lead.outreachAngle || lead.recommendedAction,
+    lead.fitExplanation, lead.evidenceSummary, lead.organizationWebsite, lead.eventUrl, lead.reviewStatus, lead.lastVerifiedAt,
+    lead.sources.map((source) => source.url).join(" | "), lead.warnings.join(" | ")
+  ]);
+  return `\uFEFF${[headers, ...rows].map((row) => row.map(escapeCsvCell).join(",")).join("\r\n")}`;
+}

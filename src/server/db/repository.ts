@@ -6,6 +6,7 @@ import type {
   ContentCampaign,
   ContextDocument,
   GeneratedAsset,
+  LeadQualification,
   LeadRecord,
   OutreachCampaign,
   OutreachRecipient,
@@ -19,6 +20,7 @@ import type {
 import { MAX_FILES } from "@/lib/config";
 import { dataDirectory, isDemoMode, isPathInsideDataDirectory } from "@/server/config";
 import { ensureDataDirectories, getDatabase, withTransaction } from "./database";
+import { canonicalLeadKey, qualifyLead } from "@/server/services/lead-qualification";
 
 const id = () => crypto.randomUUID();
 const json = <T>(value: string | null, fallback: T): T => {
@@ -26,6 +28,54 @@ const json = <T>(value: string | null, fallback: T): T => {
   try { return JSON.parse(value) as T; } catch { return fallback; }
 };
 const bool = (value: unknown) => Boolean(value);
+
+const EMPTY_SCORE_BREAKDOWN: LeadQualification["scoreBreakdown"] = {
+  audienceFit: 0,
+  revenuePotential: 0,
+  distribution: 0,
+  contactability: 0,
+  localRelevance: 0,
+  timing: 0,
+  evidenceQuality: 0
+};
+
+const DEFAULT_QUALIFICATION_SIGNALS: Omit<LeadQualification, "scoreBreakdown"> = {
+  audienceFit: "weak",
+  buyingSignal: "none",
+  distributionPotential: "none",
+  localRelevance: "none",
+  timingFit: "neutral",
+  decisionMakerAccess: "unknown",
+  audienceSizeLabel: null
+};
+
+function enumValue<T extends string>(value: unknown, choices: readonly T[], fallback: T): T {
+  return typeof value === "string" && choices.includes(value as T) ? value as T : fallback;
+}
+
+function hydrateQualification(value: unknown): { qualification: LeadQualification; hasCompleteScore: boolean } {
+  const stored = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  const rawBreakdown = stored.scoreBreakdown && typeof stored.scoreBreakdown === "object" && !Array.isArray(stored.scoreBreakdown)
+    ? stored.scoreBreakdown as Record<string, unknown>
+    : {};
+  const breakdownKeys = Object.keys(EMPTY_SCORE_BREAKDOWN) as Array<keyof LeadQualification["scoreBreakdown"]>;
+  const hasCompleteScore = breakdownKeys.every((key) => typeof rawBreakdown[key] === "number" && Number.isFinite(rawBreakdown[key]));
+  const scoreBreakdown = Object.fromEntries(breakdownKeys.map((key) => [key, hasCompleteScore ? rawBreakdown[key] : 0])) as unknown as LeadQualification["scoreBreakdown"];
+
+  return {
+    hasCompleteScore,
+    qualification: {
+      audienceFit: enumValue(stored.audienceFit, ["weak", "moderate", "strong", "exact"], DEFAULT_QUALIFICATION_SIGNALS.audienceFit),
+      buyingSignal: enumValue(stored.buyingSignal, ["none", "weak", "moderate", "strong"], DEFAULT_QUALIFICATION_SIGNALS.buyingSignal),
+      distributionPotential: enumValue(stored.distributionPotential, ["none", "limited", "moderate", "high"], DEFAULT_QUALIFICATION_SIGNALS.distributionPotential),
+      localRelevance: enumValue(stored.localRelevance, ["none", "adjacent", "local"], DEFAULT_QUALIFICATION_SIGNALS.localRelevance),
+      timingFit: enumValue(stored.timingFit, ["poor", "neutral", "good", "urgent"], DEFAULT_QUALIFICATION_SIGNALS.timingFit),
+      decisionMakerAccess: enumValue(stored.decisionMakerAccess, ["unknown", "influencer", "decision_maker"], DEFAULT_QUALIFICATION_SIGNALS.decisionMakerAccess),
+      audienceSizeLabel: typeof stored.audienceSizeLabel === "string" ? stored.audienceSizeLabel : null,
+      scoreBreakdown
+    }
+  };
+}
 
 function contextFromRow(row: Record<string, unknown>): ContextDocument {
   return {
@@ -55,7 +105,8 @@ function sourceFromRow(row: Record<string, unknown>): SupportingSource {
 }
 
 function leadFromRow(row: Record<string, unknown>, sources: SupportingSource[]): LeadRecord {
-  return {
+  const hydratedQualification = hydrateQualification(json<unknown>(String(row.qualification || "{}"), null));
+  const lead: LeadRecord = {
     id: String(row.id), researchRunId: String(row.research_run_id), opportunityClass: row.opportunity_class as LeadRecord["opportunityClass"],
     organizationName: String(row.organization_name), organizationType: String(row.organization_type),
     organizationWebsite: row.organization_website ? String(row.organization_website) : null,
@@ -68,11 +119,25 @@ function leadFromRow(row: Record<string, unknown>, sources: SupportingSource[]):
     emailSourceUrl: row.email_source_url ? String(row.email_source_url) : null,
     contactPageUrl: row.contact_page_url ? String(row.contact_page_url) : null,
     recommendedAction: String(row.recommended_action), fitExplanation: String(row.fit_explanation), evidenceSummary: String(row.evidence_summary),
+    targetSegment: (row.target_segment || "general_technology") as LeadRecord["targetSegment"],
+    salesMotion: (row.sales_motion || "partner_distribution") as LeadRecord["salesMotion"],
+    priorityScore: Number(row.priority_score || 0), priorityTier: (row.priority_tier || "nurture") as LeadRecord["priorityTier"],
+    qualification: hydratedQualification.qualification,
+    outreachAngle: String(row.outreach_angle || ""), nextBestAction: String(row.next_best_action || ""),
+    canonicalKey: String(row.canonical_key || ""), lastVerifiedAt: String(row.last_verified_at || row.researched_at),
+    rejectionReason: row.rejection_reason ? String(row.rejection_reason) : null,
     confidence: row.confidence as LeadRecord["confidence"], verificationStatus: row.verification_status as LeadRecord["verificationStatus"],
     warnings: json(String(row.warnings || "[]"), []), researchedAt: String(row.researched_at),
     reviewStatus: row.review_status as LeadRecord["reviewStatus"], selected: bool(row.selected),
     userEdits: json(String(row.user_edits || "{}"), {}), sources
   };
+  if (!lead.canonicalKey) lead.canonicalKey = canonicalLeadKey(lead);
+  if (!hydratedQualification.hasCompleteScore) {
+    const { scoreBreakdown: _scoreBreakdown, ...signals } = hydratedQualification.qualification;
+    void _scoreBreakdown;
+    Object.assign(lead, qualifyLead(lead, signals));
+  }
+  return lead;
 }
 
 function runFromRow(row: Record<string, unknown>): ResearchRun {
@@ -210,8 +275,8 @@ export function saveLeads(runId: string, leads: LeadRecord[]) {
   const db = getDatabase();
   withTransaction(db, () => {
     for (const lead of leads) {
-      db.prepare(`INSERT INTO leads(id,research_run_id,opportunity_class,organization_name,organization_type,organization_website,organization_domain,city,region,event_name,event_url,event_start_date,event_end_date,event_organizer,contact_name,contact_role,contact_email,email_category,email_source_url,contact_page_url,recommended_action,fit_explanation,evidence_summary,confidence,verification_status,warnings,researched_at,review_status,selected,user_edits) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
-        .run(lead.id, runId, lead.opportunityClass, lead.organizationName, lead.organizationType, lead.organizationWebsite, lead.organizationDomain, lead.city, lead.region, lead.eventName, lead.eventUrl, lead.eventStartDate, lead.eventEndDate, lead.eventOrganizer, lead.contactName, lead.contactRole, lead.contactEmail, lead.emailCategory, lead.emailSourceUrl, lead.contactPageUrl, lead.recommendedAction, lead.fitExplanation, lead.evidenceSummary, lead.confidence, lead.verificationStatus, JSON.stringify(lead.warnings), lead.researchedAt, lead.reviewStatus, Number(lead.selected), JSON.stringify(lead.userEdits));
+      db.prepare(`INSERT INTO leads(id,research_run_id,opportunity_class,organization_name,organization_type,organization_website,organization_domain,city,region,event_name,event_url,event_start_date,event_end_date,event_organizer,contact_name,contact_role,contact_email,email_category,email_source_url,contact_page_url,recommended_action,fit_explanation,evidence_summary,target_segment,sales_motion,priority_score,priority_tier,qualification,outreach_angle,next_best_action,canonical_key,last_verified_at,rejection_reason,confidence,verification_status,warnings,researched_at,review_status,selected,user_edits) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+        .run(lead.id, runId, lead.opportunityClass, lead.organizationName, lead.organizationType, lead.organizationWebsite, lead.organizationDomain, lead.city, lead.region, lead.eventName, lead.eventUrl, lead.eventStartDate, lead.eventEndDate, lead.eventOrganizer, lead.contactName, lead.contactRole, lead.contactEmail, lead.emailCategory, lead.emailSourceUrl, lead.contactPageUrl, lead.recommendedAction, lead.fitExplanation, lead.evidenceSummary, lead.targetSegment, lead.salesMotion, lead.priorityScore, lead.priorityTier, JSON.stringify(lead.qualification), lead.outreachAngle, lead.nextBestAction, lead.canonicalKey, lead.lastVerifiedAt, lead.rejectionReason, lead.confidence, lead.verificationStatus, JSON.stringify(lead.warnings), lead.researchedAt, lead.reviewStatus, Number(lead.selected), JSON.stringify(lead.userEdits));
       for (const source of lead.sources) {
         const sourceId = source.id || id();
         db.prepare(`INSERT OR IGNORE INTO research_sources(id,research_run_id,title,url,source_type,claim,citation_metadata,accessed_at) VALUES (?,?,?,?,?,?,?,?)`)
@@ -229,7 +294,7 @@ export function listLeads() {
   return rows.map((row) => leadFromRow(row, (sourceQuery.all(String(row.id)) as Array<Record<string, unknown>>).map(sourceFromRow)));
 }
 
-export function updateLead(leadId: string, patch: Partial<Pick<LeadRecord, "reviewStatus" | "selected" | "contactName" | "contactRole" | "contactEmail" | "emailCategory" | "emailSourceUrl" | "verificationStatus" | "recommendedAction" | "fitExplanation" | "warnings" | "userEdits">>) {
+export function updateLead(leadId: string, patch: Partial<Pick<LeadRecord, "reviewStatus" | "selected" | "contactName" | "contactRole" | "contactEmail" | "emailCategory" | "emailSourceUrl" | "verificationStatus" | "recommendedAction" | "fitExplanation" | "rejectionReason" | "warnings" | "userEdits">>) {
   const lead = listLeads().find((item) => item.id === leadId);
   if (!lead) throw new Error("Lead not found.");
   const trackedFields = ["contactName", "contactRole", "contactEmail", "recommendedAction", "fitExplanation"] as const;
@@ -240,8 +305,11 @@ export function updateLead(leadId: string, patch: Partial<Pick<LeadRecord, "revi
     userEdits[field] = { original: prior?.original ?? lead[field], value: patch[field], editedAt: new Date().toISOString() };
   }
   const next = { ...lead, ...patch, userEdits: { ...userEdits, ...(patch.userEdits || {}) } };
-  getDatabase().prepare(`UPDATE leads SET review_status=?,selected=?,contact_name=?,contact_role=?,contact_email=?,email_category=?,email_source_url=?,verification_status=?,recommended_action=?,fit_explanation=?,warnings=?,user_edits=? WHERE id=?`)
-    .run(next.reviewStatus, Number(next.selected), next.contactName, next.contactRole, next.contactEmail, next.emailCategory, next.emailSourceUrl, next.verificationStatus, next.recommendedAction, next.fitExplanation, JSON.stringify(next.warnings), JSON.stringify(next.userEdits), leadId);
+  const { scoreBreakdown: _scoreBreakdown, ...signals } = next.qualification;
+  void _scoreBreakdown;
+  Object.assign(next, qualifyLead(next, signals));
+  getDatabase().prepare(`UPDATE leads SET review_status=?,selected=?,contact_name=?,contact_role=?,contact_email=?,email_category=?,email_source_url=?,verification_status=?,recommended_action=?,fit_explanation=?,rejection_reason=?,priority_score=?,priority_tier=?,qualification=?,warnings=?,user_edits=? WHERE id=?`)
+    .run(next.reviewStatus, Number(next.selected), next.contactName, next.contactRole, next.contactEmail, next.emailCategory, next.emailSourceUrl, next.verificationStatus, next.recommendedAction, next.fitExplanation, next.rejectionReason, next.priorityScore, next.priorityTier, JSON.stringify(next.qualification), JSON.stringify(next.warnings), JSON.stringify(next.userEdits), leadId);
   return next;
 }
 
@@ -259,11 +327,15 @@ export function mergeStoredLeads(primaryId: string, duplicateId: string) {
   const confidenceOrder = { low: 0, medium: 1, high: 2 };
   const mergedWarnings = Array.from(new Set([...primary.warnings, ...duplicate.warnings, `Manually merged duplicate ${duplicate.organizationName} (${duplicate.id}).`]));
   withTransaction(db, () => {
-    db.prepare(`UPDATE leads SET contact_name=?,contact_role=?,contact_email=?,email_category=?,email_source_url=?,contact_page_url=?,confidence=?,warnings=? WHERE id=?`).run(
+    const stronger = duplicate.priorityScore > primary.priorityScore ? duplicate : primary;
+    db.prepare(`UPDATE leads SET contact_name=?,contact_role=?,contact_email=?,email_category=?,email_source_url=?,contact_page_url=?,confidence=?,target_segment=?,sales_motion=?,priority_score=?,priority_tier=?,qualification=?,outreach_angle=?,next_best_action=?,canonical_key=?,last_verified_at=?,warnings=? WHERE id=?`).run(
       primary.contactName || duplicate.contactName, primary.contactRole || duplicate.contactRole, primary.contactEmail || duplicate.contactEmail,
       primary.contactEmail ? primary.emailCategory : duplicate.emailCategory, primary.emailSourceUrl || duplicate.emailSourceUrl,
       primary.contactPageUrl || duplicate.contactPageUrl,
       confidenceOrder[duplicate.confidence] > confidenceOrder[primary.confidence] ? duplicate.confidence : primary.confidence,
+      stronger.targetSegment, stronger.salesMotion, stronger.priorityScore, stronger.priorityTier, JSON.stringify(stronger.qualification),
+      primary.outreachAngle || duplicate.outreachAngle, primary.nextBestAction || duplicate.nextBestAction,
+      primary.canonicalKey || duplicate.canonicalKey, duplicate.lastVerifiedAt > primary.lastVerifiedAt ? duplicate.lastVerifiedAt : primary.lastVerifiedAt,
       JSON.stringify(mergedWarnings), primaryId
     );
     db.prepare("INSERT OR IGNORE INTO lead_sources(lead_id,source_id) SELECT ?,source_id FROM lead_sources WHERE lead_id=?").run(primaryId, duplicateId);

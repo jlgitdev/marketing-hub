@@ -2,12 +2,13 @@ import fs from "node:fs";
 import path from "node:path";
 import OpenAI, { toFile } from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
+import type { ZodType } from "zod";
 import { MODELS } from "@/server/config";
 import { SPEAKER_SPOTLIGHT_IMAGE_SPEC } from "@/lib/config";
 import type { ContextDocument, LeadRecord, Platform } from "@/lib/types";
-import { ResearchBundleSchema, OutreachBundleSchema, SocialBundleSchema, SpeakerHeadshotQaSchema, SpeakerPostSchema, type OutreachBundle, type ResearchBundle, type SocialBundle } from "./schemas";
-import { buildOutreachPrompt, buildResearchPrompt, buildSocialPrompt } from "./prompts";
-import { redactSecrets } from "@/server/security/validation";
+import { DiscoveryBundleSchema, ResearchBundleSchema, OutreachBundleSchema, SocialBundleSchema, SpeakerHeadshotQaSchema, SpeakerPostSchema, type DiscoveryBundle, type OutreachBundle, type ResearchBundle, type SocialBundle } from "./schemas";
+import { buildOutreachPrompt, buildResearchBackfillPrompt, buildResearchDiscoveryPrompt, buildResearchEnrichmentPrompt, buildSocialPrompt } from "./prompts";
+import { normalizeEvidenceUrl, redactSecrets } from "@/server/security/validation";
 
 export interface ResearchRequest {
   name: string;
@@ -23,6 +24,8 @@ export interface ResearchRequest {
   exclusionKeywords: string;
   dateRange: string;
   notes: string;
+  targetSegments: string[];
+  salesMotions: string[];
   context: ContextDocument[];
 }
 
@@ -99,29 +102,56 @@ export async function validateOpenAIKey(apiKey: string) {
 export async function researchWithOpenAI(apiKey: string, request: ResearchRequest, signal?: AbortSignal): Promise<ProviderResearchResult> {
   try {
     const client = clientForKey(apiKey);
-    const bayArea = /san francisco|bay area|california/i.test(request.region);
-    const webSearchTool = {
-      type: "web_search" as const,
-      search_context_size: "medium" as const,
-      ...(bayArea ? { user_location: { type: "approximate" as const, country: "US", city: "San Francisco", region: "California", timezone: "America/Los_Angeles" } } : {})
-    };
-    const response = await client.responses.create({
+    const webSearchTool = researchWebSearchTool(request.region);
+    const discoveryCount = Math.min(72, Math.max(24, request.count * 2));
+    const discoveryResponse = await client.responses.create({
       model: MODELS.text,
-      input: buildResearchPrompt(request),
+      input: buildResearchDiscoveryPrompt(request, discoveryCount),
       reasoning: { effort: "medium" },
       store: false,
       tools: [webSearchTool],
+      tool_choice: "required",
       include: ["web_search_call.action.sources"],
-      text: { format: zodTextFormat(ResearchBundleSchema, "marketing_opportunities") },
-      max_output_tokens: 12_000
+      text: { format: zodTextFormat(DiscoveryBundleSchema, "summit_sales_discovery") },
+      max_output_tokens: 16_000
     }, { signal, timeout: OPENAI_RESEARCH_TIMEOUT_MS, maxRetries: 0 });
-    ensureNotRefused(response.output as unknown[]);
-    const bundle = ResearchBundleSchema.parse(JSON.parse(response.output_text));
+    ensureNotRefused(discoveryResponse.output as unknown[]);
+    const discovery = parseStructuredResponse(DiscoveryBundleSchema, discoveryResponse, "Discovery");
+    const candidateBatches = planResearchCandidateBatches(discovery, request.count);
+    const enrichmentResponses = await Promise.all(candidateBatches.map((batch, index) => client.responses.create({
+      model: MODELS.text,
+      input: buildResearchEnrichmentPrompt(request, batch, batch.length),
+      reasoning: { effort: "medium" }, store: false, tools: [webSearchTool], tool_choice: "required",
+      include: ["web_search_call.action.sources"],
+      text: { format: zodTextFormat(ResearchBundleSchema, `summit_sales_opportunities_${index + 1}`) }, max_output_tokens: 12_000
+    }, { signal, timeout: OPENAI_RESEARCH_TIMEOUT_MS, maxRetries: 0 })));
+    const enrichmentBundles: ResearchBundle[] = [];
+    const successfulEnrichmentResponses: typeof enrichmentResponses = [];
+    const enrichmentWarnings: string[] = [];
+    let firstEnrichmentFailure: ProviderFailure | null = null;
+    enrichmentResponses.forEach((response, index) => {
+      try {
+        ensureNotRefused(response.output as unknown[]);
+        enrichmentBundles.push(parseStructuredResponse(ResearchBundleSchema, response, `Enrichment batch ${index + 1}`));
+        successfulEnrichmentResponses.push(response);
+      } catch (error) {
+        const failure = error instanceof ProviderFailure ? error : classifyProviderError(error);
+        firstEnrichmentFailure ||= failure;
+        enrichmentWarnings.push(`Enrichment batch ${index + 1} was skipped: ${failure.message}`);
+      }
+    });
+    if (!enrichmentBundles.length) throw firstEnrichmentFailure || new ProviderFailure("malformed_output", "Every enrichment batch failed structured validation.");
+    const bundle: ResearchBundle = {
+      leads: enrichmentBundles.flatMap((item) => item.leads),
+      warnings: Array.from(new Set([...discovery.warnings, ...enrichmentWarnings, ...enrichmentBundles.flatMap((item) => item.warnings)]))
+    };
+    const sourceMetadata = new Map<string, Record<string, unknown>>();
+    for (const response of successfulEnrichmentResponses) for (const [url, metadata] of collectSourceMetadata(response.output as unknown[])) sourceMetadata.set(url, { ...(sourceMetadata.get(url) || {}), ...metadata });
     return {
       bundle,
-      sourceMetadata: collectSourceMetadata(response.output as unknown[]),
-      rawOutput: JSON.stringify(response.output),
-      usage: response.usage ? JSON.parse(JSON.stringify(response.usage)) as Record<string, unknown> : null
+      sourceMetadata,
+      rawOutput: JSON.stringify({ discovery: discoveryResponse.output, enrichment: enrichmentResponses.map((response) => response.output) }),
+      usage: { discovery: discoveryResponse.usage ? JSON.parse(JSON.stringify(discoveryResponse.usage)) : null, enrichment: enrichmentResponses.map((response) => response.usage ? JSON.parse(JSON.stringify(response.usage)) : null) }
     };
   } catch (error) {
     if (error instanceof ProviderFailure) throw error;
@@ -130,7 +160,107 @@ export async function researchWithOpenAI(apiKey: string, request: ResearchReques
   }
 }
 
-export async function outreachWithOpenAI(apiKey: string, input: { mode: "partner_share" | "direct_invitation"; context: ContextDocument[]; leads: LeadRecord[]; instructions: string }, signal?: AbortSignal): Promise<{ bundle: OutreachBundle; usage: Record<string, unknown> | null }> {
+export async function researchBackfillWithOpenAI(apiKey: string, request: ResearchRequest, excludedNames: string[], desiredCount: number, prioritySegments: string[], signal?: AbortSignal): Promise<ProviderResearchResult> {
+  try {
+    const client = clientForKey(apiKey);
+    const webSearchTool = researchWebSearchTool(request.region);
+    const response = await client.responses.create({
+      model: MODELS.text,
+      input: buildResearchBackfillPrompt(request, excludedNames, Math.min(50, Math.max(desiredCount * 2, desiredCount + 5)), prioritySegments),
+      reasoning: { effort: "medium" }, store: false,
+      tools: [webSearchTool],
+      tool_choice: "required", include: ["web_search_call.action.sources"],
+      text: { format: zodTextFormat(ResearchBundleSchema, "summit_sales_backfill") }, max_output_tokens: 16_000
+    }, { signal, timeout: OPENAI_RESEARCH_TIMEOUT_MS, maxRetries: 0 });
+    ensureNotRefused(response.output as unknown[]);
+    return {
+      bundle: parseStructuredResponse(ResearchBundleSchema, response, "Backfill"),
+      sourceMetadata: collectSourceMetadata(response.output as unknown[]), rawOutput: JSON.stringify(response.output),
+      usage: response.usage ? JSON.parse(JSON.stringify(response.usage)) as Record<string, unknown> : null
+    };
+  } catch (error) {
+    if (error instanceof ProviderFailure) throw error;
+    if (error instanceof SyntaxError || (error instanceof Error && error.name === "ZodError")) throw new ProviderFailure("malformed_output", "OpenAI returned backfill data that did not match the required schema.");
+    throw classifyProviderError(error);
+  }
+}
+
+function rankDiscoveryCandidates(discovery: DiscoveryBundle) {
+  const fit = { weak: 0, moderate: 1, strong: 2, exact: 3 } as const;
+  const reach = { none: 0, limited: 1, moderate: 2, high: 3 } as const;
+  const seen = new Set<string>();
+  return discovery.candidates
+    .filter((candidate) => {
+      const key = `${candidate.organizationWebsite || candidate.organizationName}:${candidate.eventName || "organization"}`.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .sort((a, b) => (fit[b.audienceFit] + reach[b.distributionPotential]) - (fit[a.audienceFit] + reach[a.distributionPotential]));
+}
+
+export function planResearchCandidateBatches(discovery: DiscoveryBundle, requestedCount: number) {
+  const limit = Math.min(62, Math.max(requestedCount * 2, requestedCount + 12));
+  const ranked = rankDiscoveryCandidates(discovery);
+  const candidates = selectDiverseCandidates(ranked, limit);
+  return chunk(candidates, 10);
+}
+
+export function parseStructuredResponse<T>(schema: ZodType<T>, response: { status?: string | null; incomplete_details?: unknown; output_text: string }, stage: string): T {
+  if (response.status && response.status !== "completed") {
+    const reason = JSON.stringify(response.incomplete_details || {}).slice(0, 240);
+    throw new ProviderFailure("malformed_output", `${stage} returned an incomplete structured response${reason !== "{}" ? ` (${reason})` : ""}.`);
+  }
+  let value: unknown;
+  try {
+    value = JSON.parse(response.output_text);
+  } catch {
+    throw new ProviderFailure("malformed_output", `${stage} returned invalid JSON (${response.output_text.length} characters).`);
+  }
+  const parsed = schema.safeParse(value);
+  if (parsed.success) return parsed.data;
+  const issues = parsed.error.issues.slice(0, 5).map((issue) => `${issue.path.join(".") || "root"}:${issue.code}`).join(", ");
+  throw new ProviderFailure("malformed_output", `${stage} did not match the required schema (${issues || "unknown validation issue"}).`);
+}
+
+function selectDiverseCandidates(candidates: DiscoveryBundle["candidates"], limit: number) {
+  const selected: DiscoveryBundle["candidates"] = [];
+  const selectedKeys = new Set<string>();
+  const representedSegments = new Set<string>();
+  const representedMotions = new Set<string>();
+  const keyFor = (candidate: DiscoveryBundle["candidates"][number]) => `${candidate.organizationWebsite || candidate.organizationName}:${candidate.eventName || "organization"}`.toLowerCase();
+
+  for (const candidate of candidates) {
+    if (selected.length >= limit) break;
+    if (representedSegments.has(candidate.targetSegment) && representedMotions.has(candidate.salesMotion)) continue;
+    selected.push(candidate);
+    selectedKeys.add(keyFor(candidate));
+    representedSegments.add(candidate.targetSegment);
+    representedMotions.add(candidate.salesMotion);
+  }
+  for (const candidate of candidates) {
+    if (selected.length >= limit) break;
+    const key = keyFor(candidate);
+    if (selectedKeys.has(key)) continue;
+    selected.push(candidate);
+    selectedKeys.add(key);
+  }
+  return selected;
+}
+
+export function researchWebSearchTool(region: string) {
+  const local = /san francisco|bay area|california/i.test(region);
+  return {
+    type: "web_search" as const, search_context_size: "medium" as const,
+    ...(local ? { user_location: { type: "approximate" as const, country: "US", city: "San Francisco", region: "California", timezone: "America/Los_Angeles" } } : {})
+  };
+}
+
+function chunk<T>(items: T[], size: number) {
+  return Array.from({ length: Math.ceil(items.length / size) }, (_, index) => items.slice(index * size, (index + 1) * size));
+}
+
+export async function outreachWithOpenAI(apiKey: string, input: { mode: "partner_share" | "direct_invitation" | "sales_motion"; context: ContextDocument[]; leads: LeadRecord[]; instructions: string }, signal?: AbortSignal): Promise<{ bundle: OutreachBundle; usage: Record<string, unknown> | null }> {
   try {
     const response = await clientForKey(apiKey).responses.create({
       model: MODELS.text,
@@ -180,13 +310,14 @@ export async function imageWithOpenAI(apiKey: string, prompt: string, size: "102
   }
 }
 
-export async function speakerSpotlightImageWithOpenAI(apiKey: string, input: { headshotPath: string; headshotMimeType: string; styleReferencePath: string; prompt: string }, signal?: AbortSignal) {
+export async function speakerSpotlightImageWithOpenAI(apiKey: string, input: { headshotPath: string; headshotMimeType: string; styleReferencePath: string; organizationLogoPath: string; organizationLogoMimeType: string; prompt: string }, signal?: AbortSignal) {
   try {
     const client = clientForKey(apiKey);
     const styleReferenceMimeType = /\.jpe?g$/i.test(input.styleReferencePath) ? "image/jpeg" : /\.webp$/i.test(input.styleReferencePath) ? "image/webp" : "image/png";
     const images = await Promise.all([
       toFile(fs.createReadStream(input.headshotPath), path.basename(input.headshotPath), { type: input.headshotMimeType }),
-      toFile(fs.createReadStream(input.styleReferencePath), path.basename(input.styleReferencePath), { type: styleReferenceMimeType })
+      toFile(fs.createReadStream(input.styleReferencePath), path.basename(input.styleReferencePath), { type: styleReferenceMimeType }),
+      toFile(fs.createReadStream(input.organizationLogoPath), path.basename(input.organizationLogoPath), { type: input.organizationLogoMimeType })
     ]);
     const result = await client.images.edit(buildSpeakerSpotlightImageEditRequest(images, input.prompt), { signal, timeout: OPENAI_IMAGE_TIMEOUT_MS, maxRetries: 0 });
     const encoded = result.data?.[0]?.b64_json;
@@ -233,7 +364,7 @@ export async function speakerHeadshotQaWithOpenAI(apiKey: string, input: { speak
     const response = await clientForKey(apiKey).responses.create({
       model: MODELS.text,
       input: [{ role: "user", content: [
-        { type: "input_text", text: `Visually inspect this locally matched AGI Summit headshot for ${input.speakerName}. This is an image usability gate, not a request to infer identity from appearance. Approve only if it clearly contains one usable professional head-and-shoulders or portrait photograph, is not a logo/event graphic/thumbnail, and is not visibly corrupted. List every issue.` },
+        { type: "input_text", text: `Check whether this locally matched AGI Summit headshot for ${input.speakerName} contains at least one discernible human face. This is not a request to infer identity from appearance. Set faceVisible to true whenever a human face can be seen, even if the image has rough masking, jagged cutout edges, a poor background removal, low resolution, unusual framing, multiple people, or other cosmetic defects. Set faceVisible to false only when no human face is discernible. Record quality concerns in issues; they are warnings and must not change faceVisible. Keep the remaining quality fields as descriptive diagnostics.` },
         { type: "input_image", image_url: imageUrl, detail: "high" }
       ] }],
       reasoning: { effort: "low" }, store: false,
@@ -273,13 +404,7 @@ export function collectSourceMetadata(output: unknown[]) {
 }
 
 function canonicalProviderUrl(value: string) {
-  try {
-    const url = new URL(value.trim());
-    url.hash = "";
-    return url.toString();
-  } catch {
-    return null;
-  }
+  return normalizeEvidenceUrl(value);
 }
 
 function ensureNotRefused(output: unknown[]) {

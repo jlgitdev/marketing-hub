@@ -20,9 +20,14 @@ export function demoResearchBundle(): ResearchBundle {
         contactPageUrl: "https://baycircuit.example/contact", recommendedAction: "Ask the community team to share a member invitation and offer a forwardable announcement.",
         fitExplanation: "Its fictional member profile overlaps with AI builders, technical founders, and event-curious professionals.",
         evidenceSummary: "The official fictional community and partners pages describe Bay Area AI programming and publish a role inbox.",
+        targetSegment: "ai_professionals", salesMotion: "partner_distribution",
+        qualificationSignals: { audienceFit: "exact", buyingSignal: "moderate", distributionPotential: "high", localRelevance: "local", timingFit: "urgent", decisionMakerAccess: "influencer", audienceSizeLabel: "Regional AI builder community" },
+        outreachAngle: "Give the community a useful, ready-to-forward invitation for Bay Area AI practitioners.",
+        nextBestAction: "Email the partnerships inbox with a forwardable announcement and tracked ticket link.",
         supportingSources: [
           { title: "Bay Circuit community programs", url: "https://baycircuit.example/programs", sourceType: "official", claim: "Runs fictional Bay Area AI community programs.", accessedAt },
-          { title: "Bay Circuit partnerships", url: "https://baycircuit.example/partners", sourceType: "official", claim: "Publishes partnerships@baycircuit.example for partnership requests.", accessedAt }
+          { title: "Bay Circuit partnerships", url: "https://baycircuit.example/partners", sourceType: "official", claim: "Publishes partnerships@baycircuit.example for partnership requests.", accessedAt },
+          { title: "Bay Circuit contact", url: "https://baycircuit.example/contact", sourceType: "official", claim: "Provides the fictional community's official contact page.", accessedAt }
         ], confidence: "high", verificationStatus: "source_backed", warnings: []
       },
       {
@@ -33,6 +38,10 @@ export function demoResearchBundle(): ResearchBundle {
         contactPageUrl: "https://signalfoundry.example/contact", recommendedAction: "Explore a cross-promotion exchange with the event organizer.",
         fitExplanation: "The upcoming fictional program is aimed at builders interested in responsible AI deployment.",
         evidenceSummary: "The official fictional event page lists the program date and organizer; only a contact form is published.",
+        targetSegment: "founders_operators", salesMotion: "cross_promotion",
+        qualificationSignals: { audienceFit: "strong", buyingSignal: "weak", distributionPotential: "moderate", localRelevance: "local", timingFit: "good", decisionMakerAccess: "influencer", audienceSizeLabel: "Local builder event audience" },
+        outreachAngle: "Offer a reciprocal event mention to reach responsible-AI builders.",
+        nextBestAction: "Use the official contact form to propose a simple cross-promotion swap.",
         supportingSources: [
           { title: "Responsible AI Builder Night", url: "https://signalfoundry.example/events/responsible-ai-night", sourceType: "event", claim: "Lists the fictional August 19 event and organizer.", accessedAt },
           { title: "Signal Foundry contact", url: "https://signalfoundry.example/contact", sourceType: "official", claim: "Provides an official contact page without a public email.", accessedAt }
@@ -45,10 +54,33 @@ export function demoResearchBundle(): ResearchBundle {
         contactEmail: "jordan@example.net", emailCategory: "published_professional", emailSourceUrl: "https://directory.example/aperture-learning",
         contactPageUrl: "https://aperturelearning.example/contact", recommendedAction: "Invite educators and advanced students through the program team.",
         fitExplanation: "Its fictional curriculum connects applied AI with professional education.", evidenceSummary: "An official program page supports the fit; a third-party directory is the only email source.",
+        targetSegment: "college_prep_education", salesMotion: "education_distribution",
+        qualificationSignals: { audienceFit: "strong", buyingSignal: "moderate", distributionPotential: "moderate", localRelevance: "local", timingFit: "good", decisionMakerAccess: "influencer", audienceSizeLabel: "Educators and advanced students" },
+        outreachAngle: "Frame the summit as career exposure and advanced AI learning for educators and students.",
+        nextBestAction: "Verify an official program contact, then request educator and student distribution.",
         supportingSources: [
           { title: "Aperture AI curriculum", url: "https://aperturelearning.example/programs/ai", sourceType: "official", claim: "Describes a fictional applied AI curriculum.", accessedAt },
+          { title: "Aperture contact", url: "https://aperturelearning.example/contact", sourceType: "official", claim: "Provides the fictional program's official contact page.", accessedAt },
           { title: "Community directory", url: "https://directory.example/aperture-learning", sourceType: "directory", claim: "Lists jordan@example.net; official confirmation was not found.", accessedAt }
         ], confidence: "low", verificationStatus: "requires_review", warnings: ["Consumer-domain email appears only on a third-party source and requires review."]
+      },
+      {
+        opportunityClass: "organization", organizationName: "Northstar Systems Learning Council", organizationType: "Technology employer learning program",
+        organizationWebsite: "https://northstar-systems.example", city: "San Jose", region: "California", eventName: null, eventUrl: null,
+        eventStartDate: null, eventEndDate: null, eventOrganizer: null, contactName: "Morgan Example", contactRole: "Director of Learning and Development",
+        contactEmail: "learning@northstar-systems.example", emailCategory: "role_based", emailSourceUrl: "https://northstar-systems.example/learning",
+        contactPageUrl: "https://northstar-systems.example/contact", recommendedAction: "Offer a team-ticket package positioned as practical AI professional development.",
+        fitExplanation: "Its fictional employer learning council funds technical professional development for Bay Area engineering and product employees.",
+        evidenceSummary: "The official fictional learning page describes employee conference budgets and publishes the learning-team inbox.",
+        targetSegment: "technology_employees", salesMotion: "employer_learning_budget",
+        qualificationSignals: { audienceFit: "strong", buyingSignal: "strong", distributionPotential: "moderate", localRelevance: "local", timingFit: "good", decisionMakerAccess: "decision_maker", audienceSizeLabel: "Bay Area engineering and product teams" },
+        outreachAngle: "Position a small ticket bundle as immediately applicable AI professional development.",
+        nextBestAction: "Email the learning team with a three-tier group-ticket proposal.",
+        supportingSources: [
+          { title: "Northstar employee learning", url: "https://northstar-systems.example/learning", sourceType: "official", claim: "Publishes learning@northstar-systems.example and describes conference learning budgets.", accessedAt },
+          { title: "Northstar San Jose office", url: "https://northstar-systems.example/about", sourceType: "official", claim: "Confirms a fictional San Jose technology workforce.", accessedAt },
+          { title: "Northstar contact", url: "https://northstar-systems.example/contact", sourceType: "official", claim: "Provides the fictional employer's official contact page.", accessedAt }
+        ], confidence: "high", verificationStatus: "source_backed", warnings: []
       },
       {
         opportunityClass: "organization", organizationName: "Bay Circuit AI Community", organizationType: "Technology community",
@@ -57,17 +89,26 @@ export function demoResearchBundle(): ResearchBundle {
         contactEmail: "partnerships@baycircuit.example", emailCategory: "role_based", emailSourceUrl: "https://baycircuit.example/partners",
         contactPageUrl: "https://baycircuit.example/contact", recommendedAction: "Ask for community distribution.", fitExplanation: "Duplicate fixture for merge validation.",
         evidenceSummary: "The same role inbox is published on the official partner page.",
-        supportingSources: [{ title: "Bay Circuit about", url: "https://baycircuit.example/about", sourceType: "official", claim: "Describes the same fictional community.", accessedAt }, { title: "Bay Circuit partnerships", url: "https://baycircuit.example/partners", sourceType: "official", claim: "Publishes partnerships@baycircuit.example.", accessedAt }],
+        targetSegment: "ai_professionals", salesMotion: "partner_distribution",
+        qualificationSignals: { audienceFit: "exact", buyingSignal: "moderate", distributionPotential: "high", localRelevance: "local", timingFit: "urgent", decisionMakerAccess: "influencer", audienceSizeLabel: "Regional AI builder community" },
+        outreachAngle: "Give the community a useful, ready-to-forward invitation.", nextBestAction: "Email the partnerships inbox.",
+        supportingSources: [{ title: "Bay Circuit about", url: "https://baycircuit.example/about", sourceType: "official", claim: "Describes the same fictional community.", accessedAt }, { title: "Bay Circuit partnerships", url: "https://baycircuit.example/partners", sourceType: "official", claim: "Publishes partnerships@baycircuit.example.", accessedAt }, { title: "Bay Circuit contact", url: "https://baycircuit.example/contact", sourceType: "official", claim: "Provides the fictional community's official contact page.", accessedAt }],
         confidence: "high", verificationStatus: "source_backed", warnings: ["Intentional duplicate demo fixture."]
       }
     ]
   };
 }
 
-export function demoOutreachBundle(mode: "partner_share" | "direct_invitation", leads: LeadRecord[]): OutreachBundle {
+export function demoOutreachBundle(mode: "partner_share" | "direct_invitation" | "sales_motion", leads: LeadRecord[]): OutreachBundle {
   const partner = mode === "partner_share";
+  const adaptive = mode === "sales_motion";
+  const adaptiveAsk = (lead: LeadRecord) => lead.salesMotion === "employer_learning_budget" || lead.salesMotion === "group_ticket_sales"
+    ? `Would ${lead.organizationName} consider a small team-ticket package as practical AI professional development?`
+    : lead.salesMotion === "partner_distribution" || lead.salesMotion === "education_distribution" || lead.salesMotion === "cross_promotion"
+      ? `Would ${lead.organizationName} share a ready-to-forward summit invitation with the relevant members of its audience?`
+      : `We’d like to invite ${lead.organizationName} to the Applied Intelligence Forum.`;
   return {
-    campaignName: partner ? "Bay Area partner-share outreach" : "Bay Area invitations",
+    campaignName: partner ? "Bay Area partner-share outreach" : adaptive ? "Qualified summit sales outreach" : "Bay Area invitations",
     subjectTemplate: partner ? "A practical AI event for {{organization_name}}’s community" : "Invitation for {{organization_name}}: Applied Intelligence Forum",
     bodyTemplate: partner
       ? "Hi {{contact_first_name}},\n\nI’m reaching out because {{organization_name}} serves people building and learning with AI. Would you consider sharing the Applied Intelligence Forum with your community?\n\nThe forum takes place October 14, 2026 at Pier 27 in San Francisco. Details: {{ticket_url}}\n\nI included a short announcement below if useful.\n\nBest,\nThe Applied Intelligence Forum team"
@@ -78,8 +119,8 @@ export function demoOutreachBundle(mode: "partner_share" | "direct_invitation", 
     missingContextWarnings: [],
     recipients: leads.map((lead) => ({
       leadId: lead.id,
-      subject: partner ? `A practical AI event for ${lead.organizationName}’s community` : `Invitation for ${lead.organizationName}: Applied Intelligence Forum`,
-      body: `${lead.contactName ? `Hi ${lead.contactName.split(" ")[0]},` : "Hello,"}\n\n${partner ? `Because ${lead.organizationName} ${lead.fitExplanation.toLowerCase()}, would you consider sharing the Applied Intelligence Forum with your audience?` : `We’d like to invite ${lead.organizationName} to the Applied Intelligence Forum.`}\n\nThe forum takes place October 14, 2026 at Pier 27 in San Francisco. Details: https://forum.example/tickets\n\nBest,\nThe Applied Intelligence Forum team`,
+      subject: partner ? `A practical AI event for ${lead.organizationName}’s community` : adaptive ? `${lead.salesMotion === "employer_learning_budget" || lead.salesMotion === "group_ticket_sales" ? "Team attendance" : "Applied AI summit"} for ${lead.organizationName}` : `Invitation for ${lead.organizationName}: Applied Intelligence Forum`,
+      body: `${lead.contactName ? `Hi ${lead.contactName.split(" ")[0]},` : "Hello,"}\n\n${partner ? `Because ${lead.organizationName} ${lead.fitExplanation.toLowerCase()}, would you consider sharing the Applied Intelligence Forum with your audience?` : adaptive ? adaptiveAsk(lead) : `We’d like to invite ${lead.organizationName} to the Applied Intelligence Forum.`}\n\nThe forum takes place October 14, 2026 at Pier 27 in San Francisco. Details: https://forum.example/tickets\n\nBest,\nThe Applied Intelligence Forum team`,
       forwardableAnnouncement: "Applied Intelligence Forum brings builders, researchers, and community leaders together in San Francisco on October 14, 2026. Details: https://forum.example/tickets",
       warnings: lead.verificationStatus === "requires_review" ? ["Recipient contact evidence requires review."] : []
     }))

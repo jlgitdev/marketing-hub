@@ -12,7 +12,7 @@ Operation persistence contains validated user controls and local entity IDs so f
 
 Nothing is sent when context is uploaded, imported, pasted, edited, viewed, ranked, or selected. After an explicit AI action, the server sends only the automatically or manually chosen context plus the workflow request. Live research allows OpenAI’s hosted web-search tool to access public web information. Live social content uses web search only when requested platform guidance is missing locally. General campaign image generation sends the selected visual prompt; exact overlay text is rendered locally afterward.
 
-An explicit live Speaker Spotlight action sends the verified speaker profile and caption examples for caption generation, checks the selected source headshot as a usable portrait, and sends the verified headshot plus supplied design reference to GPT Image 2. The generated card is not sent back to a vision model for QA. Those images are not sent merely by opening the page or entering names. Responses requests use `store: false`; Image API handling follows the OpenAI API account's data controls.
+An explicit live Speaker Spotlight action sends the verified speaker profile and caption examples for caption generation, checks whether the selected source headshot contains a discernible human face, and sends the verified headshot, supplied design reference, and locally resolved organization logo to GPT Image 2. Cosmetic headshot concerns are warnings rather than blockers. The generated card is not sent back to a vision model for QA. Those images are not sent merely by opening the page or entering names. Responses requests use `store: false`; Image API handling follows the OpenAI API account's data controls.
 
 Demo mode sends nothing externally.
 

@@ -10,7 +10,8 @@ const PatchSchema = z.object({
   id: z.string().uuid(),
   reviewStatus: z.enum(["unreviewed", "reviewed", "rejected", "needs_review"]).optional(),
   selected: z.boolean().optional(), contactName: z.string().max(160).nullable().optional(), contactRole: z.string().max(160).nullable().optional(),
-  contactEmail: z.union([emailSchema, z.literal(""), z.null()]).optional(), recommendedAction: z.string().max(1000).optional(), fitExplanation: z.string().max(2000).optional()
+  contactEmail: z.union([emailSchema, z.literal(""), z.null()]).optional(), recommendedAction: z.string().max(1000).optional(), fitExplanation: z.string().max(2000).optional(),
+  rejectionReason: z.string().max(1000).nullable().optional()
 });
 
 export async function PATCH(request: Request) {

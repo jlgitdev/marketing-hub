@@ -1,0 +1,13 @@
+Joe Palermo
+Frontier Research · OpenAI
+Member of Technical Staff at OpenAI — research engineer on frontier models; co-author of the GPT-4 technical report and a contributor to OpenAI o1
+
+Highlights
+- OpenAI MTS — research engineer on frontier models
+- GPT-4 — co-author of the GPT-4 technical report
+- o1 — contributor to OpenAI's o1 reasoning model
+
+Topics
+- Frontier AI
+- LLM Research
+- Reasoning Models

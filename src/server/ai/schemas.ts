@@ -1,5 +1,26 @@
 import { z } from "zod";
 
+export const LeadTargetSegmentSchema = z.enum([
+  "ai_professionals", "technology_employees", "founders_operators", "researchers_academics",
+  "college_students", "college_prep_education", "educators", "community_leaders",
+  "investors_executives", "general_technology"
+]);
+
+export const LeadSalesMotionSchema = z.enum([
+  "direct_ticket_sales", "group_ticket_sales", "partner_distribution", "employer_learning_budget",
+  "education_distribution", "cross_promotion", "sponsorship"
+]);
+
+export const QualificationSignalsSchema = z.object({
+  audienceFit: z.enum(["weak", "moderate", "strong", "exact"]),
+  buyingSignal: z.enum(["none", "weak", "moderate", "strong"]),
+  distributionPotential: z.enum(["none", "limited", "moderate", "high"]),
+  localRelevance: z.enum(["none", "adjacent", "local"]),
+  timingFit: z.enum(["poor", "neutral", "good", "urgent"]),
+  decisionMakerAccess: z.enum(["unknown", "influencer", "decision_maker"]),
+  audienceSizeLabel: z.string().nullable()
+}).strict();
+
 export const SupportingSourceSchema = z.object({
   title: z.string(),
   url: z.string(),
@@ -29,9 +50,35 @@ export const LeadCandidateSchema = z.object({
   recommendedAction: z.string(),
   fitExplanation: z.string(),
   evidenceSummary: z.string(),
+  targetSegment: LeadTargetSegmentSchema,
+  salesMotion: LeadSalesMotionSchema,
+  qualificationSignals: QualificationSignalsSchema,
+  outreachAngle: z.string(),
+  nextBestAction: z.string(),
   supportingSources: z.array(SupportingSourceSchema),
   confidence: z.enum(["high", "medium", "low"]),
   verificationStatus: z.enum(["source_backed", "contact_page_only", "requires_review"]),
+  warnings: z.array(z.string())
+}).strict();
+
+export const DiscoveryCandidateSchema = z.object({
+  organizationName: z.string(),
+  organizationWebsite: z.string().nullable(),
+  opportunityClass: z.enum(["organization", "event"]),
+  eventName: z.string().nullable(),
+  city: z.string(),
+  region: z.string(),
+  targetSegment: LeadTargetSegmentSchema,
+  salesMotion: LeadSalesMotionSchema,
+  audienceFit: z.enum(["weak", "moderate", "strong", "exact"]),
+  distributionPotential: z.enum(["none", "limited", "moderate", "high"]),
+  discoveryReason: z.string(),
+  discoverySourceUrl: z.string()
+}).strict();
+
+export const DiscoveryBundleSchema = z.object({
+  candidates: z.array(DiscoveryCandidateSchema),
+  searchedSegments: z.array(LeadTargetSegmentSchema),
   warnings: z.array(z.string())
 }).strict();
 
@@ -82,6 +129,7 @@ export const SpeakerPostSchema = z.object({
 }).strict();
 
 export const SpeakerHeadshotQaSchema = z.object({
+  faceVisible: z.boolean(),
   approved: z.boolean(),
   singlePerson: z.boolean(),
   usablePortrait: z.boolean(),
@@ -91,6 +139,7 @@ export const SpeakerHeadshotQaSchema = z.object({
 }).strict();
 
 export type ResearchBundle = z.infer<typeof ResearchBundleSchema>;
+export type DiscoveryBundle = z.infer<typeof DiscoveryBundleSchema>;
 export type OutreachBundle = z.infer<typeof OutreachBundleSchema>;
 export type SocialBundle = z.infer<typeof SocialBundleSchema>;
 export type SpeakerPost = z.infer<typeof SpeakerPostSchema>;

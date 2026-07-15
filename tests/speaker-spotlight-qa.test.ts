@@ -4,7 +4,7 @@ import sharp from "sharp";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { closeDatabase } from "@/server/db/database";
 import { resetAllData, updateSpeakerSpotlightResult } from "@/server/db/repository";
-import { approveSpeakerSpotlightImage, createSpeakerSpotlights } from "@/server/services/speaker-spotlight-service";
+import { approveSpeakerSpotlightImage, createSpeakerSpotlights, headshotQaAllowsGeneration } from "@/server/services/speaker-spotlight-service";
 import { hasExternalSpeakerSite } from "./external-speaker-site";
 
 const providerMocks = vi.hoisted(() => ({ image: vi.fn() }));
@@ -17,7 +17,15 @@ vi.mock("@/server/ai/openai-provider", () => {
     ProviderFailure,
     speakerHeadshotQaWithOpenAI: vi.fn(async () => ({
       requestId: "req_headshot_qa",
-      bundle: { approved: true, singlePerson: true, usablePortrait: true, notLogoGraphicOrThumbnail: true, notVisiblyCorrupted: true, issues: [] }
+      bundle: {
+        faceVisible: true,
+        approved: false,
+        singlePerson: true,
+        usablePortrait: false,
+        notLogoGraphicOrThumbnail: true,
+        notVisiblyCorrupted: false,
+        issues: ["Rough background-removal artifacts around the hair and shoulders."]
+      }
     })),
     speakerPostWithOpenAI: vi.fn(async () => ({
       requestId: "req_caption",
@@ -46,21 +54,33 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
+describe("Speaker Spotlight face-only headshot gate", () => {
+  it("allows cosmetic defects whenever a face is visible", () => {
+    expect(headshotQaAllowsGeneration({ faceVisible: true })).toBe(true);
+    expect(headshotQaAllowsGeneration({ faceVisible: false })).toBe(false);
+  });
+});
+
 describe.skipIf(!hasExternalSpeakerSite)("Speaker Spotlight first-image output contract", () => {
   it("accepts the first valid image with no vision QA or automatic retry", async () => {
     const batch = await createSpeakerSpotlights({ speakerNames: ["Joe Palermo"] }, "sk-test-key");
     const result = batch.results[0];
-    const imagePrompt = providerMocks.image.mock.calls[0][1].prompt as string;
+    const imageInput = providerMocks.image.mock.calls[0][1] as { prompt: string; organizationLogoPath: string; organizationLogoMimeType: string };
+    const imagePrompt = imageInput.prompt;
 
-    expect(batch.promptVersion).toBe("speaker-spotlight-v5-split-editorial-poster");
+    expect(batch.promptVersion).toBe("speaker-spotlight-v6-condensed-logo-poster");
     expect(result.status).toBe("completed");
     expect(result.retryCount).toBe(0);
     expect(providerMocks.image).toHaveBeenCalledTimes(1);
     expect(imagePrompt).toContain("Exact visible text, verbatim");
-    expect(imagePrompt).toContain("split-panel editorial composition");
-    expect(imagePrompt).toContain("white left information panel");
-    expect(imagePrompt).toContain("near-black right portrait panel");
+    expect(imagePrompt).toContain("canonical Marco Pavone");
+    expect(imagePrompt).toContain("Image 3 is the verified OpenAI organization logo/lockup");
+    expect(imagePrompt).toContain("large verified organization logo");
+    expect(imagePrompt).toContain("Information density: deliberately condensed");
+    expect(imagePrompt).not.toContain("THE WORLD’S");
     expect(imagePrompt).toContain("July 18–19, 2026");
+    expect(imageInput.organizationLogoPath).toMatch(/joe-palermo-organization-logo\.png$/);
+    expect(imageInput.organizationLogoMimeType).toBe("image/png");
     expect(result.requestIds).toEqual(["req_headshot_qa", "req_caption", "req_image_1"]);
     expect(result.qa).toMatchObject({
       imageValidationMode: "mechanical_only",
@@ -69,6 +89,7 @@ describe.skipIf(!hasExternalSpeakerSite)("Speaker Spotlight first-image output c
       identityVerified: null,
       humanReviewApprovedAt: null
     });
+    expect(result.qa?.issues).toContain("Headshot source warning (generation continued): Rough background-removal artifacts around the hair and shoulders.");
     expect(result.qa?.imageAttemptResults).toEqual([{
       attempt: 1,
       imageRequestId: "req_image_1",

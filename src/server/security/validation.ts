@@ -4,6 +4,7 @@ import type { ContextDocument } from "@/lib/types";
 import { MAX_ASSET_BYTES, MAX_CONTEXT_CHARS, MAX_TEXT_FILE_BYTES } from "@/lib/config";
 
 const CONSUMER_DOMAINS = new Set(["gmail.com", "yahoo.com", "outlook.com", "hotmail.com", "icloud.com", "aol.com", "proton.me", "protonmail.com"]);
+const MULTI_TENANT_PLATFORM_DOMAINS = new Set(["meetup.com", "eventbrite.com", "linkedin.com", "facebook.com", "instagram.com", "lu.ma", "luma.com"]);
 
 export const safeUrlSchema = z.string().url().refine((value) => {
   try {
@@ -36,6 +37,26 @@ export function normalizeDomain(value: string | null | undefined) {
   try {
     const url = new URL(value.includes("://") ? value : `https://${value}`);
     return url.hostname.toLowerCase().replace(/^www\./, "");
+  } catch {
+    return null;
+  }
+}
+
+export function isMultiTenantPlatformDomain(value: string | null | undefined) {
+  if (!value) return false;
+  const domain = value.toLowerCase().replace(/^www\./, "");
+  return [...MULTI_TENANT_PLATFORM_DOMAINS].some((platform) => domain === platform || domain.endsWith(`.${platform}`));
+}
+
+export function normalizeEvidenceUrl(value: string) {
+  try {
+    const url = new URL(value.trim());
+    if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+    url.hash = "";
+    for (const key of [...url.searchParams.keys()]) if (/^(?:utm_.+|gclid|fbclid|mc_cid|mc_eid)$/i.test(key)) url.searchParams.delete(key);
+    url.searchParams.sort();
+    if (url.pathname.length > 1) url.pathname = url.pathname.replace(/\/+$/, "");
+    return url.toString();
   } catch {
     return null;
   }

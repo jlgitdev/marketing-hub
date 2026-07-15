@@ -5,7 +5,7 @@ import { createContextDocument, deleteContextDocument, listContentCampaigns, lis
 import { DEMO_CONTEXT } from "@/server/ai/demo-provider";
 import { runResearch } from "@/server/services/research-service";
 import { generateOutreach } from "@/server/services/outreach-service";
-import { outreachCsv, substituteMergeFields, unresolvedPlaceholders } from "@/server/services/export-service";
+import { leadsCsv, outreachCsv, substituteMergeFields, unresolvedPlaceholders } from "@/server/services/export-service";
 import { generateContentCampaign, regeneratePlatform } from "@/server/services/content-service";
 import { generateCampaignGraphic } from "@/server/storage/assets";
 import { closeDatabase, getDatabase } from "@/server/db/database";
@@ -38,11 +38,21 @@ describe("deterministic persisted workflows", () => {
   it("uploads/saves context and completes a source-preserving mocked research run", async () => {
     const context = seedContext();
     const result = await runResearch({ name: "Test Bay scan", objective: "Find fictional source-backed AI event opportunities", region: "San Francisco Bay Area", count: 10, contextDocumentIds: context.map((item) => item.id), opportunityTypes: ["organization", "event"], organizationCategories: ["education", "AI community"], eventCategories: ["AI events"], targetRoles: ["partnerships"], audienceRoles: ["builders"], positiveKeywords: "AI", exclusionKeywords: "", dateRange: "", notes: "" }, null);
-    expect(result.run.status).toBe("completed");
+    expect(result.run.status).toBe("partially_completed");
     expect(listResearchRuns()).toHaveLength(1);
     expect(listLeads().length).toBeGreaterThanOrEqual(3);
     expect(listLeads().every((lead) => lead.sources.length > 0)).toBe(true);
     expect(listLeads().find((lead) => lead.contactPageUrl && !lead.contactEmail)).toBeTruthy();
+    expect(listLeads().every((lead) => lead.priorityScore >= 45 && lead.canonicalKey.length > 0)).toBe(true);
+    expect(listLeads()[0].qualification.scoreBreakdown.audienceFit).toBeGreaterThan(0);
+
+    const legacyLead = listLeads()[0];
+    getDatabase().prepare("UPDATE leads SET qualification='{}', priority_score=0, priority_tier='nurture' WHERE id=?").run(legacyLead.id);
+    const hydratedLead = listLeads().find((lead) => lead.id === legacyLead.id)!;
+    const hydratedScores = Object.values(hydratedLead.qualification.scoreBreakdown);
+    expect(hydratedScores.every(Number.isFinite)).toBe(true);
+    expect(hydratedLead.priorityScore).toBe(hydratedScores.reduce((total, score) => total + score, 0));
+    expect(hydratedLead.priorityScore).toBeGreaterThan(0);
   });
 
   it("generates editable outreach and exports only reviewed, source-backed recipients", async () => {
@@ -56,6 +66,22 @@ describe("deterministic persisted workflows", () => {
     expect(csv).toContain("Edited, reviewed body");
     expect(csv).toContain(lead.emailSourceUrl!);
     expect(csv).not.toContain("undefined");
+  });
+
+  it("exports selected sales intelligence in priority order without exposing unverified emails", async () => {
+    const context = seedContext();
+    await runResearch({ name: "Lead export scan", objective: "Find fictional partners for a direct sales data export", region: "San Francisco Bay Area", count: 10, contextDocumentIds: context.map((item) => item.id) }, null);
+    const leads = listLeads().sort((a, b) => b.priorityScore - a.priorityScore);
+    updateLead(leads[0].id, { selected: true });
+    const unverified = leads.find((lead) => lead.verificationStatus !== "source_backed" && lead.contactEmail);
+    if (unverified) updateLead(unverified.id, { selected: true });
+
+    const csv = leadsCsv({ selectedOnly: true });
+
+    expect(csv).toContain("priority_score");
+    expect(csv).toContain("next_best_action");
+    expect(csv).toContain(leads[0].organizationName);
+    if (unverified?.contactEmail) expect(csv).not.toContain(unverified.contactEmail);
   });
 
   it("never promotes a user-edited unsourced email into outreach or CSV export", async () => {

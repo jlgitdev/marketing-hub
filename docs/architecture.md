@@ -45,27 +45,27 @@ Queued operations hold only the opaque session reference in process memory and r
 
 Model selection, timeouts, retries, provider error mapping, prompts, schemas, and SDK initialization are centralized under `src/server/ai`. Text workflows use Responses with `store: false` and Zod-backed Structured Outputs. Lead discovery adds the current `web_search` tool and complete source inclusion. One-shot campaign backgrounds use the Image API.
 
-Speaker Spotlight uses the Image API edits endpoint with one verified identity image and one supplied style/layout reference. Each request uses `gpt-image-2`, `1024x1536`, PNG, and high quality. The canonical reference is a 2:3 split-panel editorial poster with a white information wedge, near-black portrait field, diagonal divider, blue-violet accents, and condensed typography. The service makes exactly one image request per run and accepts the first output after Sharp confirms that it decodes as a 1024×1536 PNG. It does not send the generated card to a vision model, score subjective layout or copy details, or automatically generate replacement attempts. Provider failures and malformed files preserve the verified package for an explicit user retry. Caption generation is a separate structured Responses request using only verified profile data, campaign configuration, and supplied examples.
+Speaker Spotlight uses the Image API edits endpoint with three ordered inputs: a verified identity image, the canonical Marco Pavone style/layout reference, and a verified company or university lockup. The organization resolver scores the downloaded site's own brand registry against the verified speaker profile, supports reviewed ambiguity overrides such as Marco Pavone → NVIDIA, rasterizes SVG or transparent assets onto a clean white logo canvas, and creates a typographic fallback only when the site registry supplies no local logo. Each request uses `gpt-image-2`, `1024x1536`, PNG, and high quality. The canonical layout is a condensed white-left/near-black-right editorial poster with a diagonal divider, cobalt accents, a large stacked name, a prominent organization logo, no more than two role blocks, two topics, and a compact event footer. The service makes exactly one image request per run and accepts the first output after Sharp confirms that it decodes as a 1024×1536 PNG. It does not send the generated card to a vision model, score subjective layout or copy details, or automatically generate replacement attempts. Provider failures and malformed files preserve the verified package for an explicit user retry. Caption generation remains a separate structured Responses request using only verified profile data, campaign configuration, and supplied examples.
 
 The deterministic demo provider implements the same domain outputs without initializing a network client. Fixtures are fictional and use reserved `.example` sources. Controlled provider and image failures exercise inspectable error states without replacing earlier successful work.
 
 ## Research and source preservation
 
-1. Validate and snapshot selected local context IDs and settings.
-2. Perform one bounded cited search request with explicit current date, geographic scope, contact rules, and result cap.
-3. Capture URL annotations and `web_search_call.action.sources`.
-4. Parse the strict lead schema.
-5. Reject non-HTTP(S) or private source URLs.
-6. Remove any model email lacking an exact accepted source URL.
-7. Normalize names, domains, URLs, dates, and emails.
-8. Conservatively deduplicate while retaining every source and warning.
-9. Persist the original sanitized provider output, source rows, lead/source joins, model, prompt version, and usage metadata.
+1. Validate and snapshot selected local context IDs, summit-sales segments, sales motions, qualification floor, and settings.
+2. Perform a bounded breadth-first discovery search across AI professionals, employers, founders, research and education institutions, college-prep/STEM programs, communities, associations, accelerators, and relevant events.
+3. Rank and diversity-balance discovery candidates, then enrich an oversized pool in bounded batches with official identity, audience, contact, timing, and sales-motion evidence. A malformed batch is isolated so valid batches survive and shortage backfill can recover it.
+4. Capture URL annotations and `web_search_call.action.sources`, parse the strict schema, and reject non-public or provider-unobserved sources.
+5. Recompute contact verification independently, remove any email whose accepted source claim does not repeat the exact address, and retain official contact pages.
+6. Normalize names, domains, URLs, dates, and emails; enforce selected opportunity classes, segments, sales motions, exclusions, date bounds, and future-event rules.
+7. Compute a deterministic 100-point priority from audience fit, revenue potential, distribution, contactability, local relevance, timing, and evidence quality. Model confidence remains a separate evidence label.
+8. Deduplicate by canonical organization/event identity within and across runs. Shared platform hosts such as Meetup and Eventbrite never act as organization identities without a matching group path or distinctive name. If the qualified novel list is short, issue one targeted backfill search excluding prior identities.
+9. Persist qualification components, next action, outreach angle, review/rejection feedback, original sanitized provider output, source joins, prompt version, and per-pass usage metadata.
 
 The UI presents evidence in an expanded source section, not only a tooltip. Manual edits remain separate in `user_edits` and never acquire source-backed status automatically.
 
 ## Outreach boundary
 
-Outreach generation receives only selected context and stored/source-backed lead facts. No sending implementation exists. The service returns master copy and recipient drafts; reviewed recipients with source-backed emails can be exported through a spreadsheet-safe CSV encoder. `email-delivery.ts` defines the narrow shape a future approved provider would implement, but this repository contains no implementation, credentials, scheduler, or Send control.
+Outreach generation receives only selected context and stored/source-backed lead facts. No sending implementation exists. The service returns master copy and recipient drafts; reviewed recipients with source-backed emails can be exported through a spreadsheet-safe CSV encoder. The same encoder supports a separate selected-lead intelligence export containing qualification and source fields, but removes any email that is not source-backed. `email-delivery.ts` defines the narrow shape a future approved provider would implement, but this repository contains no implementation, credentials, scheduler, or Send control.
 
 ## Campaign images
 

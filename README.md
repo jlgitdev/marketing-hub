@@ -10,7 +10,7 @@ The application does **not** send email, publish social posts, expose a public s
 - `/context` — Markdown/text context and brand assets
 - `/leads` — bounded opportunity research, source review, outreach, CSV export
 - `/content` — X, LinkedIn, and Instagram copy plus campaign graphics
-- `/speaker-spotlight` — multi-speaker profile extraction, 2:3 split-panel editorial posters, and cross-platform captions
+- `/speaker-spotlight` — multi-speaker profile/headshot/organization-logo extraction, condensed 2:3 split-panel editorial posters, and cross-platform captions
 - `/runs` — saved research and content work
 - `/settings` — temporary OpenAI connection, local data path, reset
 
@@ -59,6 +59,22 @@ For deterministic progress-state testing, add a delay before each demo operation
 
 ```bash
 MARKETING_HUB_DEMO_MODE=true MARKETING_HUB_DEMO_DELAY_MS=1500 npm run dev
+```
+
+## Live lead quality benchmark
+
+After configuring `OPENAI_API_KEY` and setting `MARKETING_HUB_DEMO_MODE=false` in `.env.local`, run:
+
+```bash
+npm run benchmark:leads
+```
+
+The bounded five-lead benchmark uses the real staged research pipeline in an isolated `.marketing-hub-benchmark` database with no workspace context or prior leads. It fails unless the result meets explicit qualified-yield, evidence, uniqueness, contactability, customer-segment diversity, sales-motion diversity, and sales-readiness thresholds. It never prints the API key, raw provider output, or saved workspace material.
+
+After validator or scoring changes, rerun the saved provider response without another API request:
+
+```bash
+npm run benchmark:leads:revalidate
 ```
 
 ## OpenAI configuration
@@ -111,12 +127,14 @@ Rendered Markdown is sanitized. Uploaded content is untrusted reference material
 
 ## Lead research and outreach
 
-1. Open Leads and configure name, objective, region, opportunity classes, categories, roles, date range, result cap, and selected context.
-2. Start a bounded research run. Live mode uses the Responses API with `{ type: "web_search" }`; demo mode uses deterministic fixtures.
-3. Review fit, warnings, contact method, and visible source links.
-4. Select leads and create a partner-share request or direct invitation campaign.
-5. Edit each preview and mark eligible recipients reviewed.
-6. Copy addresses or download the reviewed UTF-8 mail-merge CSV.
+1. Open Summit sales leads and configure the region, customer segments, sales paths, qualification floor, categories, roles, date range, result cap, and selected event context.
+2. Start a bounded research run. Live mode performs a broad segmented discovery pass, enriches an oversized candidate pool from official sources, computes a deterministic 100-point sales score, removes prior canonical prospects, and runs a targeted backfill pass when the qualified list is short.
+3. Work the priority-ranked queue. Each lead separates evidence confidence from sales value and shows its audience, sales motion, score breakdown, contact path, outreach angle, and next best action.
+4. Record review or rejection reasons. Aggregate prior decisions steer later research without becoming factual evidence.
+5. Select leads and create adaptive outreach that changes its request for direct tickets, group attendance, employer learning budgets, education distribution, audience sharing, cross-promotion, or sponsorship.
+6. Export selected, priority-ranked sales intelligence to CSV. Emails without exact source-backed evidence are withheld from the export while contact pages, score details, sales angles, and source URLs remain available.
+7. Edit each preview and mark eligible recipients reviewed.
+8. Copy addresses or download the reviewed UTF-8 mail-merge CSV.
 
 Marketing Hub never guesses an email. A model-suggested address without an exact accepted supporting URL is removed. Contact-page-only opportunities remain useful. No sending provider exists in this MVP.
 
@@ -135,10 +153,11 @@ OpenAI image generation never owns important typography. Sharp renders exact tex
 
 1. Open Speaker Spotlight and enter one or more names, one per line or comma-separated.
 2. The backend dynamically locates the downloaded `index-*.js` bundle, parses matched profile records without evaluating downloaded JavaScript, and preserves verified wording.
-3. It locates a downloaded headshot by name or an explicit extraction-guide/live-page `alt` mapping. Images are decoded, dimension-checked, and visually gated before use.
-4. Each speaker gets an isolated local package with profile JSON, original headshot, image prompt, first 1024×1536 PNG, post Markdown, and a validation record. A batch manifest records every status and error.
-5. Live mode makes one Image API edits request per speaker using `gpt-image-2`, high quality, exact `1024x1536` sizing, and the canonical white/black split-panel editorial reference. The first successfully decoded 1024×1536 PNG is final. There is no generated-card vision-QA call and no automatic image retry loop.
-6. If the provider fails, times out, is canceled, or returns a malformed file, the verified partial package is preserved for an explicit manual retry. One factual cross-platform caption is generated from the supplied examples and campaign configuration. One speaker failure never cancels the rest of the batch.
+3. It locates a downloaded headshot by name or an explicit extraction-guide/live-page `alt` mapping. Images are decoded and dimension-checked. Live visual checking blocks only when no human face is discernible; masking, cutout, framing, resolution, and other cosmetic concerns are preserved as non-blocking warnings.
+4. It resolves the speaker's primary company or university against the downloaded site's brand registry, normalizes the matching local logo into a clean PNG lockup, and uses a reviewed override for ambiguous dual affiliations such as Marco Pavone → NVIDIA.
+5. Each speaker gets an isolated local package with profile JSON, original headshot, normalized organization logo, image prompt, first 1024×1536 PNG, post Markdown, and a validation record. A batch manifest records every status and error.
+6. Live mode makes one Image API edits request per speaker using `gpt-image-2`, high quality, exact `1024x1536` sizing, and three ordered inputs: verified headshot, the canonical Marco Pavone split-panel reference, and the verified organization lockup. The first successfully decoded 1024×1536 PNG is final. There is no generated-card vision-QA call and no automatic image retry loop.
+7. If the provider fails, times out, is canceled, or returns a malformed file, the verified partial package is preserved for an explicit manual retry. One factual cross-platform caption is generated from the supplied examples and campaign configuration. One speaker failure never cancels the rest of the batch.
 
 Outputs live under `MARKETING_HUB_DATA_DIR/speaker_spotlights/<batch-id>/<speaker-slug>/`. The downloaded-site path and campaign values are configurable in the page; `AGI_SUMMIT_SITE_DIR` supplies the default path.
 
