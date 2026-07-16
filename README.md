@@ -10,7 +10,7 @@ The application does **not** send email, publish social posts, expose a public s
 - `/context` — Markdown/text context and brand assets
 - `/leads` — bounded opportunity research, source review, outreach, CSV export
 - `/content` — X, LinkedIn, and Instagram copy plus campaign graphics
-- `/speaker-spotlight` — multi-speaker profile/headshot/organization-logo extraction, condensed 2:3 split-panel editorial posters, and cross-platform captions
+- `/speaker-spotlight` — multi-speaker profile/headshot verification, Palace of Fine Arts 2:3 editorial posters, and cross-platform captions
 - `/runs` — saved research and content work
 - `/settings` — temporary OpenAI connection, local data path, reset
 
@@ -154,9 +154,9 @@ OpenAI image generation never owns important typography. Sharp renders exact tex
 1. Open Speaker Spotlight and enter one or more names, one per line or comma-separated.
 2. The backend dynamically locates the downloaded `index-*.js` bundle, parses matched profile records without evaluating downloaded JavaScript, and preserves verified wording.
 3. It locates a downloaded headshot by name or an explicit extraction-guide/live-page `alt` mapping. Images are decoded and dimension-checked. Live visual checking blocks only when no human face is discernible; masking, cutout, framing, resolution, and other cosmetic concerns are preserved as non-blocking warnings.
-4. It resolves the speaker's primary company or university against the downloaded site's brand registry, normalizes the matching local logo into a clean PNG lockup, and uses a reviewed override for ambiguous dual affiliations such as Marco Pavone → NVIDIA.
-5. Each speaker gets an isolated local package with profile JSON, original headshot, normalized organization logo, image prompt, first 1024×1536 PNG, post Markdown, and a validation record. A batch manifest records every status and error.
-6. Live mode makes one Image API edits request per speaker using `gpt-image-2`, high quality, exact `1024x1536` sizing, and three ordered inputs: verified headshot, the canonical Marco Pavone split-panel reference, and the verified organization lockup. The first successfully decoded 1024×1536 PNG is final. There is no generated-card vision-QA call and no automatic image retry loop.
+4. It derives any organization wording from the verified profile so personalized role and credential copy stays grounded, while the Bay AI Circle and AGI Summit logos remain fixed template elements.
+5. Each speaker gets an isolated local package with profile JSON, original headshot, image prompt, first 1024×1536 PNG, post Markdown, and a validation record. A batch manifest records every status and error.
+6. Live mode makes one Image API edits request per speaker using `gpt-image-2`, high quality, exact `1024x1536` sizing, and two ordered inputs: the canonical Yuandong Tian Palace of Fine Arts poster as the edit target, followed by the verified speaker headshot as the identity reference. The prompt preserves the diagonal split, fixed summit logos and headline, neon event badge, and faded Palace backdrop while replacing the portrait and speaker-specific copy. The service restores the fixed branding regions from the canonical template after generation. The first successfully decoded 1024×1536 PNG is final; there is no generated-card vision-QA call or automatic image retry loop.
 7. If the provider fails, times out, is canceled, or returns a malformed file, the verified partial package is preserved for an explicit manual retry. One factual cross-platform caption is generated from the supplied examples and campaign configuration. One speaker failure never cancels the rest of the batch.
 
 Outputs live under `MARKETING_HUB_DATA_DIR/speaker_spotlights/<batch-id>/<speaker-slug>/`. The downloaded-site path and campaign values are configurable in the page; `AGI_SUMMIT_SITE_DIR` supplies the default path.

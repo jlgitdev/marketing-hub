@@ -8,7 +8,7 @@ Prompt versions are centralized in `src/lib/config.ts` and saved with their runs
 - `outreach-v2-auto-context`
 - `social-content-v2-auto-context`
 - `campaign-image-v1`
-- `speaker-spotlight-v6-condensed-logo-poster`
+- `speaker-spotlight-v7-palace-template`
 
 `OPENAI_TEXT_MODEL` defaults to `gpt-5.6`; `OPENAI_IMAGE_MODEL` defaults to `gpt-image-2`. Research uses medium reasoning. Routine outreach, social copy, Speaker Spotlight captions, and source-headshot validation use low reasoning. Responses set `store: false`.
 
@@ -42,7 +42,7 @@ Outreach may use selected context, stored lead facts, source-backed claims, and 
 
 Social generation creates one concept but distinct platform posts. Automatically selected local platform guidance is the primary style authority. When live mode has no relevant local guide for a requested platform, web search supplies current platform practices and the result is marked `web_research`; demo mode uses `fallback`. Platform character limits and image presets are typed application configuration, not scattered prompt literals.
 
-Speaker Spotlight separates identity, layout, branding, and facts. Image 1 is the verified identity reference; Image 2 is the canonical Marco Pavone 2:3 split-panel layout reference; Image 3 is a normalized company or university lockup resolved from the downloaded site's organization-brand registry. The frozen image copy is intentionally limited to the speaker name, organization, up to two essential role blocks, up to two focus topics, and the event footer. Example-speaker identity, wardrobe, NVIDIA/Stanford content, and facts are prohibited unless verified for the current speaker. Caption examples and caption behavior are unchanged. The source headshot is checked before generation, and the caption is structurally validated. The first generated poster is final once it decodes as the requested 1024×1536 PNG; there is no generated-card vision-QA prompt or automatic image retry.
+Speaker Spotlight separates fixed campaign design from personalized identity and facts. Image 1 is the canonical Yuandong Tian 2:3 Palace of Fine Arts poster and is treated as the edit target; Image 2 is the verified current-speaker headshot. The Bay AI Circle and AGI Summit logos, “THE WORLD’S LARGEST AI SUMMIT” headline, neon event badge, diagonal split, purple-blue visual system, and faded Palace backdrop remain fixed. Personalized copy contains three verified credential rows, a concise ABOUT block, the speaker name, a concise role line, up to three focus topics, and the configured event footer. Yuandong Tian's identity, wardrobe, and speaker-specific facts are prohibited for other speakers. Caption examples and caption behavior are unchanged. The source headshot is checked before generation, and the caption is structurally validated. After generation, fixed branding regions are restored directly from the canonical template. The first generated poster is final once it decodes as the requested 1024×1536 PNG; there is no generated-card vision-QA prompt or automatic image retry.
 
 ## Image prompt
 

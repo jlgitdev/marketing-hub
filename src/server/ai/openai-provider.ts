@@ -310,14 +310,13 @@ export async function imageWithOpenAI(apiKey: string, prompt: string, size: "102
   }
 }
 
-export async function speakerSpotlightImageWithOpenAI(apiKey: string, input: { headshotPath: string; headshotMimeType: string; styleReferencePath: string; organizationLogoPath: string; organizationLogoMimeType: string; prompt: string }, signal?: AbortSignal) {
+export async function speakerSpotlightImageWithOpenAI(apiKey: string, input: { headshotPath: string; headshotMimeType: string; styleReferencePath: string; prompt: string }, signal?: AbortSignal) {
   try {
     const client = clientForKey(apiKey);
     const styleReferenceMimeType = /\.jpe?g$/i.test(input.styleReferencePath) ? "image/jpeg" : /\.webp$/i.test(input.styleReferencePath) ? "image/webp" : "image/png";
     const images = await Promise.all([
-      toFile(fs.createReadStream(input.headshotPath), path.basename(input.headshotPath), { type: input.headshotMimeType }),
       toFile(fs.createReadStream(input.styleReferencePath), path.basename(input.styleReferencePath), { type: styleReferenceMimeType }),
-      toFile(fs.createReadStream(input.organizationLogoPath), path.basename(input.organizationLogoPath), { type: input.organizationLogoMimeType })
+      toFile(fs.createReadStream(input.headshotPath), path.basename(input.headshotPath), { type: input.headshotMimeType })
     ]);
     const result = await client.images.edit(buildSpeakerSpotlightImageEditRequest(images, input.prompt), { signal, timeout: OPENAI_IMAGE_TIMEOUT_MS, maxRetries: 0 });
     const encoded = result.data?.[0]?.b64_json;

@@ -65,22 +65,24 @@ describe.skipIf(!hasExternalSpeakerSite)("Speaker Spotlight first-image output c
   it("accepts the first valid image with no vision QA or automatic retry", async () => {
     const batch = await createSpeakerSpotlights({ speakerNames: ["Joe Palermo"] }, "sk-test-key");
     const result = batch.results[0];
-    const imageInput = providerMocks.image.mock.calls[0][1] as { prompt: string; organizationLogoPath: string; organizationLogoMimeType: string };
+    const imageInput = providerMocks.image.mock.calls[0][1] as { prompt: string; styleReferencePath: string };
     const imagePrompt = imageInput.prompt;
 
-    expect(batch.promptVersion).toBe("speaker-spotlight-v6-condensed-logo-poster");
+    expect(batch.promptVersion).toBe("speaker-spotlight-v7-palace-template");
     expect(result.status).toBe("completed");
     expect(result.retryCount).toBe(0);
     expect(providerMocks.image).toHaveBeenCalledTimes(1);
     expect(imagePrompt).toContain("Exact visible text, verbatim");
-    expect(imagePrompt).toContain("canonical Marco Pavone");
-    expect(imagePrompt).toContain("Image 3 is the verified OpenAI organization logo/lockup");
-    expect(imagePrompt).toContain("large verified organization logo");
-    expect(imagePrompt).toContain("Information density: deliberately condensed");
-    expect(imagePrompt).not.toContain("THE WORLD’S");
+    expect(imagePrompt).toContain("canonical Yuandong Tian Palace of Fine Arts template");
+    expect(imagePrompt).toContain("faded Palace of Fine Arts architecture behind the speaker");
+    expect(imagePrompt).toContain("THE WORLD’S");
+    expect(imagePrompt).toContain("LARGEST");
+    expect(imagePrompt).toContain("ABOUT");
+    expect(imagePrompt).toContain("preserve all fixed logos and fixed campaign copy");
+    expect(imagePrompt).not.toContain("Image 3");
     expect(imagePrompt).toContain("July 18–19, 2026");
-    expect(imageInput.organizationLogoPath).toMatch(/joe-palermo-organization-logo\.png$/);
-    expect(imageInput.organizationLogoMimeType).toBe("image/png");
+    expect(imageInput.styleReferencePath).toMatch(/speaker spotlight social media image reference v3\.png$/);
+    expect(imageInput).not.toHaveProperty("organizationLogoPath");
     expect(result.requestIds).toEqual(["req_headshot_qa", "req_caption", "req_image_1"]);
     expect(result.qa).toMatchObject({
       imageValidationMode: "mechanical_only",

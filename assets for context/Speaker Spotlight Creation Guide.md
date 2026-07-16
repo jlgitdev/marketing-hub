@@ -9,7 +9,7 @@ The workflow accepts any positive number of names. For every speaker, it must:
 1. Extract and verify the speaker's AGI Summit profile data.
 2. Find and verify the correct headshot.
 3. Use the OpenAI Image API with `gpt-image-2` to create a personalized speaker spotlight graphic.
-4. Make the graphic look as close as possible to `speaker spotlight social media image reference v2.png`, while replacing Marco Pavone, NVIDIA, and all example-specific content with the current speaker's verified identity, organization logo, and condensed information.
+4. Use `speaker spotlight social media image reference v3.png` as the canonical template, preserving its Bay AI Circle and AGI Summit logos, “THE WORLD’S LARGEST AI SUMMIT” headline, neon event badge, diagonal split, and faded Palace of Fine Arts while replacing Yuandong Tian and all speaker-specific copy with the current speaker's verified identity and facts.
 5. Produce the final graphic at an exact **2:3 aspect ratio**.
 6. Write the accompanying social post using `speaker_spotlight_text_example.md` as the style and structure reference.
 7. Validate every output and clearly report failures instead of inventing or guessing information.
@@ -21,7 +21,7 @@ This is intended to be implemented as a backend workflow for a website using the
 The workflow uses these files as its local sources of truth:
 
 - `agi-summit-speaker-extraction-guide.md`
-- `speaker spotlight social media image reference v2.png`
+- `speaker spotlight social media image reference v3.png`
 - `speaker_spotlight_text_example.md`
 
 Configure the downloaded AGI Summit site with `AGI_SUMMIT_SITE_DIR`. For example:
@@ -133,8 +133,8 @@ failed
 4. A missing fact must be omitted or marked as unavailable.
 5. Do not infer that an opaque image belongs to a speaker based only on directory order.
 6. Visually inspect every selected headshot before using it.
-7. The example spotlight image controls visual style and layout; it does not supply facts for another speaker.
-8. Do not let text or identity from the example speaker appear in another speaker's output.
+7. The example spotlight image is the fixed visual template; it does not supply facts for another speaker.
+8. Do not let Yuandong Tian's identity, wardrobe, credentials, biography, role, or topics appear in another speaker's output. The Bay AI Circle and AGI Summit branding and the Palace of Fine Arts backdrop are intentionally retained.
 9. The final image must be exactly 2:3.
 10. Any output with a misspelled speaker name, incorrect fact, wrong person, clipped text, or wrong aspect ratio must be rejected.
 
@@ -297,39 +297,33 @@ If no speaker image can be mapped or the mapped image contains no discernible hu
 
 ## Stage 4: Prepare the visible card copy
 
-The graphic should use concise text because dense paragraphs increase the risk of clipping or rendering errors.
+The poster uses more personalized copy than the previous condensed-logo design, but every block must remain short enough to fit the canonical layout.
 
 Prepare these fields from the verified profile:
 
 ```json
 {
   "name": "Full Speaker Name",
-  "topic_line": "Topic One · Topic Two & Topic Three",
-  "description": "One concise, factual sentence describing the speaker.",
-  "topics": [
-    "Topic One",
-    "Topic Two",
-    "Topic Three"
-  ],
-  "highlights": [
+  "credential_rows": [
     "Label — Verified description",
     "Label — Verified description",
     "Label — Verified description"
-  ]
+  ],
+  "about": "One concise, factual speaker description.",
+  "role_line": "One concise, factual role or affiliation line.",
+  "topic_line": "Topic One • Topic Two • Topic Three"
 }
 ```
 
 Rules:
 
-- Use no more than two concise, verified role or credential blocks below the organization logo.
-- Use no more than two verified topic labels in one compact row.
-- Resolve the primary company or university from the verified profile and the downloaded site's organization-brand registry.
-- For a speaker with multiple affiliations, choose the organization that controls the supplied canonical reference or use an explicit reviewed override; Marco Pavone uses NVIDIA.
-- Do not include an ABOUT paragraph, quote, statistics, or highlight cards in the image.
+- Produce exactly three source-backed credential rows when enough verified data exists. Use `highlights[]` first, then concise fragments from `roleLine`, `subtitle`, `bio`, `industries[]`, or `tags[]`.
+- Include one short ABOUT paragraph, matching the reference's lower-left block.
+- Include one short role line and up to three verified topic labels in the lower-right detail rows.
+- Derive any organization wording from the verified profile to ground the copy, but do not place or replace an organization logo in the poster.
 - Preserve proper nouns exactly.
 - Shorten only by removing redundant wording; do not change meaning.
-- Use `industries[]` and `tags[]` for the two-item topic line when available.
-- Use `roleLine`, `subtitle`, and verified organization references to build the compact role blocks.
+- Never add a credential, employer, statistic, or topic that is not present in the verified profile.
 
 Save the final visible copy before image generation. The same frozen copy must be used for both the image prompt and image QA.
 
@@ -337,11 +331,10 @@ Save the final visible copy before image generation. The same frozen copy must b
 
 ### 5.1 Use the correct API operation
 
-Use the OpenAI **Image API edits endpoint**, not a text-only image generation request, because this workflow requires three image references:
+Use the OpenAI **Image API edits endpoint**, not a text-only image generation request, because this workflow requires two image references:
 
-1. the current speaker's verified headshot; and
-2. `speaker spotlight social media image reference v2.png` as the visual style and layout reference; and
-3. a locally normalized PNG of the verified company or university logo from the downloaded site's organization-brand registry.
+1. `speaker spotlight social media image reference v3.png` as the canonical edit target; and
+2. the current speaker's verified headshot as the identity reference.
 
 Use:
 
@@ -356,13 +349,12 @@ The Image API supports one or more reference images for an edit/reference workfl
 
 Always send and describe the images in this order:
 
-- **Image 1 — identity reference:** the verified headshot for the current speaker.
-- **Image 2 — style/layout reference:** `speaker spotlight social media image reference v2.png`.
-- **Image 3 — organization-brand reference:** the verified company or university logo/lockup for the current speaker, normalized onto a clean white canvas without changing its geometry or colors.
+- **Image 1 — canonical template/edit target:** `speaker spotlight social media image reference v3.png`.
+- **Image 2 — identity reference:** the verified headshot for the current speaker.
 
-The prompt must explicitly state that Image 1 controls the person's identity, Image 2 controls the graphic's style and layout, and Image 3 controls the large organization branding.
+The prompt must explicitly state that Image 1 controls the fixed composition, logos, headline, landmark backdrop, colors, icons, typography, and section placement, while Image 2 controls the current person's identity.
 
-The prompt must also state that Marco Pavone's identity, NVIDIA branding, Stanford copy, and all other example-specific content must not appear unless verified for the current speaker.
+The prompt must also state that Yuandong Tian's face, plaid shirt, name, credentials, biography, role, and topics must be replaced. The Bay AI Circle logo, AGI Summit logo, “THE WORLD’S LARGEST AI SUMMIT” headline, neon event badge, and faded Palace of Fine Arts remain fixed.
 
 ### 5.3 Exact 2:3 output size
 
@@ -393,45 +385,52 @@ Use case: ads-marketing
 Asset type: final 2:3 portrait social-media speaker spotlight poster, exactly 1024 × 1536 pixels.
 
 Input images:
-- Image 1 is the verified identity reference for {{SPEAKER_NAME}}. Preserve this person's recognizable identity, facial structure, skin tone, eyes, expression, hairstyle, wardrobe, and professional appearance faithfully. Use only this person.
-- Image 2 is the canonical Marco Pavone AGI Summit speaker spotlight reference. Follow its white-left/black-right diagonal split, minimal editorial hierarchy, electric-blue accents, large stacked speaker name, large organization-logo area, top-right AGI Summit masthead, compact role lines, topic row, and icon-led event footer. Do not retain Marco Pavone, his face, NVIDIA branding, Stanford copy, or other example-specific content unless verified for the current speaker.
-- Image 3 is the verified {{ORGANIZATION_NAME}} logo/lockup extracted from the downloaded AGI Summit site's organization-brand registry. Reproduce it prominently without redesigning, recoloring, distorting, or replacing it.
+- Image 1 is the canonical Yuandong Tian Palace of Fine Arts speaker spotlight template and the edit target. Preserve the Bay AI Circle and AGI Summit logos, “WHERE AGI CONVERGES,” the stacked “THE WORLD’S / LARGEST / AI SUMMIT” headline, the neon “AGI SUMMIT SF 2026 / SPEAKER SPOTLIGHT” badge, the diagonal white/dark split, blue-violet palette, icon style, and the faded Palace of Fine Arts behind the speaker.
+- Image 2 is the verified identity reference for {{SPEAKER_NAME}}. Replace Yuandong Tian with only this person and preserve the current speaker's face, skin tone, expression, hairstyle, wardrobe, and professional appearance faithfully.
 
 Primary request:
-Create a personalized AGI Summit 2026 speaker spotlight poster for {{SPEAKER_NAME}}. It should look as close as possible to Image 2 while replacing all speaker-specific content with the verified identity and facts supplied below.
+Personalize Image 1 for {{SPEAKER_NAME}} while keeping its fixed campaign design in the same locations, proportions, colors, and visual style.
 
 Exact visible text, verbatim:
+"THE WORLD’S"
+"LARGEST"
+"AI SUMMIT"
 "FEATURED SPEAKER"
-"{{FIRST_NAME}}"
-"{{REMAINING_NAME}}"
-"{{ORGANIZATION_NAME}}"
-"{{ROLE_BLOCK_1}}"
-"{{ROLE_BLOCK_2}}"
-"{{TOPIC_1}} • {{TOPIC_2}}"
+"{{CREDENTIAL_ROW_1}}"
+"{{CREDENTIAL_ROW_2}}"
+"{{CREDENTIAL_ROW_3}}"
+"ABOUT"
+"{{ABOUT}}"
+"AGI SUMMIT SF 2026"
+"SPEAKER SPOTLIGHT"
+"{{SPEAKER_NAME}}"
+"{{ROLE_LINE}}"
+"{{TOPIC_1}} • {{TOPIC_2}} • {{TOPIC_3}}"
 "{{EVENT_DATES}}"
 "{{EVENT_VENUE}}"
 "{{EVENT_WEBSITE}}"
 
 Composition:
-Closely follow Image 2. Reserve roughly 40% of the canvas for the white information panel and 60% for the near-black portrait panel, separated by the reference's strong diagonal edge. Put FEATURED SPEAKER and a two-line adaptive speaker name at upper left; the large verified organization logo immediately below the name; no more than two compact role blocks and one two-topic row below the logo; the icon-led event footer at bottom left; the AGI Summit masthead at upper right; and a large three-quarter speaker portrait on the right. Keep at least 44 pixels of side margin around the name and generous clear space around the logo.
+Match Image 1's visual structure. Keep the fixed logos and campaign headline at upper left. Put FEATURED SPEAKER, three icon-led credential rows, ABOUT copy, date, and venue down the left panel. Keep the neon event badge at upper right. Keep the Palace of Fine Arts clearly visible but faded behind a large center-right portrait. Put the speaker's uppercase name, role line, topic line, and website across the lower-right dark panel.
 
 Typography:
 Use bold condensed uppercase display type for headlines and the speaker name, with a clean sans-serif for detail copy. Render every word accurately and keep all copy inside safe margins.
 
 Visual style:
-Crisp premium editorial conference poster; stark white and near-black split; black text with electric cobalt-blue accents; bold condensed display type; clean sans-serif details; thin dividers; simple cobalt line icons; generous whitespace.
+Crisp premium editorial conference poster; stark white and near-black diagonal split; black and white text with cobalt-to-violet accents; tall condensed display type; narrow sans-serif details; purple line icons; thin gray dividers; neon blue-violet badge; subdued purple/navy Palace architecture.
 
 Constraints:
 - Output must be exactly 2:3 portrait.
 - Use only the verified claims supplied above.
 - Preserve the speaker's identity.
 - Keep all copy legible and spelled exactly.
-- Keep image copy deliberately condensed: name, organization logo, up to two role blocks, up to two topics, and the event footer only.
-- Do not label a speaker “KEYNOTE SPEAKER” unless that status is explicitly verified; use the supplied “FEATURED SPEAKER” label.
-- Do not add an ABOUT paragraph, biography, quote, statistics, highlight cards, credentials, handles, affiliations, or organizations that were not supplied.
+- Preserve all fixed logos and fixed campaign copy from Image 1.
+- The Palace of Fine Arts must remain visibly present behind the speaker.
+- Use the supplied “FEATURED SPEAKER” label.
+- Do not add credentials, handles, affiliations, organizations, or topics that were not supplied.
 - Do not add a ticket URL to the image.
 - No watermark, QR code, fake logo, duplicated copy, or placeholder text.
-- Do not include any face, name, wardrobe, logo, or speaker-specific text from Image 2.
+- Do not retain Yuandong Tian's face, plaid shirt, name, credentials, biography, role, or topics.
 ```
 
 For short but difficult proper nouns, abbreviations, or model names, append spelling guidance such as:
@@ -459,19 +458,16 @@ const client = new OpenAI({
 async function generateSpeakerSpotlight({
   headshotPath,
   styleReferencePath,
-  organizationLogoPath,
+  headshotMimeType,
   prompt,
   outputPath,
 }) {
   const images = await Promise.all([
-    toFile(fs.createReadStream(headshotPath), null, {
-      type: "image/webp",
-    }),
     toFile(fs.createReadStream(styleReferencePath), null, {
       type: "image/png",
     }),
-    toFile(fs.createReadStream(organizationLogoPath), null, {
-      type: "image/png",
+    toFile(fs.createReadStream(headshotPath), null, {
+      type: headshotMimeType,
     }),
   ]);
 
@@ -531,12 +527,13 @@ Use visual inspection and, when available, OCR or a vision-capable QA step to ve
 
 - the portrait depicts the correct speaker;
 - the face remains recognizable and undistorted;
-- Marco Pavone and all other example-specific content are absent unless verified for the current speaker;
+- Yuandong Tian's face, plaid shirt, name, credentials, biography, role, and topics are absent for other speakers;
 - the speaker's name is spelled exactly;
-- the large company or university logo matches Image 3 and the verified affiliation;
 - every visible fact matches the frozen card copy;
 - the event date, venue, and website are correct;
-- there are no more than two compact role blocks and two topic labels;
+- the Bay AI Circle and AGI Summit logos, “THE WORLD’S LARGEST AI SUMMIT” headline, and neon event badge match the canonical template;
+- the Palace of Fine Arts is visibly present but faded behind the speaker;
+- there are three concise credential rows, one ABOUT block, one role row, and one topic row;
 - the split white-left/near-black-right composition and diagonal divider match the reference;
 - no text is clipped, duplicated, garbled, or pushed outside safe margins;
 - the style closely matches the supplied example;
@@ -550,8 +547,9 @@ Reject the image if any of the following is true:
 - wrong person or materially changed identity;
 - misspelled speaker name;
 - inaccurate or invented fact;
-- any remaining example-speaker face, name, logo, role, or topic;
-- missing, incorrect, distorted, or invented organization branding;
+- any remaining Yuandong Tian face, plaid shirt, name, credential, biography, role, or topic;
+- missing or distorted fixed Bay AI Circle or AGI Summit branding;
+- missing Palace of Fine Arts backdrop;
 - incorrect date, venue, or website;
 - wrong dimensions or aspect ratio;
 - unreadable, clipped, duplicated, or corrupted text;
@@ -561,25 +559,23 @@ Reject the image if any of the following is true:
 
 ### 6.4 Retry policy
 
-Permit up to three image attempts per speaker by default.
+The normal run makes one image request and preserves that result. Do not start an automatic replacement loop. If the provider fails or the file is malformed, preserve the verified profile, headshot, prompt, caption, and request IDs so the user can explicitly retry the package.
 
-Each retry should address only the observed failure. Examples:
+An explicit retry should address the observed failure. Examples:
 
 ```text
 Regenerate the card while keeping the same verified speaker identity and layout. Correct only the spelling of "{{SPEAKER_NAME}}" and preserve all other supplied text verbatim.
 ```
 
 ```text
-Regenerate at exactly 1024 × 1536. Keep the name, logo, role lines, topics, and footer fully inside the safe margins.
+Regenerate at exactly 1024 × 1536. Keep the credential rows, ABOUT copy, name, role line, topics, and footer fully inside the safe margins.
 ```
 
 ```text
-Use Image 1 more faithfully for facial identity. Do not alter the speaker's facial structure, eyes, hairstyle, skin tone, or expression.
+Use Image 2 more faithfully for facial identity. Do not alter the speaker's facial structure, eyes, hairstyle, skin tone, or expression.
 ```
 
-Always submit the original verified headshot, canonical style reference, and normalized organization logo again. Do not allow previous failed output to become the only identity or brand reference.
-
-If the image still fails after the retry limit, set the status to `image_review_required`, preserve all attempts, and continue processing other speakers.
+Always submit the canonical template and original verified headshot again. Do not allow a previous failed output to become the only template or identity reference.
 
 ## Stage 7: Write the social-media post
 

@@ -70,19 +70,19 @@ export function SpeakerSpotlightClient({ initialBatchId = null }: { initialBatch
   }
 
   return <div className="page">
-    <header className="page-header split"><div><h1>Speaker Spotlight</h1><p className="lede">Enter one name or a batch. The workflow verifies each profile, headshot, and organization mark, then builds a condensed logo-forward poster and the existing cross-platform caption.</p></div><ConnectionBadge state={state}/></header>
+    <header className="page-header split"><div><h1>Speaker Spotlight</h1><p className="lede">Enter one name or a batch. The workflow verifies each profile and headshot, then personalizes the Palace of Fine Arts poster while preserving the summit branding, landmark backdrop, and campaign headline.</p></div><ConnectionBadge state={state}/></header>
     {message && <div className={message.toLowerCase().includes("failed") || message.toLowerCase().includes("could not") ? "notice danger" : "notice"} role="status">{message}</div>}
     <section className="panel spotlight-form-panel">
       <div className="panel-heading"><h2>New batch</h2><span className="credit-note">One image and caption per name</span></div>
       <form className="form-grid" onSubmit={submit} key={campaignDefaults.siteDirectory}>
-        <label className="span-two">Speaker names<textarea name="speakerNames" rows={5} required placeholder={"Marco Pavone\nJoe Palermo\nEhsan Adeli"}/><small>Use one name per line or separate names with commas. The downloaded site supplies the verified portrait, profile facts, and company or university branding.</small></label>
+        <label className="span-two">Speaker names<textarea name="speakerNames" rows={5} required placeholder={"Yuandong Tian\nJoe Palermo\nEhsan Adeli"}/><small>Use one name per line or separate names with commas. The downloaded site supplies the verified portrait and profile facts; the template keeps the Bay AI Circle and AGI Summit branding fixed.</small></label>
         <details className="advanced span-two"><summary>Campaign and source configuration</summary><div className="form-grid inner">
           <label>Event name<input name="eventName" defaultValue={campaignDefaults.eventName} required/></label><label>Dates<input name="eventDates" defaultValue={campaignDefaults.eventDates} required/></label>
           <label>Venue<input name="eventVenue" defaultValue={campaignDefaults.eventVenue} required/></label><label>Website<input name="eventWebsite" defaultValue={campaignDefaults.eventWebsite} required/></label>
           <label>Ticket URL<input name="ticketUrl" type="url" defaultValue={campaignDefaults.ticketUrl} required/></label><label>Discount copy<input name="discountCopy" defaultValue={campaignDefaults.discountCopy} required/></label>
           <label className="span-two">Downloaded AGI Summit site directory<input name="siteDirectory" defaultValue={campaignDefaults.siteDirectory} required/><small>The backend dynamically locates the current index-*.js bundle and downloaded images here.</small></label>
         </div></details>
-        <div className="span-two form-footer"><p>Live batches use one GPT Image 2 edit with three verified inputs: speaker headshot, the canonical Marco Pavone layout reference, and the speaker&apos;s organization logo.</p><button className="button" disabled={batchBusy || (!state.demoMode && !state.connection.connected)}>{batchBusy ? "Building in background" : "Create Speaker Spotlights"}</button></div>
+        <div className="span-two form-footer"><p>Live batches use one GPT Image 2 edit with the canonical Palace of Fine Arts poster as the primary template and the verified speaker headshot as the identity reference.</p><button className="button" disabled={batchBusy || (!state.demoMode && !state.connection.connected)}>{batchBusy ? "Building in background" : "Create Speaker Spotlights"}</button></div>
       </form>
       <InlineOperation operation={batchOperation}/>
     </section>

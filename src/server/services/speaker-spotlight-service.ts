@@ -30,11 +30,6 @@ interface SpeakerOrganizationBrand {
   verificationMethod: string;
 }
 
-interface PreparedSpeakerOrganizationBrand extends SpeakerOrganizationBrand {
-  lockupPath: string;
-  mimeType: "image/png";
-}
-
 export function headshotQaAllowsGeneration(qa: { faceVisible: boolean }) {
   return qa.faceVisible;
 }
@@ -126,13 +121,9 @@ async function processSpeaker(input: {
     reporter?.stage("processing", `${result.inputName} · reading the verified local speaker profile.`);
     updateSpeakerSpotlightResult(result.id, { status: "extracting", providerError: null, error: null });
     const profile = extractSpeakerProfile(result.inputName, references.bundlePath);
-    const organizationBrand = await prepareOrganizationBrand(
-      resolveSpeakerOrganizationBrand(profile, references.bundlePath, config.siteDirectory),
-      speakerDirectory,
-      result.slug
-    );
+    const organizationName = inferOrganizationName(profile) || "AGI Summit";
     const profilePath = path.join(speakerDirectory, `${result.slug}-profile.json`);
-    fs.writeFileSync(profilePath, `${JSON.stringify({ ...profile, spotlightOrganization: { name: organizationBrand.name, logoFileName: path.basename(organizationBrand.lockupPath), verificationMethod: organizationBrand.verificationMethod } }, null, 2)}\n`);
+    fs.writeFileSync(profilePath, `${JSON.stringify({ ...profile, spotlightOrganization: { name: organizationName, verificationMethod: "organization name extracted from the verified speaker profile for personalized copy only" } }, null, 2)}\n`);
 
     stage = "headshot_match";
     reporter?.stage("processing", `${result.inputName} · matching a local headshot to the verified profile.`);
@@ -169,11 +160,11 @@ async function processSpeaker(input: {
       headshotStoragePath: headshotPath, requestIds: preRequestIds
     });
 
-    const frozen = freezeCardCopy(profile, organizationBrand.name);
+    const frozen = freezeCardCopy(profile, organizationName);
     const imagePrompt = buildImagePrompt(profile, frozen, config);
     fs.writeFileSync(path.join(speakerDirectory, `${result.slug}-image-prompt.md`), imagePrompt);
     updateSpeakerSpotlightResult(result.id, { status: "ready_for_image", imagePrompt });
-    await completeVerifiedSpeakerPackage({ result, profile, imagePrompt, headshotPath, headshotMimeType: headshot.mimeType, headshotVerificationMethod, headshotWarnings, styleReferencePath: references.styleReferencePath, organizationBrand, captionExample: references.captionExample, speakerDirectory, config, apiKey, requestIds: preRequestIds, existingPost: null, retryCount: 0, reporter });
+    await completeVerifiedSpeakerPackage({ result, profile, imagePrompt, headshotPath, headshotMimeType: headshot.mimeType, headshotVerificationMethod, headshotWarnings, styleReferencePath: references.styleReferencePath, organizationName, captionExample: references.captionExample, speakerDirectory, config, apiKey, requestIds: preRequestIds, existingPost: null, retryCount: 0, reporter });
   } catch (error) {
     recordSpeakerFailure(result.id, stage, error);
   }
@@ -193,12 +184,8 @@ export async function retrySpeakerSpotlight(resultId: string, apiKey: string | n
   const references = verifyReferences(batch.config.siteDirectory);
   const batchRoot = path.join(dataDirectory(), "speaker_spotlights", batch.id);
   const speakerDirectory = path.dirname(storage.headshotPath);
-  const organizationBrand = await prepareOrganizationBrand(
-    resolveSpeakerOrganizationBrand(result.profile, references.bundlePath, batch.config.siteDirectory),
-    speakerDirectory,
-    result.slug
-  );
-  const frozen = freezeCardCopy(result.profile, organizationBrand.name);
+  const organizationName = inferOrganizationName(result.profile) || "AGI Summit";
+  const frozen = freezeCardCopy(result.profile, organizationName);
   const imagePrompt = buildImagePrompt(result.profile, frozen, batch.config);
   updateSpeakerSpotlightBatch(batch.id, { status: "running", warnings: [], error: null, completedAt: null });
   updateSpeakerSpotlightResult(result.id, { status: "ready_for_image", imagePrompt, providerError: null, error: null, retryCount: result.retryCount + 1 });
@@ -208,7 +195,7 @@ export async function retrySpeakerSpotlight(resultId: string, apiKey: string | n
     await completeVerifiedSpeakerPackage({
       result, profile: result.profile, imagePrompt, headshotPath: storage.headshotPath, headshotMimeType,
       headshotVerificationMethod: result.qa?.headshotVerificationMethod || "preserved verified headshot from the original run",
-      styleReferencePath: references.styleReferencePath, organizationBrand, captionExample: references.captionExample, speakerDirectory,
+      styleReferencePath: references.styleReferencePath, organizationName, captionExample: references.captionExample, speakerDirectory,
       config: batch.config, apiKey, requestIds: result.requestIds, existingPost: result.post, retryCount: result.retryCount + 1, reporter
     });
   } catch (error) {
@@ -255,11 +242,11 @@ export async function approveSpeakerSpotlightImage(resultId: string) {
 
 async function completeVerifiedSpeakerPackage(input: {
   result: SpeakerSpotlightResult; profile: SpeakerProfile; imagePrompt: string; headshotPath: string; headshotMimeType: string;
-  headshotVerificationMethod: string; headshotWarnings?: string[]; styleReferencePath: string; organizationBrand: PreparedSpeakerOrganizationBrand; captionExample: string; speakerDirectory: string;
+  headshotVerificationMethod: string; headshotWarnings?: string[]; styleReferencePath: string; organizationName: string; captionExample: string; speakerDirectory: string;
   config: SpeakerSpotlightBatch["config"]; apiKey: string | null; requestIds: string[]; existingPost: string | null; retryCount: number;
   reporter?: OperationReporter;
 }) {
-  const frozen = freezeCardCopy(input.profile, input.organizationBrand.name);
+  const frozen = freezeCardCopy(input.profile, input.organizationName);
   let requestIds = uniqueRequestIds(input.requestIds);
   let post = input.existingPost;
   let postWarnings: string[] = [];
@@ -284,7 +271,7 @@ async function completeVerifiedSpeakerPackage(input: {
   input.reporter?.stage("processing", `${input.profile.displayName} · generating the first and final 2:3 image.`);
   input.reporter?.checkpoint();
   updateSpeakerSpotlightResult(input.result.id, { status: "generating_image", providerError: null, error: null });
-  const imageResult = await generateFirstImage({ result: input.result, profile: input.profile, frozen, imagePrompt: input.imagePrompt, headshotPath: input.headshotPath, headshotMimeType: input.headshotMimeType, styleReferencePath: input.styleReferencePath, organizationBrand: input.organizationBrand, speakerDirectory: input.speakerDirectory, apiKey: input.apiKey, priorRequestIds: requestIds, reporter: input.reporter });
+  const imageResult = await generateFirstImage({ result: input.result, profile: input.profile, frozen, imagePrompt: input.imagePrompt, headshotPath: input.headshotPath, headshotMimeType: input.headshotMimeType, styleReferencePath: input.styleReferencePath, speakerDirectory: input.speakerDirectory, config: input.config, apiKey: input.apiKey, priorRequestIds: requestIds, reporter: input.reporter });
   requestIds = uniqueRequestIds([...requestIds, ...imageResult.requestIds]);
   updateSpeakerSpotlightResult(input.result.id, {
     imageFileName: imageResult.imageFileName, imageAssetId: imageResult.imageAssetId, imageStoragePath: imageResult.imagePath,
@@ -364,7 +351,7 @@ function verifyReferences(siteDirectory: string) {
   const required = {
     creationGuidePath: findNamedFile(contextDirectory, /speaker spotlight creation guide\.md$/i),
     extractionGuidePath: findNamedFile(contextDirectory, /speaker.*extraction.*guide\.md$/i),
-    styleReferencePath: findNamedFile(contextDirectory, /speaker spotlight social media image reference v2\.(?:png|jpe?g|webp)$/i),
+    styleReferencePath: findNamedFile(contextDirectory, /speaker spotlight social media image reference v3\.(?:png|jpe?g|webp)$/i),
     captionExamplePath: findNamedFile(contextDirectory, /example.*speaker.*spotlight.*\.md$/i),
     headshotManifestPath: walkFiles(contextDirectory).find((candidate) => /headshot.*manifest\.json$/i.test(path.basename(candidate))) || null
   };
@@ -562,45 +549,39 @@ function matchDownloadedAsset(siteDirectory: string, liveBaseName: string) {
   return walkFiles(siteDirectory).find((file) => normalizeProfileKey(path.basename(file).replace(/_KJhG(?=\.)/i, "")) === normalized) || null;
 }
 
-async function prepareOrganizationBrand(brand: SpeakerOrganizationBrand, speakerDirectory: string, slug: string): Promise<PreparedSpeakerOrganizationBrand> {
-  const lockupPath = path.join(speakerDirectory, `${slug}-organization-logo.png`);
-  if (brand.sourcePath) {
-    const normalizedLogo = await sharp(brand.sourcePath, { density: 300 }).trim().resize(700, 300, { fit: "inside", withoutEnlargement: false }).flatten({ background: "#ffffff" }).png().toBuffer();
-    const metadata = await sharp(normalizedLogo).metadata();
-    const left = Math.max(0, Math.round((800 - (metadata.width || 700)) / 2));
-    const top = Math.max(0, Math.round((400 - (metadata.height || 300)) / 2));
-    await sharp({ create: { width: 800, height: 400, channels: 4, background: "#ffffff" } }).composite([{ input: normalizedLogo, left, top }]).png().toFile(lockupPath);
-  } else {
-    const lockupText = brand.fallbackText || brand.name;
-    const fontSize = Math.max(52, Math.min(126, Math.floor(820 / Math.max(lockupText.length, 5)) * 3));
-    const lockup = `<svg width="800" height="400" xmlns="http://www.w3.org/2000/svg"><rect width="800" height="400" fill="#fff"/><text x="400" y="218" text-anchor="middle" dominant-baseline="middle" font-family="Arial,Helvetica,sans-serif" font-size="${fontSize}" font-weight="800" fill="#050505">${escapeXml(lockupText)}</text></svg>`;
-    await sharp(Buffer.from(lockup)).png().toFile(lockupPath);
-  }
-  return { ...brand, lockupPath, mimeType: "image/png" };
-}
-
 function freezeCardCopy(profile: SpeakerProfile, organizationName: string) {
-  const nameParts = profile.displayName.trim().split(/\s+/).filter(Boolean);
-  const firstName = nameParts.shift() || profile.displayName;
-  const lastName = nameParts.join(" ") || "";
-  const roleBlocks = stripMarkdown(profile.roleLine || profile.subtitle || profile.bio || "AGI Summit speaker")
-    .split(/\s+(?:&|and)\s+(?=[A-Z])|\s+—\s+/)
-    .map((value) => value.replace(/\s+at\s+/i, ", ").replace(/\s+of\s+/i, " of ").trim())
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((value) => truncateAtWord(value, 68));
-  const topics = Array.from(new Set([...profile.industries, ...profile.tags].map(stripMarkdown).filter(Boolean))).slice(0, 2);
+  const fallbackHighlights = stripMarkdown(profile.roleLine || profile.subtitle || profile.bio || "AGI Summit speaker")
+    .split(/\s+—\s+|;\s+|\.\s+/)
+    .map((value) => value.trim())
+    .filter(Boolean);
+  const highlightCandidates = [
+    ...profile.highlights.map((highlight) => `${stripMarkdown(highlight.label)} — ${stripMarkdown(highlight.text)}`),
+    ...fallbackHighlights,
+    ...profile.industries.map((topic) => `Focus — ${stripMarkdown(topic)}`),
+    ...profile.tags.map((topic) => `Expertise — ${stripMarkdown(topic)}`),
+    `Organization — ${organizationName}`
+  ].map((value) => truncateAtWord(value, 64)).filter(Boolean);
+  const highlightRows = Array.from(new Set(highlightCandidates)).slice(0, 3);
+  const topics = Array.from(new Set([...profile.industries, ...profile.tags].map(stripMarkdown).filter(Boolean))).slice(0, 3);
   if (!topics.length && profile.badge) topics.push(stripMarkdown(profile.badge));
-  return { name: profile.displayName, firstName, lastName, organizationName, roleBlocks, topicLine: topics.join(" • ") };
+  const rightRole = truncateAtWord(stripMarkdown(profile.roleLine || profile.subtitle || profile.bio || `${organizationName} speaker`), 104);
+  const about = truncateAtWord(stripMarkdown(profile.bio || profile.roleLine || profile.subtitle || rightRole), 128);
+  return { name: profile.displayName, organizationName, highlightRows, about, rightRole, topicLine: topics.join(" • ") };
 }
 
 function exactCardText(frozen: ReturnType<typeof freezeCardCopy>, config: SpeakerSpotlightBatch["config"]) {
   return [
+    "THE WORLD’S",
+    "LARGEST",
+    "AI SUMMIT",
     "FEATURED SPEAKER",
-    frozen.firstName,
-    frozen.lastName,
-    frozen.organizationName,
-    ...frozen.roleBlocks,
+    ...frozen.highlightRows,
+    "ABOUT",
+    frozen.about,
+    "AGI SUMMIT SF 2026",
+    "SPEAKER SPOTLIGHT",
+    frozen.name,
+    frozen.rightRole,
     frozen.topicLine,
     config.eventDates,
     config.eventVenue,
@@ -610,12 +591,12 @@ function exactCardText(frozen: ReturnType<typeof freezeCardCopy>, config: Speake
 
 function buildImagePrompt(profile: SpeakerProfile, frozen: ReturnType<typeof freezeCardCopy>, config: SpeakerSpotlightBatch["config"]) {
   const visibleText = exactCardText(frozen, config).map((value) => JSON.stringify(value)).join("\n");
-  return `Use case: ads-marketing\nAsset type: final 2:3 portrait social-media speaker spotlight poster, exactly ${SPEAKER_SPOTLIGHT_IMAGE_SPEC.width} × ${SPEAKER_SPOTLIGHT_IMAGE_SPEC.height} pixels.\n\nInput images:\n- Image 1 is the verified identity reference for ${profile.displayName}. Preserve this person's recognizable identity, facial structure, skin tone, eyes, expression, hairstyle, wardrobe, and professional appearance faithfully. Use only this person.\n- Image 2 is the canonical Marco Pavone AGI Summit speaker-spotlight reference. Follow its tall white-left/black-right diagonal split, minimal editorial hierarchy, electric-blue accents, large stacked speaker name, large organization-logo area, top-right AGI Summit masthead, compact role lines, topic row, and icon-led event footer as closely as possible. Do not retain Marco Pavone, his face, glasses, suit, NVIDIA branding, Stanford copy, or any other speaker-specific content unless it is explicitly supplied for the current speaker.\n- Image 3 is the verified ${frozen.organizationName} organization logo/lockup extracted from the downloaded AGI Summit website's own brand registry. Reproduce this exact logo prominently on the white panel without redesigning, recoloring, distorting, or replacing it. Image 3 controls the company/university branding.\n\nExact visible text, verbatim; every line below is required and authorized:\n${visibleText}\n\nComposition: reserve about 40% of the canvas for the white left panel and 60% for the near-black portrait field, separated by the reference's strong diagonal edge. Put FEATURED SPEAKER at upper left with a short blue underline. Stack the speaker's first name in black and remaining name in electric blue below it, using adaptive condensed type that keeps at least 44 pixels of white margin on both sides and never touches the diagonal. Place the large verified organization logo from Image 3 immediately below the name with generous clear space. Below the logo, show no more than two short role blocks separated by short blue rules, followed by one compact topic row. Keep the date, venue, and website in a small icon-led footer. Put the AGI Summit masthead at upper right and a large photorealistic three-quarter portrait on the right.\n\nInformation density: deliberately condensed. Show only the name, organization logo, up to two essential role lines, up to two focus topics, and the event footer. Do not add an ABOUT paragraph, biography, statistics, highlight cards, quote, ticket URL, social handle, or extra event slogan.\n\nVisual style: crisp premium technology-conference editorial poster; clean white and deep black; black text with electric cobalt-blue accents; bold condensed display type for the name; clean modern sans-serif for details; thin dividers; simple cobalt line icons; generous whitespace.\n\nConstraints: exactly 2:3; only supplied claims; accurate and legible text; current speaker identity only; exact organization logo from Image 3; no invented logo or affiliation; no copied example content; no watermark, QR code, duplicate copy, placeholders, “KEYNOTE SPEAKER” label, or unsupported facts.`;
+  return `Use case: ads-marketing\nAsset type: final 2:3 portrait social-media speaker spotlight poster, exactly ${SPEAKER_SPOTLIGHT_IMAGE_SPEC.width} × ${SPEAKER_SPOTLIGHT_IMAGE_SPEC.height} pixels.\n\nPrimary request: personalize the supplied canonical Palace of Fine Arts speaker-spotlight poster for ${profile.displayName}. Treat Image 1 as the actual template/edit target, not merely loose inspiration. Preserve the fixed campaign design and replace only the example speaker portrait and speaker-specific copy.\n\nInput images:\n- Image 1 is the canonical Yuandong Tian Palace of Fine Arts template. Preserve its exact 2:3 composition: the white left panel and near-black right panel divided by the same diagonal; the Bay AI Circle logo; the AGI Summit logo and “WHERE AGI CONVERGES” tagline; the stacked “THE WORLD’S / LARGEST / AI SUMMIT” campaign headline; the top-right neon “AGI SUMMIT SF 2026 / SPEAKER SPOTLIGHT” badge; the blue-to-purple accents; the icon style; and, explicitly, the faded Palace of Fine Arts architecture behind the speaker. These fixed elements must remain in the same locations, scale, colors, and style.\n- Image 2 is the verified identity reference for ${profile.displayName}. Replace Yuandong Tian with only this person. Preserve the current speaker's recognizable identity, facial structure, skin tone, eyes, expression, hairstyle, wardrobe, and professional appearance faithfully. Use a clean chest-up or mid-torso cutout large on the right, matching the template crop.\n\nExact visible text, verbatim; every line below is required and authorized:\n${visibleText}\n\nPersonalized content mapping:\n- Keep FEATURED SPEAKER in its existing left-column position.\n- Replace the three example credential rows with these three personalized rows, in order: ${JSON.stringify(frozen.highlightRows)}. Use one purple line icon per row and thin gray separators exactly like Image 1.\n- Replace the ABOUT paragraph with: ${JSON.stringify(frozen.about)}.\n- Replace the large lower-right name with: ${JSON.stringify(frozen.name)}. Keep it uppercase, white, condensed, and on one line when possible; adapt size to prevent clipping.\n- Replace the first lower-right detail row with: ${JSON.stringify(frozen.rightRole)}.\n- Replace the second lower-right detail row with: ${JSON.stringify(frozen.topicLine)}.\n- Keep the configured date, venue, and website in the same footer positions: ${JSON.stringify(config.eventDates)}, ${JSON.stringify(config.eventVenue)}, ${JSON.stringify(config.eventWebsite)}.\n\nComposition and hierarchy: match Image 1 pixel-for-pixel in visual structure. The fixed logos and campaign headline dominate the upper-left. Personalized credentials and ABOUT copy occupy the lower-left. The faded Palace of Fine Arts remains clearly recognizable but subdued in purple/navy behind the portrait. The portrait occupies the center-right and overlaps the landmark without obscuring the neon badge. The speaker name and two icon-led detail rows sit across the lower-right over the dark panel. Maintain all safe margins and separator rules from the template.\n\nTypography and color: use the same tall condensed display typography, modern narrow sans-serif details, black/white contrast, cobalt-to-violet gradient, neon blue-violet border glow, purple line icons, deep navy-black background, and restrained architectural fade shown in Image 1.\n\nConstraints: exactly 2:3; preserve all fixed logos and fixed campaign copy from Image 1; Palace of Fine Arts must be visibly present behind the speaker; use only supplied speaker claims; accurate and legible text; current speaker identity only; no organization logo replacement; no Yuandong Tian face, name, plaid shirt, or speaker-specific facts; no invented affiliation, unsupported credential, extra slogan, ticket URL, social handle, watermark, QR code, duplicate copy, placeholder, or malformed text.`;
 }
 
 async function generateFirstImage(input: {
   result: SpeakerSpotlightResult; profile: SpeakerProfile; frozen: ReturnType<typeof freezeCardCopy>; imagePrompt: string;
-  headshotPath: string; headshotMimeType: string; styleReferencePath: string; organizationBrand: PreparedSpeakerOrganizationBrand; speakerDirectory: string; apiKey: string | null; priorRequestIds: string[]; reporter?: OperationReporter;
+  headshotPath: string; headshotMimeType: string; styleReferencePath: string; speakerDirectory: string; config: SpeakerSpotlightBatch["config"]; apiKey: string | null; priorRequestIds: string[]; reporter?: OperationReporter;
 }) {
   const requestIds: string[] = [];
   input.reporter?.checkpoint();
@@ -623,7 +604,7 @@ async function generateFirstImage(input: {
   const attemptPath = path.join(input.speakerDirectory, `${input.result.slug}-speaker-spotlight-attempt-1.png`);
   let imageRequestId: string | null = null;
   if (isDemoMode()) {
-    await createDemoSpotlight(input.headshotPath, input.profile, input.frozen, input.organizationBrand.lockupPath, attemptPath);
+    await createDemoSpotlight(input.headshotPath, input.profile, input.frozen, input.styleReferencePath, input.config, attemptPath);
   } else {
     let generated: Awaited<ReturnType<typeof speakerSpotlightImageWithOpenAI>>;
     try {
@@ -631,8 +612,6 @@ async function generateFirstImage(input: {
         headshotPath: input.headshotPath,
         headshotMimeType: input.headshotMimeType,
         styleReferencePath: input.styleReferencePath,
-        organizationLogoPath: input.organizationBrand.lockupPath,
-        organizationLogoMimeType: input.organizationBrand.mimeType,
         prompt: input.imagePrompt
       }, input.reporter?.signal);
     } catch (error) {
@@ -647,6 +626,8 @@ async function generateFirstImage(input: {
   stripC2paFromFile(attemptPath);
 
   try {
+    await validateFirstImageOutput(attemptPath);
+    await restoreFixedTemplateRegions(attemptPath, input.styleReferencePath);
     await validateFirstImageOutput(attemptPath);
   } catch (error) {
     throw new SpeakerSpotlightPipelineFailure("image_validation", error);
@@ -726,20 +707,50 @@ function demoPost(profile: SpeakerProfile, config: SpeakerSpotlightBatch["config
   return `🎙️ Speaker Spotlight: ${profile.displayName}\n\nThe next wave of AI will be shaped by people turning deep expertise into work that matters.\n\n${profile.displayName} is ${stripMarkdown(profile.roleLine || profile.bio || "an AGI Summit speaker")}.\n\n${bullets}\n\n${profile.industries.slice(0, 3).join(", ")} are becoming central to how the AI ecosystem moves from possibility to practical impact.\n\nHear ${firstName} on stage at ${config.eventName}.\n\n📅 ${config.eventDates}\n📍 ${config.eventVenue}\n🎟 Tickets: ${config.ticketUrl}\n\n🏷️ ${config.discountCopy}\n\n#AGISummit #AI #ArtificialIntelligence #SanFrancisco`;
 }
 
-async function createDemoSpotlight(headshotPath: string, _profile: SpeakerProfile, frozen: ReturnType<typeof freezeCardCopy>, organizationLogoPath: string, outputPath: string) {
-  const portrait = await sharp(headshotPath).resize(650, 1320, { fit: "cover", position: "top" }).png().toBuffer();
-  const organizationLogo = await sharp(organizationLogoPath).resize(320, 190, { fit: "contain", background: "#ffffff" }).png().toBuffer();
-  const firstNameSize = Math.max(78, Math.min(116, Math.floor(620 / Math.max(frozen.firstName.length, 4)) * 8));
-  const lastNameSize = Math.max(62, Math.min(112, Math.floor(660 / Math.max(frozen.lastName.length, 5)) * 8));
-  const roleBlocks = frozen.roleBlocks.map((value, index) => {
-    const y = 865 + index * 108;
-    const lines = wrapText(value, 29, 2);
-    return `<rect x="52" y="${y - 34}" width="44" height="4" fill="#1738ef"/><text x="52" y="${y + 16}" font-family="Arial,Helvetica,sans-serif" font-size="22" fill="#111">${escapeXml(lines[0] || "")}</text><text x="52" y="${y + 45}" font-family="Arial,Helvetica,sans-serif" font-size="22" fill="#111">${escapeXml(lines[1] || "")}</text>`;
+async function restoreFixedTemplateRegions(imagePath: string, styleReferencePath: string) {
+  const referenceMetadata = await sharp(styleReferencePath).metadata();
+  if (referenceMetadata.width !== SPEAKER_SPOTLIGHT_IMAGE_SPEC.width || referenceMetadata.height !== SPEAKER_SPOTLIGHT_IMAGE_SPEC.height) {
+    throw new Error("The canonical Speaker Spotlight template must be exactly 1024×1536 before fixed branding can be restored.");
+  }
+  const fixedLeft = await sharp(styleReferencePath).extract({ left: 0, top: 0, width: 475, height: 780 }).png().toBuffer();
+  const fixedBadge = await sharp(styleReferencePath).extract({ left: 585, top: 45, width: 405, height: 170 }).png().toBuffer();
+  const temporaryPath = `${imagePath}.template.png`;
+  await sharp(imagePath).composite([
+    { input: fixedLeft, left: 0, top: 0 },
+    { input: fixedBadge, left: 585, top: 45 }
+  ]).png().toFile(temporaryPath);
+  fs.renameSync(temporaryPath, imagePath);
+}
+
+async function createDemoSpotlight(headshotPath: string, _profile: SpeakerProfile, frozen: ReturnType<typeof freezeCardCopy>, styleReferencePath: string, config: SpeakerSpotlightBatch["config"], outputPath: string) {
+  const portrait = await sharp(headshotPath)
+    .resize(650, 1050, { fit: "contain", position: "bottom", background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .png()
+    .toBuffer();
+  const palace = await sharp(styleReferencePath)
+    .extract({ left: 470, top: 220, width: 554, height: 330 })
+    .resize(650, 760, { fit: "cover" })
+    .modulate({ brightness: 0.44, saturation: 0.45 })
+    .tint("#211b4c")
+    .blur(0.8)
+    .png()
+    .toBuffer();
+  const nameSize = Math.max(58, Math.min(110, Math.floor(7600 / Math.max(frozen.name.length, 8))));
+  const highlightRows = frozen.highlightRows.map((value, index) => {
+    const y = 820 + index * 112;
+    const lines = wrapText(value, 30, 2);
+    return `<g><circle cx="78" cy="${y - 10}" r="22" fill="none" stroke="#5924df" stroke-width="3"/><circle cx="78" cy="${y - 10}" r="7" fill="none" stroke="#5924df" stroke-width="3"/><text x="132" y="${y - 12}" font-family="Arial,Helvetica,sans-serif" font-size="20" fill="#111">${escapeXml(lines[0] || "")}</text><text x="132" y="${y + 18}" font-family="Arial,Helvetica,sans-serif" font-size="20" fill="#111">${escapeXml(lines[1] || "")}</text><line x1="52" y1="${y + 52}" x2="344" y2="${y + 52}" stroke="#aaa" stroke-width="1"/></g>`;
   }).join("");
-  const svg = `<svg width="${SPEAKER_SPOTLIGHT_IMAGE_SPEC.width}" height="${SPEAKER_SPOTLIGHT_IMAGE_SPEC.height}" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="agi" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#23d5f5"/><stop offset="1" stop-color="#3769e8"/></linearGradient></defs><rect width="1024" height="1536" fill="#02040a"/><path d="M0 0H520L322 1536H0Z" fill="#fafafa"/><text x="52" y="164" font-family="Arial Narrow,Arial,sans-serif" font-size="35" font-weight="900" fill="#1738ef">FEATURED SPEAKER</text><rect x="52" y="192" width="104" height="4" fill="#1738ef"/><text x="52" y="350" font-family="Arial Narrow,Arial,sans-serif" font-size="${firstNameSize}" font-weight="900" letter-spacing="-3" fill="#050505">${escapeXml(frozen.firstName.toUpperCase())}</text><text x="52" y="500" font-family="Arial Narrow,Arial,sans-serif" font-size="${lastNameSize}" font-weight="900" letter-spacing="-3" fill="#1738ef">${escapeXml(frozen.lastName.toUpperCase())}</text><rect x="52" y="548" width="290" height="4" fill="#1738ef"/>${roleBlocks}<line x1="52" y1="1102" x2="326" y2="1102" stroke="#c9c9ce" stroke-width="2"/><text x="52" y="1148" font-family="Arial,Helvetica,sans-serif" font-size="19" fill="#111">${escapeXml(frozen.topicLine)}</text><rect x="52" y="1204" width="34" height="34" rx="5" fill="none" stroke="#1738ef" stroke-width="4"/><line x1="60" y1="1198" x2="60" y2="1211" stroke="#1738ef" stroke-width="4"/><line x1="78" y1="1198" x2="78" y2="1211" stroke="#1738ef" stroke-width="4"/><text x="110" y="1231" font-family="Arial,Helvetica,sans-serif" font-size="22" font-weight="700" fill="#111">JULY 18–19, 2026</text><circle cx="69" cy="1308" r="17" fill="none" stroke="#1738ef" stroke-width="4"/><circle cx="69" cy="1308" r="5" fill="#1738ef"/><text x="110" y="1308" font-family="Arial,Helvetica,sans-serif" font-size="20" font-weight="700" fill="#111">PALACE OF FINE ARTS,</text><text x="110" y="1337" font-family="Arial,Helvetica,sans-serif" font-size="20" fill="#111">SAN FRANCISCO</text><line x1="52" y1="1382" x2="302" y2="1382" stroke="#c9c9ce" stroke-width="2"/><circle cx="69" cy="1431" r="17" fill="none" stroke="#1738ef" stroke-width="4"/><path d="M52 1431H86M69 1414C61 1424 61 1438 69 1448M69 1414C77 1424 77 1438 69 1448" fill="none" stroke="#1738ef" stroke-width="2"/><text x="110" y="1439" font-family="Arial,Helvetica,sans-serif" font-size="22" font-weight="700" fill="#111">agisummit.ai</text><text x="817" y="100" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="78" font-weight="900" fill="url(#agi)">AGI</text><text x="817" y="144" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="28" letter-spacing="9" fill="#fff">SUMMIT</text></svg>`;
-  await sharp(Buffer.from(svg)).composite([
-    { input: portrait, left: 374, top: 174 },
-    { input: organizationLogo, left: 52, top: 600 }
+  const aboutLines = wrapText(frozen.about, 30, 3);
+  const roleLines = wrapText(frozen.rightRole, 48, 2);
+  const topicLines = wrapText(frozen.topicLine, 48, 2);
+  const venueLines = wrapText(config.eventVenue, 26, 2);
+  const baseSvg = `<svg width="${SPEAKER_SPOTLIGHT_IMAGE_SPEC.width}" height="${SPEAKER_SPOTLIGHT_IMAGE_SPEC.height}" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="shade" x1="0" y1="0" x2="0" y2="1"><stop offset=".64" stop-color="#030617" stop-opacity="0"/><stop offset="1" stop-color="#02040b" stop-opacity=".96"/></linearGradient></defs><rect width="1024" height="1536" fill="#020514"/><path d="M0 0H545L290 1536H0Z" fill="#fbfbfb"/><rect x="360" y="200" width="664" height="1050" fill="#08091b" opacity=".45"/><rect x="360" y="690" width="664" height="846" fill="url(#shade)"/></svg>`;
+  const textOverlay = `<svg width="${SPEAKER_SPOTLIGHT_IMAGE_SPEC.width}" height="${SPEAKER_SPOTLIGHT_IMAGE_SPEC.height}" xmlns="http://www.w3.org/2000/svg">${highlightRows}<text x="52" y="1185" font-family="Arial Narrow,Arial,sans-serif" font-size="31" font-weight="800" fill="#5120da">ABOUT</text><text x="52" y="1228" font-family="Arial,Helvetica,sans-serif" font-size="20" fill="#111">${escapeXml(aboutLines[0] || "")}</text><text x="52" y="1257" font-family="Arial,Helvetica,sans-serif" font-size="20" fill="#111">${escapeXml(aboutLines[1] || "")}</text><text x="52" y="1286" font-family="Arial,Helvetica,sans-serif" font-size="20" fill="#111">${escapeXml(aboutLines[2] || "")}</text><line x1="52" y1="1320" x2="292" y2="1320" stroke="#aaa"/><rect x="52" y="1350" width="34" height="34" rx="5" fill="none" stroke="#5924df" stroke-width="3"/><text x="106" y="1377" font-family="Arial,Helvetica,sans-serif" font-size="20" font-weight="700" fill="#111">${escapeXml(config.eventDates)}</text><circle cx="69" cy="1445" r="17" fill="none" stroke="#5924df" stroke-width="3"/><circle cx="69" cy="1445" r="5" fill="#5924df"/><text x="106" y="1438" font-family="Arial,Helvetica,sans-serif" font-size="19" fill="#111">${escapeXml(venueLines[0] || "")}</text><text x="106" y="1467" font-family="Arial,Helvetica,sans-serif" font-size="19" fill="#111">${escapeXml(venueLines[1] || "")}</text><text x="405" y="1242" font-family="Arial Narrow,Arial,sans-serif" font-size="${nameSize}" font-weight="900" letter-spacing="-3" fill="#fff">${escapeXml(frozen.name.toUpperCase())}</text><line x1="408" y1="1285" x2="476" y2="1285" stroke="#7821ff" stroke-width="3"/><circle cx="438" cy="1332" r="20" fill="none" stroke="#7821ff" stroke-width="3"/><text x="493" y="1327" font-family="Arial,Helvetica,sans-serif" font-size="22" fill="#fff">${escapeXml(roleLines[0] || "")}</text><text x="493" y="1358" font-family="Arial,Helvetica,sans-serif" font-size="22" fill="#fff">${escapeXml(roleLines[1] || "")}</text><line x1="404" y1="1380" x2="965" y2="1380" stroke="#777"/><rect x="418" y="1400" width="42" height="42" rx="7" fill="none" stroke="#7821ff" stroke-width="3"/><text x="493" y="1424" font-family="Arial,Helvetica,sans-serif" font-size="21" fill="#fff">${escapeXml(topicLines[0] || "")}</text><text x="493" y="1452" font-family="Arial,Helvetica,sans-serif" font-size="21" fill="#fff">${escapeXml(topicLines[1] || "")}</text><line x1="404" y1="1475" x2="965" y2="1475" stroke="#777"/><circle cx="438" cy="1505" r="20" fill="none" stroke="#7821ff" stroke-width="3"/><text x="493" y="1513" font-family="Arial,Helvetica,sans-serif" font-size="22" fill="#fff">${escapeXml(config.eventWebsite)}</text></svg>`;
+  await sharp(Buffer.from(baseSvg)).composite([
+    { input: palace, left: 374, top: 220, blend: "screen" },
+    { input: portrait, left: 374, top: 300 },
+    { input: Buffer.from(textOverlay), left: 0, top: 0 }
   ]).png().toFile(outputPath);
 }
 
@@ -748,7 +759,7 @@ function writeManifest(batchId: string, batchRoot: string) {
   if (!batch) return;
   const manifest = {
     batch_id: batch.id, status: batch.status, requested_speakers: batch.speakerNames, created_at: batch.createdAt, completed_at: batch.completedAt,
-    speakers: batch.results.map((result) => ({ input_name: result.inputName, normalized_profile_key: result.profileKey, status: result.status, output_paths: { headshot: result.headshotFileName, organization_logo: fs.existsSync(path.join(batchRoot, result.slug, `${result.slug}-organization-logo.png`)) ? `${result.slug}-organization-logo.png` : null, profile: result.profile ? `${result.slug}-profile.json` : null, image_prompt: result.imagePrompt ? `${result.slug}-image-prompt.md` : null, image: result.imageFileName, post: result.post ? `${result.slug}-post.md` : null, qa: result.qa ? `${result.slug}-qa.json` : null }, verification_results: result.qa, api_request_ids: result.requestIds, retry_count: result.retryCount, provider_error: result.providerError, error: result.error }))
+    speakers: batch.results.map((result) => ({ input_name: result.inputName, normalized_profile_key: result.profileKey, status: result.status, output_paths: { headshot: result.headshotFileName, profile: result.profile ? `${result.slug}-profile.json` : null, image_prompt: result.imagePrompt ? `${result.slug}-image-prompt.md` : null, image: result.imageFileName, post: result.post ? `${result.slug}-post.md` : null, qa: result.qa ? `${result.slug}-qa.json` : null }, verification_results: result.qa, api_request_ids: result.requestIds, retry_count: result.retryCount, provider_error: result.providerError, error: result.error }))
   };
   fs.writeFileSync(path.join(batchRoot, "manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
 }

@@ -13,7 +13,7 @@ export const PROMPT_VERSIONS = {
   outreach: "outreach-v2-auto-context",
   content: "social-content-v2-auto-context",
   image: "campaign-image-v1",
-  speakerSpotlight: "speaker-spotlight-v6-condensed-logo-poster"
+  speakerSpotlight: "speaker-spotlight-v7-palace-template"
 } as const;
 
 export const SPEAKER_SPOTLIGHT_IMAGE_SPEC = {
