@@ -161,6 +161,8 @@ OpenAI image generation never owns important typography. Sharp renders exact tex
 
 Outputs live under `MARKETING_HUB_DATA_DIR/speaker_spotlights/<batch-id>/<speaker-slug>/`. The downloaded-site path and campaign values are configurable in the page; `AGI_SUMMIT_SITE_DIR` supplies the default path.
 
+The downloaded speaker site is a separate local package and is not stored in this Git repository. For a portable handoff, place the merged package at `./agi-summit-site` or set `AGI_SUMMIT_SITE_DIR` to its absolute path. See [sharing the Speaker Spotlight project](docs/sharing-speaker-spotlight-project.md) for exactly what to send and how the recipient should set it up.
+
 ## Production build and local start
 
 ```bash

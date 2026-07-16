@@ -1,6 +1,8 @@
 {
   "source": "https://agisummit.ai/",
-  "verifiedAt": "2026-07-13",
+  "verifiedAt": "2026-07-16",
+  "packageManifest": "speaker-content-merge-manifest.json",
+  "notes": "Fallback headshot mappings for opaque filenames and speakers retained from either downloaded snapshot. The merged site package was validated end-to-end for 149 unique speakers.",
   "speakers": [
     {
       "displayName": "Rohan Varma",
@@ -31,6 +33,86 @@
       "displayName": "Jeremiah Owyang",
       "profileKey": "jeremiahowyang",
       "imageBasename": "img-mpvilpn2-a8789e25a22f.webp"
+    },
+    {
+      "displayName": "Prakhar Bansal",
+      "profileKey": "prakharbansal",
+      "imageBasename": "speaker-prakharbansal-verified.webp"
+    },
+    {
+      "displayName": "Xiaodi Hou",
+      "profileKey": "xiaodihou",
+      "imageBasename": "speaker-xiaodihou-verified.webp"
+    },
+    {
+      "displayName": "Saksham Gupta",
+      "profileKey": "sakshamgupta",
+      "imageBasename": "speaker-sakshamgupta-verified.png"
+    },
+    {
+      "displayName": "Wendy Lu",
+      "profileKey": "wendylu",
+      "imageBasename": "speaker-wendylu-verified.jpg"
+    },
+    {
+      "displayName": "Cong You",
+      "profileKey": "congyou",
+      "imageBasename": "speaker-congyou-verified.jpg"
+    },
+    {
+      "displayName": "Sebastian Thrun",
+      "profileKey": "sebastianthrun",
+      "imageBasename": "sebastian-thrun_KJhG.webp"
+    },
+    {
+      "displayName": "Ethan Goh",
+      "profileKey": "ethangoh",
+      "imageBasename": "ethan-goh-stanford_KJhG.webp"
+    },
+    {
+      "displayName": "Bilal Zuberi",
+      "profileKey": "bilalzuberi",
+      "imageBasename": "speaker-bilalzuberi-verified.png"
+    },
+    {
+      "displayName": "Yichong Xu",
+      "profileKey": "yichongxu",
+      "imageBasename": "speaker-yichongxu-verified.jpg"
+    },
+    {
+      "displayName": "Shannon McClenaghan",
+      "profileKey": "shannonmcclenaghan",
+      "imageBasename": "speaker-shannonmcclenaghan-verified.webp"
+    },
+    {
+      "displayName": "Bryan Green",
+      "profileKey": "bryangreen",
+      "imageBasename": "speaker-bryangreen-verified.webp"
+    },
+    {
+      "displayName": "Jon Barron",
+      "profileKey": "jonbarron",
+      "imageBasename": "speaker-jonbarron-verified.jpg"
+    },
+    {
+      "displayName": "Angèle Christin",
+      "profileKey": "angelechristin",
+      "imageBasename": "angele-christin_KJhG.webp"
+    },
+    {
+      "displayName": "Anand Iyer",
+      "profileKey": "anandiyer",
+      "imageBasename": "speaker-anandiyer-verified.jpg"
+    },
+    {
+      "displayName": "Alberto Taiuti",
+      "profileKey": "albertotaiuti",
+      "imageBasename": "alberto-taiuti-merged.webp"
+    },
+    {
+      "displayName": "Lu Zhang",
+      "profileKey": "luzhang",
+      "imageBasename": "lu-zhang-merged.webp"
     }
   ]
 }
