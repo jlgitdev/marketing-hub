@@ -38,7 +38,7 @@ export function DashboardClient() {
       <ConnectionBadge state={state}/>
     </header>
     {!state.connection.connected && !state.demoMode && <section className="quick-connect"><div><KeyRound size={19}/><span><strong>Connect OpenAI to use live research and generation</strong><small>The raw key stays in backend process memory and disappears on server exit.</small></span></div><form onSubmit={connect}><label className="sr-only" htmlFor="dashboard-api-key">OpenAI API key</label><input id="dashboard-api-key" name="apiKey" type="password" autoComplete="off" required placeholder="sk-…"/><button className="button" disabled={connecting}>{connecting ? "Testing…" : "Connect and test"}</button></form><ConnectionTestProgress active={connecting}/><small className="credit-note">The explicit connection test makes a small billable API request.</small>{connectionMessage && <p role="status">{connectionMessage}</p>}</section>}
-    <section className="metric-grid" aria-label="Workspace summary">
+    <section className="metric-grid overview-metrics" aria-label="Workspace summary">
       <div className="metric"><strong>{state.counts.activeContext}</strong><small>active context documents</small></div>
       <div className="metric"><strong>{state.counts.leads}</strong><small>saved opportunities</small></div>
       <div className="metric"><strong>{state.counts.awaitingReview}</strong><small>awaiting review</small></div>

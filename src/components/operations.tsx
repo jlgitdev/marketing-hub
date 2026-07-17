@@ -62,10 +62,23 @@ export function OperationsProvider({ children }: { children: React.ReactNode }) 
   }, [refreshOperations]);
   const hasActive = operations.some((operation) => ACTIVE_STATUSES.has(operation.status));
   useEffect(() => {
-    const timer = window.setInterval(() => void refreshOperations(), hasActive ? 1000 : 10_000);
-    const onFocus = () => void refreshOperations();
-    window.addEventListener("focus", onFocus);
-    return () => { window.clearInterval(timer); window.removeEventListener("focus", onFocus); };
+    let timer: number | undefined;
+    const schedule = () => {
+      if (timer) window.clearInterval(timer);
+      timer = document.hidden ? undefined : window.setInterval(() => void refreshOperations(), hasActive ? 1000 : 10_000);
+    };
+    const refreshVisiblePage = () => {
+      if (!document.hidden) void refreshOperations();
+      schedule();
+    };
+    schedule();
+    window.addEventListener("focus", refreshVisiblePage);
+    document.addEventListener("visibilitychange", refreshVisiblePage);
+    return () => {
+      if (timer) window.clearInterval(timer);
+      window.removeEventListener("focus", refreshVisiblePage);
+      document.removeEventListener("visibilitychange", refreshVisiblePage);
+    };
   }, [hasActive, refreshOperations]);
   useEffect(() => {
     if (!toast) return;
@@ -130,19 +143,19 @@ export function InlineOperation({ operation, compact = false }: { operation: AiO
     <div className="operation-signal" aria-hidden="true"><OperationSignalIcon operation={operation}/></div>
     <div className="operation-main">
       <div className="operation-title-row"><div><span className="operation-kicker">{statusLabel(operation.status)}</span><h3>{operation.label}</h3></div><Elapsed operation={operation}/></div>
-      <div className="operation-live" role="status" aria-live="polite"><strong>{operation.status === "queued" ? "Waiting for the current AI job" : active ? activeStep?.label || statusLabel(operation.status) : terminalHeadline(operation.status)}</strong>{active && activeStep?.detail ? <span>{activeStep.detail}</span> : !active && <span>{terminalDetail(operation.status)}</span>}</div>
+      <div className="operation-live" role="status" aria-live="polite"><strong>{operation.status === "queued" ? "Waiting for the current task" : active ? activeStep?.label || statusLabel(operation.status) : terminalHeadline(operation.status)}</strong>{active && activeStep?.detail ? <span>{activeStep.detail}</span> : !active && <span>{terminalDetail(operation.status)}</span>}</div>
       {active && <div className="operation-rail" aria-hidden="true"><span/></div>}
       {operation.totalUnits !== null && <p className="operation-count"><strong>{operation.completedUnits || 0} of {operation.totalUnits}</strong> {operation.unitLabel || "items"} {active ? "processed" : operation.status === "completed" ? "complete" : "succeeded"}</p>}
       {!compact && <ol className="operation-steps">{operation.steps.map((step) => <li className={step.state} key={step.id}><StepIcon state={step.state}/><span>{step.label}</span></li>)}</ol>}
       {active && <p className="operation-away">You can move to another screen—this work will keep running locally.{queuePosition ? ` Queue position ${queuePosition}.` : ""}</p>}
-      {active && seconds >= 45 && <p className="operation-reassurance">{seconds >= 90 ? "This is taking longer than usual. The current provider response is still active; you can safely keep working elsewhere." : "Still working—some AI requests need extra time to gather or render a careful result."}</p>}
+      {active && seconds >= 45 && <p className="operation-reassurance">{seconds >= 90 ? "This is taking longer than usual. The current provider response is still active; you can safely keep working elsewhere." : "Still working—some requests need extra time to gather or render a careful result."}</p>}
       {operation.error && !active && <p className="operation-error">{operation.error}</p>}
     </div>
     <div className="operation-actions">
       {active && <button className="button secondary small" onClick={() => void cancelOperation(operation.id)} disabled={operation.status === "cancel_requested"}><Square size={13}/>{operation.status === "cancel_requested" ? "Stopping…" : "Cancel"}</button>}
       {!active && operation.retryable && <button className="button secondary small" onClick={() => void retryOperation(operation.id)}><RotateCcw size={13}/>Retry</button>}
       {operation.resultHref && <Link className="button secondary small" href={operation.resultHref}>View<ChevronRight size={13}/></Link>}
-      {!active && <button className="icon-button operation-dismiss" onClick={() => void dismissOperation(operation.id)} aria-label={`Dismiss ${operation.label}`} title="Remove from AI activity"><X size={14}/></button>}
+      {!active && <button className="icon-button operation-dismiss" onClick={() => void dismissOperation(operation.id)} aria-label={`Dismiss ${operation.label}`} title="Remove from activity"><X size={14}/></button>}
     </div>
   </section>;
 }
@@ -172,13 +185,13 @@ function ActivityDock() {
   const queued = operations.filter((operation) => operation.status === "queued").length;
   if (!operations.length && !connectionError) return null;
   const activeStep = active?.steps.find((step) => step.state === "active");
-  return <aside className={`activity-dock ${open ? "open" : ""}`} aria-label="AI activity">
-    <button className="activity-trigger" onClick={() => setOpen((value) => !value)} aria-expanded={open}>
+  return <aside className={`activity-dock ${open ? "open" : ""} ${active || connectionError ? "active" : "idle"}`} aria-label="Workspace activity">
+    <button className="activity-trigger" onClick={() => setOpen((value) => !value)} aria-expanded={open} title={!active && !connectionError ? "Open workspace activity" : undefined}>
       <span className={connectionError ? "activity-orb" : active ? "activity-orb working" : "activity-orb"}>{connectionError ? <TriangleAlert size={16}/> : <Activity size={16}/>}</span>
-      <span><strong>{connectionError ? "Local server unavailable" : active ? activeStep?.label || statusLabel(active.status) : "AI activity"}</strong><small>{connectionError ? "Retrying automatically" : active ? <><Elapsed operation={active} short/> {queued > 0 && `· ${queued} queued`}</> : "Recent work and results"}</small></span>
+      <span><strong>{connectionError ? "Local server unavailable" : active ? activeStep?.label || statusLabel(active.status) : "Workspace activity"}</strong><small>{connectionError ? "Retrying automatically" : active ? <><Elapsed operation={active} short/> {queued > 0 && `· ${queued} queued`}</> : "Recent work and results"}</small></span>
       <ChevronRight className="activity-chevron" size={16}/>
     </button>
-    {open && <div className="activity-drawer"><div className="activity-drawer-heading"><div><h2>AI activity</h2><p className="muted">{connectionError ? "Connection interrupted" : active ? "Work in progress" : "Recent work"}</p></div><button className="icon-button" onClick={() => setOpen(false)} aria-label="Close AI activity"><X size={16}/></button></div>{connectionError && <div className="warnings"><TriangleAlert size={15}/><span>{connectionError}</span><button className="button secondary small" onClick={() => void refreshOperations()}>Retry now</button></div>}<div className="activity-list">{operations.slice(0, 8).map((operation) => <InlineOperation key={operation.id} operation={operation} compact/>)}</div></div>}
+    {open && <div className="activity-drawer"><div className="activity-drawer-heading"><div><h2>Workspace activity</h2><p className="muted">{connectionError ? "Connection interrupted" : active ? "Work in progress" : "Recent work"}</p></div><button className="icon-button" onClick={() => setOpen(false)} aria-label="Close workspace activity"><X size={16}/></button></div>{connectionError && <div className="warnings"><TriangleAlert size={15}/><span>{connectionError}</span><button className="button secondary small" onClick={() => void refreshOperations()}>Retry now</button></div>}<div className="activity-list">{operations.slice(0, 8).map((operation) => <InlineOperation key={operation.id} operation={operation} compact/>)}</div></div>}
   </aside>;
 }
 

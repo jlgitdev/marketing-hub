@@ -1,0 +1,318 @@
+/* Soft Orbit — consistency and rendering polish */
+
+/* The gradients already feather their own edges. Avoiding a full-viewport
+   animated blur keeps the same ambient bloom on a much cheaper compositor
+   layer and prevents translucent islands from flashing during route changes. */
+body::before {
+  filter: none;
+  contain: strict;
+  will-change: transform;
+  backface-visibility: hidden;
+}
+
+.sidebar,
+.panel,
+.action-card,
+.document-card,
+.lead-card,
+.platform-card,
+.run-card,
+.spotlight-result,
+.research-launcher,
+.asset-upload,
+.queue-views,
+.empty-state,
+.operation-card,
+.activity-trigger,
+.activity-drawer,
+.operation-toast {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.sidebar { background: rgba(255, 255, 255, .88); }
+.panel,
+.action-card,
+.document-card,
+.lead-card,
+.platform-card,
+.run-card,
+.spotlight-result,
+.research-launcher { background: rgba(255, 255, 255, .78); }
+
+/* Leads summary: keep the overview-card vocabulary, but make the filter state
+   feel like a considered part of the card instead of a dashboard tab rail. */
+.lead-metrics .lead-metric {
+  appearance: none;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  outline: 0;
+}
+.lead-metrics .lead-metric::after { display: none; }
+.lead-metrics .metric-symbol {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 13px;
+  color: #526bd3;
+  background: #e5eaff;
+  box-shadow: inset 0 0 0 7px rgba(255, 255, 255, .34);
+  transition: transform .25s var(--ease-out), color .25s var(--ease-out), background-color .25s var(--ease-out);
+}
+.lead-metrics .lead-metric:nth-child(2) .metric-symbol { color: #27877f; background: #d9f5f6; border-radius: 50%; }
+.lead-metrics .lead-metric:nth-child(3) .metric-symbol { color: #a6538a; background: #fad8ee; transform: rotate(6deg); }
+.lead-metrics .lead-metric:nth-child(4) .metric-symbol { color: #4977ad; background: #dce8ff; border-radius: 50% 50% 12px 50%; }
+.lead-metrics .lead-metric.active {
+  color: var(--ink);
+  border-color: rgba(95, 121, 234, .28);
+  background: linear-gradient(145deg, rgba(236, 240, 255, .94), rgba(255, 255, 255, .76));
+  box-shadow: 0 0 0 3px rgba(95, 121, 234, .1), var(--shadow-rest);
+}
+.lead-metrics .lead-metric.active .metric-symbol {
+  color: #fff;
+  background: var(--primary);
+  transform: rotate(-4deg) scale(1.04);
+  box-shadow: 0 8px 18px rgba(77, 101, 211, .2);
+}
+.lead-metrics .lead-metric:focus-visible {
+  outline: 3px solid rgba(95, 121, 234, .26);
+  outline-offset: 3px;
+}
+
+/* Runs: use the same floating island silhouette as Overview cards. Status is
+   carried by the friendly signal tile and copy, not a hard colored edge. */
+.activity-section { margin-top: 30px; }
+.operations-run-list { gap: 14px; }
+.operations-run-list .operation-card {
+  margin-top: 0;
+  padding: 22px;
+  border-color: rgba(255, 255, 255, .82);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, .78);
+  box-shadow: var(--shadow-rest);
+  transition: transform .28s var(--ease-out), box-shadow .28s var(--ease-out), border-color .28s var(--ease-out);
+}
+.operations-run-list .operation-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, .96);
+  box-shadow: var(--shadow-hover);
+}
+.operation-card::before { display: none; }
+.operations-run-list .operation-signal {
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 15px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .48);
+}
+.runs-page .section-heading { margin-bottom: 16px; }
+.runs-page .section-heading h2 + .muted { margin-top: 5px; }
+.saved-runs-section { margin-top: 46px; }
+.run-content > details { margin: 9px 0; }
+.run-content > small { display: block; margin-top: 12px; }
+
+/* Workspace activity remains a stable, readable bar in every state. The
+   drawer is anchored to the bar itself so their spacing stays correct if the
+   trigger height changes at a responsive breakpoint. */
+.activity-dock { width: min(390px, calc(100vw - 32px)); }
+.activity-trigger {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  min-height: 68px;
+  padding: 11px 14px 11px 12px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, .9);
+  transition:
+    transform .24s var(--ease-out),
+    border-color .24s var(--ease-out),
+    background-color .24s var(--ease-out),
+    box-shadow .24s var(--ease-out);
+}
+.activity-trigger:hover {
+  transform: translateY(-2px);
+  border-color: rgba(95, 121, 234, .24);
+  background: rgba(255, 255, 255, .96);
+  box-shadow: 0 22px 52px rgba(56, 63, 94, .18), 0 3px 10px rgba(56, 63, 94, .07);
+}
+.activity-dock.open .activity-trigger {
+  transform: translateY(0);
+  border-color: var(--accent-border);
+  background: rgba(255, 255, 255, .96);
+  box-shadow: 0 12px 34px rgba(56, 63, 94, .13), 0 2px 7px rgba(56, 63, 94, .05);
+}
+.activity-trigger strong { font-size: 13px; line-height: 1.25; }
+.activity-trigger small { margin-top: 4px; line-height: 1.25; }
+.activity-orb {
+  width: 40px;
+  height: 40px;
+  border-radius: 14px;
+  transition: transform .28s var(--ease-out), box-shadow .28s var(--ease-out);
+}
+.activity-trigger:hover .activity-orb { transform: scale(1.04); }
+.activity-chevron {
+  width: 30px;
+  height: 30px;
+  padding: 7px;
+  border-radius: 10px;
+  background: var(--surface-soft);
+  transform: rotate(-90deg);
+  transition: transform .36s var(--ease-out), color .24s var(--ease-out), background-color .24s var(--ease-out);
+}
+.activity-dock.open .activity-chevron {
+  color: #526bd3;
+  background: var(--accent-soft);
+  transform: rotate(90deg);
+}
+.activity-drawer {
+  bottom: calc(100% + 14px);
+  background: rgba(255, 255, 255, .96);
+  transform-origin: calc(100% - 28px) 100%;
+  will-change: transform, opacity;
+  animation: activity-drawer-rise .48s cubic-bezier(.16, 1, .3, 1) both;
+}
+.activity-drawer-heading { animation: activity-drawer-content .34s .08s var(--ease-out) both; }
+.activity-list { animation: activity-drawer-content .38s .13s var(--ease-out) both; }
+
+@keyframes activity-drawer-rise {
+  0% { opacity: 0; transform: translateY(22px) scale(.955); }
+  62% { opacity: 1; transform: translateY(-4px) scale(1.008); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes activity-drawer-content {
+  from { opacity: 0; transform: translateY(9px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Leads: compose the first-step number and target into one intentional marker
+   instead of leaving two unrelated symbols floating beside the copy. */
+.research-launcher .workflow-step {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  gap: 0;
+  border-radius: 15px;
+  color: #526bd3;
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px rgba(95, 121, 234, .08);
+}
+.research-launcher .workflow-step > svg {
+  width: 20px;
+  height: 20px;
+  stroke-width: 2;
+}
+.research-launcher .workflow-step > span {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 21px;
+  height: 21px;
+  border: 3px solid rgba(255, 255, 255, .96);
+  border-radius: 50%;
+  color: #fff;
+  background: var(--primary);
+  box-shadow: 0 4px 10px rgba(77, 101, 211, .18);
+  font-size: 9px;
+  font-weight: 780;
+  line-height: 1;
+}
+
+/* Spotlight: long speaker lists must never establish the page width. The
+   native select remains fully usable while its closed value is ellipsized. */
+.spotlight-batch-heading {
+  min-width: 0;
+  align-items: center;
+}
+.spotlight-batch-heading > h2 { flex: 0 0 auto; }
+.spotlight-batch-controls {
+  flex: 1 1 560px;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: nowrap;
+  min-width: 0;
+  max-width: 720px;
+}
+.spotlight-batch-controls .spotlight-batch-select {
+  flex: 1 1 420px;
+  width: 100%;
+  min-width: 0;
+  max-width: 620px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.spotlight-batch-controls .button { flex: 0 0 auto; }
+
+/* Shared warning rows appear in Spotlight, Runs, content, and lead review.
+   Normalize the icon and center the content block so one-line and wrapped
+   messages use the same durable alignment. */
+.warnings {
+  align-items: center;
+  line-height: 1.45;
+}
+.warnings > svg {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+}
+.warnings > span {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+.warnings > span > small {
+  display: block;
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* Settings: match the card's established vertical rhythm around explanatory
+   copy and keep the destructive action clearly separated from its warning. */
+.settings-grid .path-box + p {
+  margin: 14px 0 0;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+.settings-grid .danger-zone p {
+  margin: 7px 0 18px;
+  line-height: 1.55;
+}
+
+@media (max-width: 560px) {
+  .lead-metrics .metric-symbol { top: 14px; right: 14px; width: 32px; height: 32px; border-radius: 11px; }
+  .operations-run-list .operation-card { padding: 18px; }
+  .activity-dock { right: 10px; width: calc(100vw - 20px); }
+  .activity-trigger { min-height: 64px; padding: 10px 12px; }
+  .activity-orb { width: 38px; height: 38px; }
+  .activity-drawer { bottom: calc(100% + 12px); }
+  .research-launcher .workflow-step { width: 42px; height: 42px; border-radius: 14px; }
+  .research-launcher .workflow-step > span { right: -3px; bottom: -3px; width: 19px; height: 19px; border-width: 3px; }
+  .spotlight-batch-controls { flex-basis: auto; width: 100%; max-width: none; }
+}
+
+@media (max-width: 860px) {
+  .spotlight-batch-controls { flex-basis: auto; width: 100%; max-width: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .activity-drawer,
+  .activity-drawer-heading,
+  .activity-list { animation: none !important; }
+  .activity-trigger,
+  .activity-orb,
+  .activity-chevron { transition: none !important; }
+}

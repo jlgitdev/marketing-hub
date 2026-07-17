@@ -27,7 +27,11 @@ function AppFrame({ children }: { children: React.ReactNode }) {
   return (
     <div className="app-frame">
       <aside className="sidebar">
-        <Link href="/" className="brand" aria-label="Marketing Hub home">Marketing&nbsp;Hub</Link>
+        <Link href="/" className="brand" aria-label="Marketing Hub home">
+          <span className="brand-mark" aria-hidden="true"><i/><i/><i/><i/></span>
+          <span className="brand-copy"><strong>Marketing Hub</strong><small>AGI Summit workspace</small></span>
+        </Link>
+        <span className="nav-label">Workspace</span>
         <nav aria-label="Primary navigation">
           {nav.map((item) => {
             const Icon = item.icon;
@@ -36,6 +40,7 @@ function AppFrame({ children }: { children: React.ReactNode }) {
           })}
         </nav>
         <div className="sidebar-footer">
+          <span className="sidebar-footer-label">Private workspace</span>
           {demoMode && <p className="local-note demo"><span className="local-dot"/>Demo data — no external requests</p>}
           <p className="local-note"><span className="local-dot"/>All data stays on this device</p>
         </div>

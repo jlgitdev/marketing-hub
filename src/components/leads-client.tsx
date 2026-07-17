@@ -199,7 +199,7 @@ export function LeadsClient({ initialRunId = null, initialOutreachId = null }: {
     {message && <div className={message.toLowerCase().includes("failed") || message.toLowerCase().includes("could not") ? "notice danger" : "notice"} role="status">{message}</div>}
 
     <details className="panel research-launcher" open={researchExpanded ?? !visibleLeads.length} onToggle={(event) => setResearchExpanded(event.currentTarget.open)}>
-      <summary><span className="workflow-step"><span>1</span><Target size={18}/></span><span className="research-launcher-copy"><strong>Find new leads</strong><small>Choose a strategy, describe the outcome, then refine only if you need to.</small></span><span className="research-launcher-meta">{state.demoMode ? "Demo research" : "Live AI research"}<ArrowRight size={15}/></span></summary>
+      <summary><span className="workflow-step"><span>1</span><Target size={18}/></span><span className="research-launcher-copy"><strong>Find new leads</strong><small>Choose a strategy, describe the outcome, then refine only if you need to.</small></span><span className="research-launcher-meta">{state.demoMode ? "Demo research" : "Live research"}<ArrowRight size={15}/></span></summary>
       <div className="research-launcher-body">
         <form onSubmit={research} className="form-grid">
           <div className="span-two strategy-picker" role="group" aria-label="Lead search strategy">
@@ -225,10 +225,10 @@ export function LeadsClient({ initialRunId = null, initialOutreachId = null }: {
     </details>
 
     <section className="metric-grid lead-metrics" aria-label="Sales pipeline summary">
-      <button type="button" className={`metric ${queueView === "all" ? "active" : ""}`} aria-pressed={queueView === "all"} onClick={() => setQueueView("all")}><strong>{visibleLeads.length}</strong><small>all leads</small></button>
-      <button type="button" className={`metric ${queueView === "sales_ready" ? "active" : ""}`} aria-pressed={queueView === "sales_ready"} onClick={() => setQueueView("sales_ready")}><strong>{salesReady.length}</strong><small>sales-ready</small></button>
-      <button type="button" className={`metric ${queueView === "email" ? "active" : ""}`} aria-pressed={queueView === "email"} onClick={() => setQueueView("email")}><strong>{sourceBackedEmails.length}</strong><small>verified emails</small></button>
-      <button type="button" className={`metric ${queueView === "needs_review" ? "active" : ""}`} aria-pressed={queueView === "needs_review"} onClick={() => setQueueView("needs_review")}><strong>{awaitingReview.length}</strong><small>need review</small></button>
+      <button type="button" className={`metric lead-metric ${queueView === "all" ? "active" : ""}`} aria-pressed={queueView === "all"} onClick={() => setQueueView("all")}><span className="metric-symbol" aria-hidden="true"><UsersRound size={18}/></span><strong>{visibleLeads.length}</strong><small>all leads</small></button>
+      <button type="button" className={`metric lead-metric ${queueView === "sales_ready" ? "active" : ""}`} aria-pressed={queueView === "sales_ready"} onClick={() => setQueueView("sales_ready")}><span className="metric-symbol" aria-hidden="true"><Target size={18}/></span><strong>{salesReady.length}</strong><small>sales-ready</small></button>
+      <button type="button" className={`metric lead-metric ${queueView === "email" ? "active" : ""}`} aria-pressed={queueView === "email"} onClick={() => setQueueView("email")}><span className="metric-symbol" aria-hidden="true"><Mail size={18}/></span><strong>{sourceBackedEmails.length}</strong><small>verified emails</small></button>
+      <button type="button" className={`metric lead-metric ${queueView === "needs_review" ? "active" : ""}`} aria-pressed={queueView === "needs_review"} onClick={() => setQueueView("needs_review")}><span className="metric-symbol" aria-hidden="true"><Check size={18}/></span><strong>{awaitingReview.length}</strong><small>need review</small></button>
     </section>
 
     <section className="section-block lead-queue"><div className="section-heading split"><div><span className="eyebrow">Step 2 · Qualify</span><h2>Prioritized lead queue</h2><p className="muted">{filtered.length} shown of {visibleLeads.length}{runId && <> · {state.researchRuns.find((run) => run.id === runId)?.name || "Deleted run"}</>}</p></div><button className="button secondary small" type="button" onClick={() => void selectSalesReady()}><Check size={14}/>Select sales-ready</button></div>
