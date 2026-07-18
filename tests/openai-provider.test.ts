@@ -4,6 +4,7 @@ import {
   OPENAI_RESEARCH_TIMEOUT_MS,
   OPENAI_TEXT_TIMEOUT_MS,
   buildSpeakerSpotlightImageEditRequest,
+  buildSummitAgendaImageEditRequest,
   classifyProviderError,
   collectSourceMetadata,
   parseStructuredResponse,
@@ -28,6 +29,20 @@ describe("OpenAI provider diagnostics and GPT Image 2 request", () => {
     expect(request).not.toHaveProperty("input_fidelity");
     expect(request.image).toHaveLength(3);
     expect(OPENAI_IMAGE_TIMEOUT_MS).toBeGreaterThanOrEqual(180_000);
+  });
+
+  it("builds a high-quality agenda edit with the reference and all supplied portraits", () => {
+    const image = [{} as never, {} as never, {} as never, {} as never, {} as never, {} as never];
+    const request = buildSummitAgendaImageEditRequest(image, "Create the exact live session card");
+    expect(request).toMatchObject({
+      model: "gpt-image-2",
+      image,
+      prompt: "Create the exact live session card",
+      size: "1024x1536",
+      quality: "high",
+      output_format: "png"
+    });
+    expect(request.image).toHaveLength(6);
   });
 
   it("preserves safe invalid-request diagnostics without exposing the provider message", () => {

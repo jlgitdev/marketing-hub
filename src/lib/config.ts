@@ -13,7 +13,8 @@ export const PROMPT_VERSIONS = {
   outreach: "outreach-v2-auto-context",
   content: "social-content-v2-auto-context",
   image: "campaign-image-v1",
-  speakerSpotlight: "speaker-spotlight-v7-palace-template"
+  speakerSpotlight: "speaker-spotlight-v7-palace-template",
+  summitAgenda: "summit-agenda-live-v3-3x4"
 } as const;
 
 export const SPEAKER_SPOTLIGHT_IMAGE_SPEC = {
@@ -21,6 +22,13 @@ export const SPEAKER_SPOTLIGHT_IMAGE_SPEC = {
   height: 1536,
   size: "1024x1536",
   aspectRatio: "2:3"
+} as const;
+
+export const SUMMIT_AGENDA_IMAGE_SPEC = {
+  width: 1080,
+  height: 1440,
+  aspectRatio: "3:4",
+  providerSize: "1024x1536"
 } as const;
 
 export const PLATFORM_CONFIG = {

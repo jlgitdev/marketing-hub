@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import "./polish.css";
+import "./summit-agenda.css";
 import { AppShell } from "@/components/app-shell";
 
 const inter = Inter({ subsets: ["latin"], display: "swap", variable: "--font-inter" });

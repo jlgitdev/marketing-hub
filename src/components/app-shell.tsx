@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpenText, ContactRound, FileClock, Home, MicVocal, PenLine, Settings } from "lucide-react";
+import { BookOpenText, CalendarDays, ContactRound, FileClock, Home, MicVocal, PenLine, Settings } from "lucide-react";
 import { WorkspaceProvider, useWorkspace } from "./workspace";
 import { OperationsProvider } from "./operations";
 
@@ -12,6 +12,7 @@ const nav = [
   { href: "/leads", label: "Leads", icon: ContactRound },
   { href: "/content", label: "Content", icon: PenLine },
   { href: "/speaker-spotlight", label: "Spotlight", icon: MicVocal },
+  { href: "/summit-agenda", label: "Live Agenda", icon: CalendarDays },
   { href: "/runs", label: "Runs", icon: FileClock },
   { href: "/settings", label: "Settings", icon: Settings }
 ];

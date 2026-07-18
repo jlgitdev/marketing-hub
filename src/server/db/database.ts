@@ -230,12 +230,53 @@ const migrations = [
       CREATE INDEX IF NOT EXISTS leads_sales_motion_idx ON leads(sales_motion);
       CREATE INDEX IF NOT EXISTS leads_canonical_key_idx ON leads(canonical_key);
     `
+  },
+  {
+    version: 12,
+    sql: `
+      CREATE TABLE IF NOT EXISTS summit_agenda_state (
+        id TEXT PRIMARY KEY,
+        payload TEXT NOT NULL,
+        source_digest TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS summit_agenda_batches (
+        id TEXT PRIMARY KEY,
+        session_ids TEXT NOT NULL,
+        status TEXT NOT NULL,
+        model TEXT NOT NULL,
+        prompt_version TEXT NOT NULL,
+        provider TEXT NOT NULL,
+        warnings TEXT NOT NULL,
+        error TEXT,
+        created_at TEXT NOT NULL,
+        completed_at TEXT
+      );
+      CREATE TABLE IF NOT EXISTS summit_agenda_results (
+        id TEXT PRIMARY KEY,
+        batch_id TEXT NOT NULL REFERENCES summit_agenda_batches(id) ON DELETE CASCADE,
+        session_id TEXT NOT NULL,
+        session_snapshot TEXT NOT NULL,
+        status TEXT NOT NULL,
+        image_asset_id TEXT,
+        image_file_name TEXT,
+        image_storage_path TEXT,
+        prompt TEXT,
+        request_id TEXT,
+        error TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS summit_agenda_batches_created_idx ON summit_agenda_batches(created_at);
+      CREATE INDEX IF NOT EXISTS summit_agenda_results_batch_idx ON summit_agenda_results(batch_id);
+      CREATE INDEX IF NOT EXISTS summit_agenda_results_asset_idx ON summit_agenda_results(image_asset_id);
+    `
   }
 ];
 
 export function ensureDataDirectories() {
   const root = dataDirectory();
-  for (const name of ["", "uploads", "generated", "exports", "tmp", "speaker_spotlights"]) {
+  for (const name of ["", "uploads", "generated", "exports", "tmp", "speaker_spotlights", "summit_agenda", "summit_agenda/custom_portraits", "summit_agenda/batches"]) {
     fs.mkdirSync(path.join(root, name), { recursive: true });
   }
   return root;
@@ -283,6 +324,8 @@ export function getDatabase() {
       WHERE status='running'
     `).run(interruptedAt);
     db.prepare("UPDATE ai_operations SET status='interrupted', error=COALESCE(error, 'The local process stopped before this operation completed. Reconnect OpenAI and retry when ready.'), retryable=1, completed_at=COALESCE(completed_at, ?), updated_at=? WHERE status IN ('queued','running','cancel_requested')").run(interruptedAt, interruptedAt);
+    db.prepare("UPDATE summit_agenda_results SET status='failed', error=COALESCE(error, 'The local process stopped during this image.'), updated_at=? WHERE status IN ('queued','generating')").run(interruptedAt);
+    db.prepare("UPDATE summit_agenda_batches SET status=CASE WHEN EXISTS (SELECT 1 FROM summit_agenda_results r WHERE r.batch_id=summit_agenda_batches.id AND r.status='completed') THEN 'partially_completed' ELSE 'failed' END, error=COALESCE(error, 'The local process stopped before this batch completed.'), completed_at=COALESCE(completed_at, ?) WHERE status='running'").run(interruptedAt);
   });
   globalDb.__marketingHubDb = db;
   return db;

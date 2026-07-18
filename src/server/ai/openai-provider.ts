@@ -4,7 +4,7 @@ import OpenAI, { toFile } from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
 import type { ZodType } from "zod";
 import { MODELS } from "@/server/config";
-import { SPEAKER_SPOTLIGHT_IMAGE_SPEC } from "@/lib/config";
+import { SPEAKER_SPOTLIGHT_IMAGE_SPEC, SUMMIT_AGENDA_IMAGE_SPEC } from "@/lib/config";
 import type { ContextDocument, LeadRecord, Platform } from "@/lib/types";
 import { DiscoveryBundleSchema, ResearchBundleSchema, OutreachBundleSchema, SocialBundleSchema, SpeakerHeadshotQaSchema, SpeakerPostSchema, type DiscoveryBundle, type OutreachBundle, type ResearchBundle, type SocialBundle } from "./schemas";
 import { buildOutreachPrompt, buildResearchBackfillPrompt, buildResearchDiscoveryPrompt, buildResearchEnrichmentPrompt, buildSocialPrompt } from "./prompts";
@@ -334,6 +334,30 @@ export function buildSpeakerSpotlightImageEditRequest(image: Awaited<ReturnType<
     image,
     prompt,
     size: SPEAKER_SPOTLIGHT_IMAGE_SPEC.size,
+    quality: "high",
+    output_format: "png"
+  } as const;
+}
+
+export async function summitAgendaImageWithOpenAI(apiKey: string, input: { images: Array<{ filePath: string; mimeType: string }>; prompt: string }, signal?: AbortSignal) {
+  try {
+    const files = await Promise.all(input.images.map((item) => toFile(fs.createReadStream(item.filePath), path.basename(item.filePath), { type: item.mimeType })));
+    const result = await clientForKey(apiKey).images.edit(buildSummitAgendaImageEditRequest(files, input.prompt), { signal, timeout: OPENAI_IMAGE_TIMEOUT_MS, maxRetries: 0 });
+    const encoded = result.data?.[0]?.b64_json;
+    if (!encoded) throw new ProviderFailure("provider_unavailable", "OpenAI did not return a live agenda image.");
+    return { bytes: Buffer.from(encoded, "base64"), requestId: (result as unknown as { _request_id?: string })._request_id || null };
+  } catch (error) {
+    if (error instanceof ProviderFailure) throw error;
+    throw classifyProviderError(error);
+  }
+}
+
+export function buildSummitAgendaImageEditRequest(image: Awaited<ReturnType<typeof toFile>>[], prompt: string) {
+  return {
+    model: "gpt-image-2",
+    image,
+    prompt,
+    size: SUMMIT_AGENDA_IMAGE_SPEC.providerSize,
     quality: "high",
     output_format: "png"
   } as const;

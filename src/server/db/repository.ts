@@ -14,6 +14,9 @@ import type {
   ResearchRun,
   SpeakerSpotlightBatch,
   SpeakerSpotlightResult,
+  SummitAgendaBatch,
+  SummitAgendaData,
+  SummitAgendaResult,
   SupportingSource,
   WorkspaceState
 } from "@/lib/types";
@@ -559,6 +562,102 @@ export function deleteSpeakerSpotlightBatch(batchId: string) {
   }
 }
 
+export function getSummitAgendaData(defaultData: SummitAgendaData) {
+  const db = getDatabase();
+  const row = db.prepare("SELECT payload FROM summit_agenda_state WHERE id='current'").get() as Record<string, unknown> | undefined;
+  if (row) return json(String(row.payload), defaultData);
+  const now = new Date().toISOString();
+  const seeded = { ...defaultData, updatedAt: now };
+  const digest = defaultData.days.map((day) => day.sourceSha256).join(":");
+  db.prepare("INSERT INTO summit_agenda_state(id,payload,source_digest,updated_at) VALUES ('current',?,?,?)")
+    .run(JSON.stringify(seeded), digest, now);
+  return seeded;
+}
+
+export function saveSummitAgendaData(data: SummitAgendaData) {
+  const now = new Date().toISOString();
+  const next = { ...data, updatedAt: now };
+  const digest = data.days.map((day) => day.sourceSha256).join(":");
+  getDatabase().prepare("INSERT INTO summit_agenda_state(id,payload,source_digest,updated_at) VALUES ('current',?,?,?) ON CONFLICT(id) DO UPDATE SET payload=excluded.payload,source_digest=excluded.source_digest,updated_at=excluded.updated_at")
+    .run(JSON.stringify(next), digest, now);
+  return next;
+}
+
+function summitAgendaResultFromRow(row: Record<string, unknown>): SummitAgendaResult {
+  return {
+    id: String(row.id), batchId: String(row.batch_id), sessionId: String(row.session_id),
+    session: json(String(row.session_snapshot), {} as SummitAgendaResult["session"]),
+    status: row.status as SummitAgendaResult["status"], imageAssetId: row.image_asset_id ? String(row.image_asset_id) : null,
+    imageFileName: row.image_file_name ? String(row.image_file_name) : null, prompt: row.prompt ? String(row.prompt) : null,
+    requestId: row.request_id ? String(row.request_id) : null, error: row.error ? String(row.error) : null,
+    createdAt: String(row.created_at), updatedAt: String(row.updated_at)
+  };
+}
+
+export function createSummitAgendaBatch(batch: SummitAgendaBatch) {
+  const db = getDatabase();
+  withTransaction(db, () => {
+    db.prepare("INSERT INTO summit_agenda_batches(id,session_ids,status,model,prompt_version,provider,warnings,error,created_at,completed_at) VALUES (?,?,?,?,?,?,?,?,?,?)")
+      .run(batch.id, JSON.stringify(batch.sessionIds), batch.status, batch.model, batch.promptVersion, batch.provider, JSON.stringify(batch.warnings), batch.error, batch.createdAt, batch.completedAt);
+    for (const result of batch.results) {
+      db.prepare("INSERT INTO summit_agenda_results(id,batch_id,session_id,session_snapshot,status,image_asset_id,image_file_name,image_storage_path,prompt,request_id,error,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)")
+        .run(result.id, result.batchId, result.sessionId, JSON.stringify(result.session), result.status, result.imageAssetId, result.imageFileName, null, result.prompt, result.requestId, result.error, result.createdAt, result.updatedAt);
+    }
+  });
+  addActivity("summit_agenda_started", "Live agenda post batch", `${batch.sessionIds.length} sessions`, batch.id);
+  return batch;
+}
+
+export function updateSummitAgendaBatch(batchId: string, patch: Partial<Pick<SummitAgendaBatch, "status" | "warnings" | "error" | "completedAt">>) {
+  const batch = listSummitAgendaBatches().find((item) => item.id === batchId);
+  if (!batch) throw new Error("Live agenda post batch not found.");
+  const next = { ...batch, ...patch };
+  getDatabase().prepare("UPDATE summit_agenda_batches SET status=?,warnings=?,error=?,completed_at=? WHERE id=?")
+    .run(next.status, JSON.stringify(next.warnings), next.error, next.completedAt, batchId);
+  if (patch.completedAt) addActivity("summit_agenda_completed", "Live agenda post batch", `${next.results.filter((result) => result.status === "completed").length} completed`, batchId);
+  return next;
+}
+
+export function updateSummitAgendaResult(resultId: string, patch: Partial<SummitAgendaResult> & { imageStoragePath?: string | null }) {
+  const db = getDatabase();
+  const row = db.prepare("SELECT * FROM summit_agenda_results WHERE id=?").get(resultId) as Record<string, unknown> | undefined;
+  if (!row) throw new Error("Live agenda post result not found.");
+  const current = summitAgendaResultFromRow(row);
+  const next = { ...current, ...patch, updatedAt: new Date().toISOString() };
+  db.prepare("UPDATE summit_agenda_results SET session_snapshot=?,status=?,image_asset_id=?,image_file_name=?,image_storage_path=COALESCE(?,image_storage_path),prompt=?,request_id=?,error=?,updated_at=? WHERE id=?")
+    .run(JSON.stringify(next.session), next.status, next.imageAssetId, next.imageFileName, patch.imageStoragePath ?? null, next.prompt, next.requestId, next.error, next.updatedAt, resultId);
+  return next;
+}
+
+export function listSummitAgendaBatches() {
+  const db = getDatabase();
+  return (db.prepare("SELECT * FROM summit_agenda_batches ORDER BY created_at DESC").all() as Array<Record<string, unknown>>).map((row): SummitAgendaBatch => ({
+    id: String(row.id), sessionIds: json(String(row.session_ids), []), status: row.status as SummitAgendaBatch["status"],
+    model: String(row.model), promptVersion: String(row.prompt_version), provider: row.provider as SummitAgendaBatch["provider"],
+    warnings: json(String(row.warnings || "[]"), []), error: row.error ? String(row.error) : null,
+    createdAt: String(row.created_at), completedAt: row.completed_at ? String(row.completed_at) : null,
+    results: (db.prepare("SELECT * FROM summit_agenda_results WHERE batch_id=? ORDER BY created_at").all(String(row.id)) as Array<Record<string, unknown>>).map(summitAgendaResultFromRow)
+  }));
+}
+
+export function summitAgendaAssetStoragePath(assetId: string) {
+  const row = getDatabase().prepare("SELECT image_storage_path FROM summit_agenda_results WHERE image_asset_id=?").get(assetId) as Record<string, unknown> | undefined;
+  if (!row?.image_storage_path) return null;
+  const storedPath = String(row.image_storage_path);
+  const legacyFullCanvasPath = storedPath.replace(/-live\.png$/i, "-provider.png");
+  return legacyFullCanvasPath !== storedPath && fs.existsSync(legacyFullCanvasPath) ? legacyFullCanvasPath : storedPath;
+}
+
+export function deleteSummitAgendaBatch(batchId: string) {
+  const db = getDatabase();
+  const row = db.prepare("SELECT image_storage_path FROM summit_agenda_results WHERE batch_id=? AND image_storage_path IS NOT NULL LIMIT 1").get(batchId) as Record<string, unknown> | undefined;
+  db.prepare("DELETE FROM summit_agenda_batches WHERE id=?").run(batchId);
+  if (row?.image_storage_path) {
+    const directory = path.dirname(String(row.image_storage_path));
+    if (isPathInsideDataDirectory(directory)) fs.rmSync(directory, { recursive: true, force: true });
+  }
+}
+
 export function addActivity(type: string, title: string, detail: string, entityId?: string) {
   getDatabase().prepare("INSERT INTO activity_events(id,type,title,detail,entity_id,created_at) VALUES (?,?,?,?,?,?)")
     .run(id(), type, title, detail, entityId || null, new Date().toISOString());
@@ -570,16 +669,16 @@ export function getWorkspaceState(connection: WorkspaceState["connection"]): Wor
   const contentCampaigns = listContentCampaigns();
   return {
     demoMode: isDemoMode(), dataPath: dataDirectory(), connection, contextDocuments, brandAssets: listBrandAssets(),
-    researchRuns: listResearchRuns(), leads, outreachCampaigns: listOutreachCampaigns(), contentCampaigns, speakerSpotlightBatches: listSpeakerSpotlightBatches(),
-    counts: { activeContext: contextDocuments.filter((document) => document.active).length, leads: leads.length, awaitingReview: leads.filter((lead) => lead.reviewStatus === "unreviewed" || lead.reviewStatus === "needs_review").length, campaigns: contentCampaigns.length, speakerSpotlights: listSpeakerSpotlightBatches().reduce((sum, batch) => sum + batch.results.filter((result) => result.status === "completed").length, 0) }
+    researchRuns: listResearchRuns(), leads, outreachCampaigns: listOutreachCampaigns(), contentCampaigns, speakerSpotlightBatches: listSpeakerSpotlightBatches(), summitAgendaBatches: listSummitAgendaBatches(),
+    counts: { activeContext: contextDocuments.filter((document) => document.active).length, leads: leads.length, awaitingReview: leads.filter((lead) => lead.reviewStatus === "unreviewed" || lead.reviewStatus === "needs_review").length, campaigns: contentCampaigns.length, speakerSpotlights: listSpeakerSpotlightBatches().reduce((sum, batch) => sum + batch.results.filter((result) => result.status === "completed").length, 0), summitAgendaPosts: listSummitAgendaBatches().reduce((sum, batch) => sum + batch.results.filter((result) => result.status === "completed").length, 0) }
   };
 }
 
 export function resetAllData() {
   const db = getDatabase();
   withTransaction(db, () => {
-    for (const table of ["ai_operations", "activity_events", "speaker_spotlight_results", "speaker_spotlight_batches", "generated_assets", "platform_posts", "content_campaigns", "outreach_recipients", "outreach_campaigns", "lead_sources", "leads", "research_sources", "research_runs", "brand_assets", "context_documents", "context_asset_imports"]) db.prepare(`DELETE FROM ${table}`).run();
+    for (const table of ["ai_operations", "activity_events", "summit_agenda_results", "summit_agenda_batches", "summit_agenda_state", "speaker_spotlight_results", "speaker_spotlight_batches", "generated_assets", "platform_posts", "content_campaigns", "outreach_recipients", "outreach_campaigns", "lead_sources", "leads", "research_sources", "research_runs", "brand_assets", "context_documents", "context_asset_imports"]) db.prepare(`DELETE FROM ${table}`).run();
   });
-  for (const name of ["uploads", "generated", "exports", "tmp", "speaker_spotlights"]) fs.rmSync(path.join(dataDirectory(), name), { recursive: true, force: true });
+  for (const name of ["uploads", "generated", "exports", "tmp", "speaker_spotlights", "summit_agenda"]) fs.rmSync(path.join(dataDirectory(), name), { recursive: true, force: true });
   ensureDataDirectories();
 }

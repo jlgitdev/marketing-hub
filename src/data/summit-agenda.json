@@ -1,0 +1,3148 @@
+{
+  "event": {
+    "name": "AGI Summit SF 2026",
+    "location": "San Francisco",
+    "timezone": "America/Los_Angeles"
+  },
+  "stages": [
+    {
+      "key": "gpt",
+      "name": "AGI Stage"
+    },
+    {
+      "key": "agi",
+      "name": "Applied AI Stage"
+    },
+    {
+      "key": "pitch",
+      "name": "Discovery Stage"
+    },
+    {
+      "key": "workshop",
+      "name": "Workshop"
+    }
+  ],
+  "references": {
+    "one": "summit-agenda/references/one-person.png",
+    "two": "summit-agenda/references/two-person.png",
+    "many": "summit-agenda/references/five-person.png"
+  },
+  "days": [
+    {
+      "key": "day1",
+      "label": "Day 1",
+      "date": "July 18, 2026",
+      "sourceFile": "summit agenda creation/day 1/AGI Summit · Agenda Planner.html",
+      "sourceSha256": "20578c4a6cfb42e4128b0a392c27b8e2baf4e0bf39bb040f7b7f8c2f27ef60ad",
+      "sessions": [
+        {
+          "id": "day1-gpt-seed1",
+          "sourceId": "seed1",
+          "day": "day1",
+          "stage": "gpt",
+          "stageName": "AGI Stage",
+          "start": 520,
+          "end": 540,
+          "startLabel": "8:40",
+          "endLabel": "9:00",
+          "format": "Keynote",
+          "title": "AI Can Write PRs end-to-end, Should It?",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": [
+            {
+              "id": "s13",
+              "name": "Daksh Gupta",
+              "role": "Co-Founder & CEO",
+              "company": "Greptile",
+              "moderator": false,
+              "photo": "default:img-mpvilixa-248eb48ad030_500L.webp"
+            }
+          ]
+        },
+        {
+          "id": "day1-agi-xot8mx577",
+          "sourceId": "xot8mx577",
+          "day": "day1",
+          "stage": "agi",
+          "stageName": "Applied AI Stage",
+          "start": 530,
+          "end": 550,
+          "startLabel": "8:50",
+          "endLabel": "9:10",
+          "format": "Keynote",
+          "title": "AGI the IntelligentMachineGuild.org and the Real Three Laws",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": false,
+          "people": [
+            {
+              "id": "sync-daniel-theobald",
+              "name": "Daniel Theobald",
+              "role": "Co-Founder, Founding President, Board Member, Head of Standards Development",
+              "company": "MassRobotics",
+              "moderator": false,
+              "photo": "default:daniel-theobald-massrobotics-t_500L.webp"
+            }
+          ]
+        },
+        {
+          "id": "day1-gpt-seed2",
+          "sourceId": "seed2",
+          "day": "day1",
+          "stage": "gpt",
+          "stageName": "AGI Stage",
+          "start": 540,
+          "end": 560,
+          "startLabel": "9:00",
+          "endLabel": "9:20",
+          "format": "Fireside",
+          "title": "AI made coding 10X faster, why aren’t software products getting better 10X faster?",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": [
+            {
+              "id": "s13",
+              "name": "Daksh Gupta",
+              "role": "Co-Founder & CEO",
+              "company": "Greptile",
+              "moderator": false,
+              "photo": "default:img-mpvilixa-248eb48ad030_500L.webp"
+            },
+            {
+              "id": "s1",
+              "name": "Rohan Varma",
+              "role": "Engineering, Codex",
+              "company": "Codex",
+              "moderator": false,
+              "photo": "default:img-mpvilg44-9cd8152f4e71_500L.webp"
+            }
+          ]
+        },
+        {
+          "id": "day1-agi-xdptcyh4j",
+          "sourceId": "xdptcyh4j",
+          "day": "day1",
+          "stage": "agi",
+          "stageName": "Applied AI Stage",
+          "start": 550,
+          "end": 570,
+          "startLabel": "9:10",
+          "endLabel": "9:30",
+          "format": "Keynote",
+          "title": "The intersection of language, visualization, and AI",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": [
+            {
+              "id": "sync-marti-hearst",
+              "name": "Marti Hearst",
+              "role": "Professor, School of Information",
+              "company": "UC Berkeley",
+              "moderator": false,
+              "photo": "default:marti-hearst_500L.webp"
+            }
+          ]
+        },
+        {
+          "id": "day1-gpt-seed3",
+          "sourceId": "seed3",
+          "day": "day1",
+          "stage": "gpt",
+          "stageName": "AGI Stage",
+          "start": 560,
+          "end": 580,
+          "startLabel": "9:20",
+          "endLabel": "9:40",
+          "format": "Fireside",
+          "title": "Shipping AI Dev Tools Across Hundreds of Engineers",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": [
+            {
+              "id": "s13",
+              "name": "Daksh Gupta",
+              "role": "Co-Founder & CEO",
+              "company": "Greptile",
+              "moderator": false,
+              "photo": "default:img-mpvilixa-248eb48ad030_500L.webp"
+            },
+            {
+              "id": "s19",
+              "name": "Chintan Turakhia",
+              "role": "Head of Eng for Wallet + AI Engineering",
+              "company": "Coinbase",
+              "moderator": false,
+              "photo": "default:img-mpviljhz-761210301f14_500L.webp"
+            }
+          ]
+        },
+        {
+          "id": "day1-pitch-xcdvolyy2",
+          "sourceId": "xcdvolyy2",
+          "day": "day1",
+          "stage": "pitch",
+          "stageName": "Discovery Stage",
+          "start": 565,
+          "end": 585,
+          "startLabel": "9:25",
+          "endLabel": "9:45",
+          "format": "Keynote",
+          "title": "Invest in full-stack AI and win in deep domains, or Invest in new frontier: Space as AI infrastructure.",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": []
+        },
+        {
+          "id": "day1-agi-xzgvxv9f2",
+          "sourceId": "xzgvxv9f2",
+          "day": "day1",
+          "stage": "agi",
+          "stageName": "Applied AI Stage",
+          "start": 570,
+          "end": 590,
+          "startLabel": "9:30",
+          "endLabel": "9:50",
+          "format": "Keynote",
+          "title": "Veridical Data Science for Trustworthy AI",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": [
+            {
+              "id": "sync-bin-yu",
+              "name": "Bin Yu",
+              "role": "Chancellor's Distinguished Professor, Statistics & EECS",
+              "company": "UC Berkeley",
+              "moderator": false,
+              "photo": "default:bin-yu_500L.webp"
+            }
+          ]
+        },
+        {
+          "id": "day1-gpt-seed5",
+          "sourceId": "seed5",
+          "day": "day1",
+          "stage": "gpt",
+          "stageName": "AGI Stage",
+          "start": 585,
+          "end": 605,
+          "startLabel": "9:45",
+          "endLabel": "10:05",
+          "format": "Keynote",
+          "title": "Building the Simulation Infrastructure Layer Towards Embodied General Intelligence",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": [
+            {
+              "id": "s14",
+              "name": "Fan-Yun Sun",
+              "role": "CEO",
+              "company": "Moonlake AI",
+              "moderator": false,
+              "photo": "default:fan-yun-sun_500L.webp"
+            }
+          ]
+        },
+        {
+          "id": "day1-pitch-xg8qrpaca",
+          "sourceId": "xg8qrpaca",
+          "day": "day1",
+          "stage": "pitch",
+          "stageName": "Discovery Stage",
+          "start": 590,
+          "end": 610,
+          "startLabel": "9:50",
+          "endLabel": "10:10",
+          "format": "Keynote",
+          "title": "Shepherd: A Framework for Managing Agents with Reversible, Git-like Execution Traces",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": [
+            {
+              "id": "s51",
+              "name": "Weiyan Shi",
+              "role": "Assistant Professor",
+              "company": "Northeastern University",
+              "moderator": false,
+              "photo": "default:img-mqfya8av-4c94bd7c8cec_500L.webp"
+            }
+          ]
+        },
+        {
+          "id": "day1-gpt-seed6",
+          "sourceId": "seed6",
+          "day": "day1",
+          "stage": "gpt",
+          "stageName": "AGI Stage",
+          "start": 605,
+          "end": 640,
+          "startLabel": "10:05",
+          "endLabel": "10:40",
+          "format": "Panel",
+          "title": "Beyond Language: World Models, Spatial Reasoning, and Embodied Intelligence",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": [
+            {
+              "id": "s30",
+              "name": "Mercedes Bent",
+              "role": "Partner & Co-Founder",
+              "company": "Premise VC",
+              "moderator": true,
+              "photo": "default:img-mpy63oef-edd3ae3e1f33_500L.webp"
+            },
+            {
+              "id": "s14",
+              "name": "Fan-Yun Sun",
+              "role": "CEO",
+              "company": "Moonlake AI",
+              "moderator": false,
+              "photo": "default:fan-yun-sun_500L.webp"
+            },
+            {
+              "id": "s0",
+              "name": "Christopher Manning",
+              "role": "Professor of CS & Linguistics",
+              "company": "Stanford",
+              "moderator": false,
+              "photo": "default:img-mpw2zqmw-70e37bbd820a_500L.webp"
+            },
+            {
+              "id": "sync-christian-laforte",
+              "name": "Christian Laforte",
+              "role": "Distinguished Engineer",
+              "company": "Moonlake · NVIDIA",
+              "moderator": false,
+              "photo": "default:christian-laforte-t_500L.webp"
+            }
+          ]
+        },
+        {
+          "id": "day1-agi-seed12",
+          "sourceId": "seed12",
+          "day": "day1",
+          "stage": "agi",
+          "stageName": "Applied AI Stage",
+          "start": 615,
+          "end": 635,
+          "startLabel": "10:15",
+          "endLabel": "10:35",
+          "format": "Fireside",
+          "title": "Physical AI: History's Second Run",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": [
+            {
+              "id": "s45",
+              "name": "Xiaodi Hou",
+              "role": "Chief Executive Officer",
+              "company": "Bot Auto",
+              "moderator": false,
+              "photo": "default:img-mpvilsto-0124f2133781_500L.webp"
+            }
+          ]
+        },
+        {
+          "id": "day1-pitch-x6x2n988t",
+          "sourceId": "x6x2n988t",
+          "day": "day1",
+          "stage": "pitch",
+          "stageName": "Discovery Stage",
+          "start": 615,
+          "end": 635,
+          "startLabel": "10:15",
+          "endLabel": "10:35",
+          "format": "Keynote",
+          "title": "Where AI Money Flows Capital, deals, and the bets VCs are actually making",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": [
+            {
+              "id": "sync-grace-gong",
+              "name": "Grace Gong",
+              "role": "Founder",
+              "company": "Smart Venture Media",
+              "moderator": false,
+              "photo": "default:grace-gong-svm-t_500L.webp"
+            }
+          ]
+        },
+        {
+          "id": "day1-pitch-xzdt5bj3p",
+          "sourceId": "xzdt5bj3p",
+          "day": "day1",
+          "stage": "pitch",
+          "stageName": "Discovery Stage",
+          "start": 640,
+          "end": 655,
+          "startLabel": "10:40",
+          "endLabel": "10:55",
+          "format": "Keynote",
+          "title": "Biomedicine in the Age of Agentic AI",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": [
+            {
+              "id": "s25",
+              "name": "Lei Xing",
+              "role": "Endowed Professor, Medical Physics Director",
+              "company": "Stanford",
+              "moderator": false,
+              "photo": "default:img-mpviln2o-5888a60444d3_500L.webp"
+            }
+          ]
+        },
+        {
+          "id": "day1-gpt-x6o69dpo4",
+          "sourceId": "x6o69dpo4",
+          "day": "day1",
+          "stage": "gpt",
+          "stageName": "AGI Stage",
+          "start": 645,
+          "end": 665,
+          "startLabel": "10:45",
+          "endLabel": "11:05",
+          "format": "Fireside",
+          "title": "The Legibility Layer: Keeping Codebases Understandable When Machines Write Them",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": [
+            {
+              "id": "s13",
+              "name": "Daksh Gupta",
+              "role": "Co-Founder & CEO",
+              "company": "Greptile",
+              "moderator": false,
+              "photo": "default:img-mpvilixa-248eb48ad030_500L.webp"
+            },
+            {
+              "id": "sync-hahnbee-lee",
+              "name": "Hahnbee Lee",
+              "role": "Co-founder/CTO",
+              "company": "Mintlify",
+              "moderator": false,
+              "photo": "default:hahnbee-lee-mintlify_500L.webp"
+            }
+          ]
+        },
+        {
+          "id": "day1-agi-seed10",
+          "sourceId": "seed10",
+          "day": "day1",
+          "stage": "agi",
+          "stageName": "Applied AI Stage",
+          "start": 645,
+          "end": 665,
+          "startLabel": "10:45",
+          "endLabel": "11:05",
+          "format": "Fireside",
+          "title": "The Intelligence Beyond Super Intelligence",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": [
+            {
+              "id": "s40",
+              "name": "Holly Zheng",
+              "role": "Founder & Managing Partner",
+              "company": "EnvisionX Capital",
+              "moderator": false,
+              "photo": "default:img-mpvilqkz-518c281f7815_500L.webp"
+            },
+            {
+              "id": "s4",
+              "name": "Yuandong Tian",
+              "role": "Co-Founder",
+              "company": "Recursive Superintelligence",
+              "moderator": false,
+              "photo": "default:img-mpvilfks-894db089db34_500L.webp"
+            }
+          ]
+        },
+        {
+          "id": "day1-pitch-xrmy5fh23",
+          "sourceId": "xrmy5fh23",
+          "day": "day1",
+          "stage": "pitch",
+          "stageName": "Discovery Stage",
+          "start": 660,
+          "end": 680,
+          "startLabel": "11:00",
+          "endLabel": "11:20",
+          "format": "Keynote",
+          "title": "Teaching AI the Laws of Nature",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": []
+        },
+        {
+          "id": "day1-agi-xonsn1gkg",
+          "sourceId": "xonsn1gkg",
+          "day": "day1",
+          "stage": "agi",
+          "stageName": "Applied AI Stage",
+          "start": 665,
+          "end": 685,
+          "startLabel": "11:05",
+          "endLabel": "11:25",
+          "format": "Keynote",
+          "title": "Cut Token Costs By 50%: Building Context-Efficient Agents",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": [
+            {
+              "id": "sync-liz-radway",
+              "name": "Liz Radway",
+              "role": "Software Development Engineer",
+              "company": "AWS",
+              "moderator": false,
+              "photo": "default:liz-radway-aws-t_500L.webp"
+            }
+          ]
+        },
+        {
+          "id": "day1-gpt-seed7",
+          "sourceId": "seed7",
+          "day": "day1",
+          "stage": "gpt",
+          "stageName": "AGI Stage",
+          "start": 670,
+          "end": 690,
+          "startLabel": "11:10",
+          "endLabel": "11:30",
+          "format": "Keynote",
+          "title": "Winning when Code is Free: How to b Build Defensible AI Startups that Scale",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": [
+            {
+              "id": "s35",
+              "name": "Jeremiah Owyang",
+              "role": "General Partner",
+              "company": "Blitzscaling Ventures",
+              "moderator": false,
+              "photo": "default:img-mpvilpn2-a8789e25a22f_500L.webp"
+            }
+          ]
+        },
+        {
+          "id": "day1-agi-xuaw0z5g6",
+          "sourceId": "xuaw0z5g6",
+          "day": "day1",
+          "stage": "agi",
+          "stageName": "Applied AI Stage",
+          "start": 685,
+          "end": 705,
+          "startLabel": "11:25",
+          "endLabel": "11:45",
+          "format": "Keynote",
+          "title": "Bringing Physical AI into Everyday Robotics - Toborlife",
+          "status": "confirmed",
+          "relation": "exhibitor",
+          "notified": true,
+          "people": [
+            {
+              "id": "sync-david-schulhof",
+              "name": "David Schulhof",
+              "role": "CEO & Founder",
+              "company": "Toborlife AI",
+              "moderator": false,
+              "photo": "default:david-schulhof-toborlife-t_500L.webp"
+            },
+            {
+              "id": "sync-george-ekas",
+              "name": "George Ekas",
+              "role": "CTO",
+              "company": "Toborlife AI",
+              "moderator": false,
+              "photo": "default:george-ekas-toborlife-t_500L.webp"
+            }
+          ]
+        },
+        {
+          "id": "day1-pitch-x8cmkwvij",
+          "sourceId": "x8cmkwvij",
+          "day": "day1",
+          "stage": "pitch",
+          "stageName": "Discovery Stage",
+          "start": 685,
+          "end": 705,
+          "startLabel": "11:25",
+          "endLabel": "11:45",
+          "format": "Keynote",
+          "title": "Building AI That Improves Healthcare",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": []
+        },
+        {
+          "id": "day1-gpt-seed8",
+          "sourceId": "seed8",
+          "day": "day1",
+          "stage": "gpt",
+          "stageName": "AGI Stage",
+          "start": 695,
+          "end": 740,
+          "startLabel": "11:35",
+          "endLabel": "12:20",
+          "format": "Panel",
+          "title": "World Positive Al: Building for Human Flourishing",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": [
+            {
+              "id": "s15",
+              "name": "Vishal Vasishth",
+              "role": "Co-Founder & Managing Director",
+              "company": "Obvious Ventures",
+              "moderator": false,
+              "photo": "default:img-mqfn1os4-f53659b9e99e_500L.webp"
+            },
+            {
+              "id": "s37",
+              "name": "Josh Haimson",
+              "role": "Co-Founder & CEO",
+              "company": "Inductive Bio",
+              "moderator": false,
+              "photo": "default:img-mqfn1pus-701abcc51d5f_500L.webp"
+            },
+            {
+              "id": "s38",
+              "name": "Joel Edwards",
+              "role": "CTO & Co-Founder",
+              "company": "Zanskar",
+              "moderator": false,
+              "photo": "default:img-mqfn1qno-e8ff5a86770c_500L.webp"
+            }
+          ]
+        },
+        {
+          "id": "day1-agi-xmigt8mt9",
+          "sourceId": "xmigt8mt9",
+          "day": "day1",
+          "stage": "agi",
+          "stageName": "Applied AI Stage",
+          "start": 705,
+          "end": 725,
+          "startLabel": "11:45",
+          "endLabel": "12:05",
+          "format": "Keynote",
+          "title": "New Port AI - Exhibitor：Bringing Generative AI to Real-World Experiences",
+          "status": "confirmed",
+          "relation": "exhibitor",
+          "notified": true,
+          "people": []
+        },
+        {
+          "id": "day1-agi-xisilnyvq",
+          "sourceId": "xisilnyvq",
+          "day": "day1",
+          "stage": "agi",
+          "stageName": "Applied AI Stage",
+          "start": 730,
+          "end": 775,
+          "startLabel": "12:10",
+          "endLabel": "12:55",
+          "format": "Panel",
+          "title": "Specialized Intelligence: One Giant Brain, or a Million Specialized Ones?",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": false,
+          "people": [
+            {
+              "id": "sync-yufei-chen",
+              "name": "Yufei Chen",
+              "role": "Co-Founder",
+              "company": "Fireworks AI",
+              "moderator": false,
+              "photo": "default:yufei-chen-fireworks-t_500L.webp"
+            },
+            {
+              "id": "s7",
+              "name": "Raymond Chen",
+              "role": "Member of Technical Staff",
+              "company": "OpenAI",
+              "moderator": false,
+              "photo": "default:img-mqb75qij-dde0c87a228f_500L.webp"
+            },
+            {
+              "id": "sync-wei-han",
+              "name": "Wei Han",
+              "role": "Head of AI",
+              "company": "Cloudwise",
+              "moderator": false,
+              "photo": "default:wei-han-cloudwise-t_500L.webp"
+            },
+            {
+              "id": "sync-chris-bradbury",
+              "name": "Chris Bradbury",
+              "role": "Principal",
+              "company": "Alumni Ventures",
+              "moderator": false,
+              "photo": "default:chris-bradbury_500L.webp"
+            },
+            {
+              "id": "sync-tina-tsou",
+              "name": "Tina Tsou",
+              "role": "GM, AI & HPC Solutions",
+              "company": "Supermicro",
+              "moderator": false,
+              "photo": "default:tina-tsou-supermicro-t_500L.webp"
+            }
+          ]
+        },
+        {
+          "id": "day1-pitch-xxohoy2e0",
+          "sourceId": "xxohoy2e0",
+          "day": "day1",
+          "stage": "pitch",
+          "stageName": "Discovery Stage",
+          "start": 735,
+          "end": 755,
+          "startLabel": "12:15",
+          "endLabel": "12:35",
+          "format": "Keynote",
+          "title": "Securing AI Agents: From Risk Assessment and Runtime Guardrails to Self-Improvement and Certification",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": [
+            {
+              "id": "s47",
+              "name": "Bo Li",
+              "role": "CEO",
+              "company": "Virtue AI",
+              "moderator": false,
+              "photo": "default:img-mpviluep-f9f17f36e37a_500L.webp"
+            }
+          ]
+        },
+        {
+          "id": "day1-gpt-x9onhxfep",
+          "sourceId": "x9onhxfep",
+          "day": "day1",
+          "stage": "gpt",
+          "stageName": "AGI Stage",
+          "start": 745,
+          "end": 770,
+          "startLabel": "12:25",
+          "endLabel": "12:50",
+          "format": "Keynote",
+          "title": "Startup Pitch",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": false,
+          "people": []
+        },
+        {
+          "id": "day1-pitch-xx6743299",
+          "sourceId": "xx6743299",
+          "day": "day1",
+          "stage": "pitch",
+          "stageName": "Discovery Stage",
+          "start": 760,
+          "end": 780,
+          "startLabel": "12:40",
+          "endLabel": "1:00",
+          "format": "Keynote",
+          "title": "Investing in Open Source: How Next Gen Enterprises Will Be Built",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": [
+            {
+              "id": "sync-bradden-blair",
+              "name": "Bradden Blair",
+              "role": "CEO",
+              "company": "Open Technology Incubator",
+              "moderator": false,
+              "photo": "default:bradden-blair-oti-t_500L.webp"
+            }
+          ]
+        },
+        {
+          "id": "day1-gpt-xxjj7nr36",
+          "sourceId": "xxjj7nr36",
+          "day": "day1",
+          "stage": "gpt",
+          "stageName": "AGI Stage",
+          "start": 780,
+          "end": 800,
+          "startLabel": "1:00",
+          "endLabel": "1:20",
+          "format": "Keynote",
+          "title": "Multimodal GenAI: Infinite Footage, Finite Taste",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": [
+            {
+              "id": "sync-jerry-tang",
+              "name": "Jerry Tang",
+              "role": "Chief Executive Officer",
+              "company": "Atlas Cloud",
+              "moderator": false,
+              "photo": "default:jerry-tang-atlascloud-t_500L.webp"
+            },
+            {
+              "id": "sync-sharon-gai",
+              "name": "Sharon Gai",
+              "role": "CEO & Founder",
+              "company": "Culture Fluid",
+              "moderator": false,
+              "photo": "default:sharon-gai-t_500L.webp"
+            }
+          ]
+        },
+        {
+          "id": "day1-agi-xr6gyacln",
+          "sourceId": "xr6gyacln",
+          "day": "day1",
+          "stage": "agi",
+          "stageName": "Applied AI Stage",
+          "start": 780,
+          "end": 800,
+          "startLabel": "1:00",
+          "endLabel": "1:20",
+          "format": "Keynote",
+          "title": "Process Memory: The Missing Layer in Enterprise AI",
+          "status": "confirmed",
+          "relation": "sponsor",
+          "notified": true,
+          "people": [
+            {
+              "id": "sync-vinay-mahadik",
+              "name": "Vinay Mahadik",
+              "role": "Co-Founder & CEO",
+              "company": "/drift AI",
+              "moderator": false,
+              "photo": "default:vinay-mahadik-drift-t_500L.webp"
+            }
+          ]
+        },
+        {
+          "id": "day1-pitch-xlna5lxbs",
+          "sourceId": "xlna5lxbs",
+          "day": "day1",
+          "stage": "pitch",
+          "stageName": "Discovery Stage",
+          "start": 785,
+          "end": 805,
+          "startLabel": "1:05",
+          "endLabel": "1:25",
+          "format": "Keynote",
+          "title": "From Personal AI to Collaborative Intelligence: Building the Human+AI Social Platform",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": [
+            {
+              "id": "sync-salman-avestimehr",
+              "name": "Salman Avestimehr",
+              "role": "Dean's Professor · Co-Founder, Teamily AI",
+              "company": "USC",
+              "moderator": false,
+              "photo": "default:salman-avestimehr_500L.webp"
+            }
+          ]
+        },
+        {
+          "id": "day1-gpt-mrmlluvunidyw",
+          "sourceId": "mrmlluvunidyw",
+          "day": "day1",
+          "stage": "gpt",
+          "stageName": "AGI Stage",
+          "start": 800,
+          "end": 815,
+          "startLabel": "1:20",
+          "endLabel": "1:35",
+          "format": "Keynote",
+          "title": "Rolling Out LLM engines at Scale",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": [
+            {
+              "id": "s8",
+              "name": "Dong Meng",
+              "role": "Engineering, Infrastructure",
+              "company": "OpenAI",
+              "moderator": false,
+              "photo": null
+            }
+          ]
+        },
+        {
+          "id": "day1-agi-xy3k72e4c",
+          "sourceId": "xy3k72e4c",
+          "day": "day1",
+          "stage": "agi",
+          "stageName": "Applied AI Stage",
+          "start": 800,
+          "end": 820,
+          "startLabel": "1:20",
+          "endLabel": "1:40",
+          "format": "Keynote",
+          "title": "The Future of AI Interferce",
+          "status": "confirmed",
+          "relation": "exhibitor",
+          "notified": true,
+          "people": [
+            {
+              "id": "s72",
+              "name": "David Wang",
+              "role": "Founder & CEO",
+              "company": "GoodVision AI",
+              "moderator": false,
+              "photo": "default:david-wang-goodvision_500L.webp"
+            }
+          ]
+        },
+        {
+          "id": "day1-pitch-xmnikocx1",
+          "sourceId": "xmnikocx1",
+          "day": "day1",
+          "stage": "pitch",
+          "stageName": "Discovery Stage",
+          "start": 805,
+          "end": 825,
+          "startLabel": "1:25",
+          "endLabel": "1:45",
+          "format": "Keynote",
+          "title": "Unified Causal Intelligence: The Next Paradigm of AI",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": [
+            {
+              "id": "s63",
+              "name": "Biwei Huang",
+              "role": "Assistant Professor",
+              "company": "UC San Diego",
+              "moderator": false,
+              "photo": "default:img-mqfy0n03-a0da6fc29586_500L.webp"
+            }
+          ]
+        },
+        {
+          "id": "day1-gpt-mrmlluvugzdl7",
+          "sourceId": "mrmlluvugzdl7",
+          "day": "day1",
+          "stage": "gpt",
+          "stageName": "AGI Stage",
+          "start": 815,
+          "end": 830,
+          "startLabel": "1:35",
+          "endLabel": "1:50",
+          "format": "Keynote",
+          "title": "Rolling Out LLM engines at Scale",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": [
+            {
+              "id": "s9",
+              "name": "Zihan (Gavin) Zheng",
+              "role": "Member of Technical Staff",
+              "company": "OpenAI",
+              "moderator": false,
+              "photo": "default:img-mqn0ny5h-d14ec8cfc139_500L.webp"
+            }
+          ]
+        },
+        {
+          "id": "day1-agi-xexmulez9",
+          "sourceId": "xexmulez9",
+          "day": "day1",
+          "stage": "agi",
+          "stageName": "Applied AI Stage",
+          "start": 820,
+          "end": 840,
+          "startLabel": "1:40",
+          "endLabel": "2:00",
+          "format": "Keynote",
+          "title": "The Future of AI-Powered Living and Digital Identity - AC Future / BioMatrix",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": []
+        },
+        {
+          "id": "day1-gpt-mrmlluvu62fav",
+          "sourceId": "mrmlluvu62fav",
+          "day": "day1",
+          "stage": "gpt",
+          "stageName": "AGI Stage",
+          "start": 830,
+          "end": 850,
+          "startLabel": "1:50",
+          "endLabel": "2:10",
+          "format": "Keynote",
+          "title": "Scaling AI Infrastructure at OpenAI",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": [
+            {
+              "id": "s7",
+              "name": "Raymond Chen",
+              "role": "Member of Technical Staff",
+              "company": "OpenAI",
+              "moderator": false,
+              "photo": "default:img-mqb75qij-dde0c87a228f_500L.webp"
+            }
+          ]
+        },
+        {
+          "id": "day1-agi-x16e1evud",
+          "sourceId": "x16e1evud",
+          "day": "day1",
+          "stage": "agi",
+          "stageName": "Applied AI Stage",
+          "start": 840,
+          "end": 860,
+          "startLabel": "2:00",
+          "endLabel": "2:20",
+          "format": "Keynote",
+          "title": "Smarter Ergonomics for the Future of Work - LiberNovo",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": [
+            {
+              "id": "sync-chris-waclawski",
+              "name": "Chris Waclawski",
+              "role": "Head of Sales, US",
+              "company": "LiberNovo",
+              "moderator": false,
+              "photo": "default:chris-waclawski-libernovo-t_500L.webp"
+            }
+          ]
+        },
+        {
+          "id": "day1-gpt-seed4",
+          "sourceId": "seed4",
+          "day": "day1",
+          "stage": "gpt",
+          "stageName": "AGI Stage",
+          "start": 850,
+          "end": 870,
+          "startLabel": "2:10",
+          "endLabel": "2:30",
+          "format": "Keynote",
+          "title": "Building an AI Startup That Gets Funded",
+          "status": "confirmed",
+          "relation": "sponsor",
+          "notified": true,
+          "people": [
+            {
+              "id": "s11",
+              "name": "Ketaki Rao",
+              "role": "Chief Product Officer",
+              "company": "Crunchbase",
+              "moderator": false,
+              "photo": "default:ketaki-rao-transparent_500L.webp"
+            }
+          ]
+        },
+        {
+          "id": "day1-pitch-xdh72qjhu",
+          "sourceId": "xdh72qjhu",
+          "day": "day1",
+          "stage": "pitch",
+          "stageName": "Discovery Stage",
+          "start": 855,
+          "end": 875,
+          "startLabel": "2:15",
+          "endLabel": "2:35",
+          "format": "Keynote",
+          "title": "AI Finance Software for 100% Disability Veterans",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": false,
+          "people": []
+        },
+        {
+          "id": "day1-agi-seed9",
+          "sourceId": "seed9",
+          "day": "day1",
+          "stage": "agi",
+          "stageName": "Applied AI Stage",
+          "start": 860,
+          "end": 900,
+          "startLabel": "2:20",
+          "endLabel": "3:00",
+          "format": "Panel",
+          "title": "From AI Capability to Trusted and Secured Adoption",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": [
+            {
+              "id": "s68",
+              "name": "Wickey Wang",
+              "role": "Emerging Tech Advisor",
+              "company": "ISACA",
+              "moderator": true,
+              "photo": "default:img-mpvilzvq-7d08e59d5ebb_500L.webp"
+            },
+            {
+              "id": "s56",
+              "name": "Merritt Baer",
+              "role": "Chief Security Officer",
+              "company": "Enkrypt AI",
+              "moderator": false,
+              "photo": "default:merritt-baer_500L.webp"
+            },
+            {
+              "id": "s65",
+              "name": "John Donovan",
+              "role": "Head of Security, IT, & Compliance",
+              "company": "ZEDEDA",
+              "moderator": false,
+              "photo": "default:img-mpvilxnz-489f66fe3b60_500L.webp"
+            },
+            {
+              "id": "s20",
+              "name": "Joshua McKibben",
+              "role": "Head of Trust & AI Risk",
+              "company": "Harvey",
+              "moderator": false,
+              "photo": "default:img-mpvilj9t-b9e7877f9513_500L.webp"
+            },
+            {
+              "id": "s62",
+              "name": "Ty Sbano",
+              "role": "Chief Information Security Officer",
+              "company": "Webflow",
+              "moderator": false,
+              "photo": "default:img-mpvilsf3-0ca8a891e5da_500L.webp"
+            }
+          ]
+        },
+        {
+          "id": "day1-gpt-xugkp0hyi",
+          "sourceId": "xugkp0hyi",
+          "day": "day1",
+          "stage": "gpt",
+          "stageName": "AGI Stage",
+          "start": 870,
+          "end": 890,
+          "startLabel": "2:30",
+          "endLabel": "2:50",
+          "format": "Keynote",
+          "title": "Genesis Mission: Where AI Agents, Compute, and Scientific Discovery Converge.",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": false,
+          "people": [
+            {
+              "id": "sync-neeraj-kumar",
+              "name": "Neeraj Kumar",
+              "role": "Chief Data Scientist, U.S. DOE",
+              "company": "PNNL",
+              "moderator": false,
+              "photo": "default:neeraj-kumar_500L.webp"
+            }
+          ]
+        },
+        {
+          "id": "day1-pitch-xvqff4e65",
+          "sourceId": "xvqff4e65",
+          "day": "day1",
+          "stage": "pitch",
+          "stageName": "Discovery Stage",
+          "start": 880,
+          "end": 900,
+          "startLabel": "2:40",
+          "endLabel": "3:00",
+          "format": "Keynote",
+          "title": "Rebuilding the Future of Nuclear Energy",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": false,
+          "people": []
+        },
+        {
+          "id": "day1-gpt-xb6al1x7g",
+          "sourceId": "xb6al1x7g",
+          "day": "day1",
+          "stage": "gpt",
+          "stageName": "AGI Stage",
+          "start": 895,
+          "end": 920,
+          "startLabel": "2:55",
+          "endLabel": "3:20",
+          "format": "Keynote",
+          "title": "how agents can lead to abundance for all by accelerating scientific discovery",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": false,
+          "people": [
+            {
+              "id": "s27",
+              "name": "Scott Clark",
+              "role": "Co-Founder & CEO",
+              "company": "Distributional",
+              "moderator": false,
+              "photo": "default:scott-clark-transparent_500L.webp"
+            }
+          ]
+        },
+        {
+          "id": "day1-workshop-xxmb5dmm8",
+          "sourceId": "xxmb5dmm8",
+          "day": "day1",
+          "stage": "workshop",
+          "stageName": "Workshop",
+          "start": 900,
+          "end": 960,
+          "startLabel": "3:00",
+          "endLabel": "4:00",
+          "format": "Keynote",
+          "title": "Greptile Workshop",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": false,
+          "people": [
+            {
+              "id": "company-greptile-workshop",
+              "name": "Greptile",
+              "role": "Workshop Host",
+              "company": "Greptile",
+              "moderator": false,
+              "photo": "default:greptile.com_500L.png"
+            }
+          ]
+        },
+        {
+          "id": "day1-agi-seed13",
+          "sourceId": "seed13",
+          "day": "day1",
+          "stage": "agi",
+          "stageName": "Applied AI Stage",
+          "start": 905,
+          "end": 935,
+          "startLabel": "3:05",
+          "endLabel": "3:35",
+          "format": "Panel",
+          "title": "The Next Frontier of Physical AI",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": [
+            {
+              "id": "s64",
+              "name": "Chris Zhong",
+              "role": "VP, GTM & Business Strategy",
+              "company": "Alchedata.ai",
+              "moderator": false,
+              "photo": "default:img-mqn1b6yt-5b0c363aa5d8_500L.webp"
+            },
+            {
+              "id": "s54",
+              "name": "Ding Zhao",
+              "role": "Associate Professor",
+              "company": "Carnegie Mellon",
+              "moderator": false,
+              "photo": "default:img-mqfwhua5-e9af1a06f22b_500L.webp"
+            },
+            {
+              "id": "s55",
+              "name": "Fei W.",
+              "role": "CTO",
+              "company": "Alchedata.ai",
+              "moderator": false,
+              "photo": "default:img-mqn1gi0c-606cdd1453bb_500L.webp"
+            },
+            {
+              "id": "s49",
+              "name": "Iris Sun",
+              "role": "Principal, Global Investment Team",
+              "company": "500 Global",
+              "moderator": true,
+              "photo": "default:img-mqfxct7e-90c72933fa64_500L.webp"
+            },
+            {
+              "id": "s57",
+              "name": "Thomas Tang",
+              "role": "Co-Founder & CEO",
+              "company": "Anyware Robotics",
+              "moderator": false,
+              "photo": "default:img-mqfxmk1n-b6f9fd495988_500L.webp"
+            },
+            {
+              "id": "s44",
+              "name": "Yan Chang",
+              "role": "Principal Engineer & Senior Manager",
+              "company": "NVIDIA",
+              "moderator": false,
+              "photo": "default:yan-chang-nvidia_500L.webp"
+            }
+          ]
+        },
+        {
+          "id": "day1-pitch-xshtl4bzx",
+          "sourceId": "xshtl4bzx",
+          "day": "day1",
+          "stage": "pitch",
+          "stageName": "Discovery Stage",
+          "start": 905,
+          "end": 925,
+          "startLabel": "3:05",
+          "endLabel": "3:25",
+          "format": "Keynote",
+          "title": "Search in the Age of AI",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": false,
+          "people": []
+        },
+        {
+          "id": "day1-gpt-xipp1jpvi",
+          "sourceId": "xipp1jpvi",
+          "day": "day1",
+          "stage": "gpt",
+          "stageName": "AGI Stage",
+          "start": 925,
+          "end": 940,
+          "startLabel": "3:25",
+          "endLabel": "3:40",
+          "format": "Keynote",
+          "title": "AI-Driven Super Autonomous Flying Robots",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": false,
+          "people": [
+            {
+              "id": "sync-giuseppe-loianno",
+              "name": "Giuseppe Loianno",
+              "role": "Associate Professor · ARPL Director",
+              "company": "NYU",
+              "moderator": false,
+              "photo": "default:giuseppe-loianno_500L.webp"
+            }
+          ]
+        },
+        {
+          "id": "day1-gpt-x6m1789r2",
+          "sourceId": "x6m1789r2",
+          "day": "day1",
+          "stage": "gpt",
+          "stageName": "AGI Stage",
+          "start": 940,
+          "end": 960,
+          "startLabel": "3:40",
+          "endLabel": "4:00",
+          "format": "Panel",
+          "title": "Building AI-Native Products for the Future of Work",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": [
+            {
+              "id": "sync-larry-blyth",
+              "name": "Larry Blyth",
+              "role": "Senior Group Product Manager",
+              "company": "Harvey",
+              "moderator": false,
+              "photo": "default:larry-blyth-harvey_500L.webp"
+            },
+            {
+              "id": "sync-ben-haefele",
+              "name": "Ben Haefele",
+              "role": "Chief Product Officer",
+              "company": "Webflow",
+              "moderator": false,
+              "photo": "default:ben-haefele-webflow-t_500L.webp"
+            }
+          ]
+        },
+        {
+          "id": "day1-agi-seed14",
+          "sourceId": "seed14",
+          "day": "day1",
+          "stage": "agi",
+          "stageName": "Applied AI Stage",
+          "start": 940,
+          "end": 970,
+          "startLabel": "3:40",
+          "endLabel": "4:10",
+          "format": "Panel",
+          "title": "Investing in the Future of Physicial AI",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": [
+            {
+              "id": "s64",
+              "name": "Chris Zhong",
+              "role": "VP, GTM & Business Strategy",
+              "company": "Alchedata.ai",
+              "moderator": true,
+              "photo": "default:img-mqn1b6yt-5b0c363aa5d8_500L.webp"
+            },
+            {
+              "id": "s59",
+              "name": "Qing Zhang",
+              "role": "Venture Partner",
+              "company": "LDV Partners",
+              "moderator": false,
+              "photo": "default:qing-zhang-cut_500L.webp"
+            },
+            {
+              "id": "s70",
+              "name": "Vikram Venkat",
+              "role": "Principal",
+              "company": "Cota Capital",
+              "moderator": false,
+              "photo": "default:vikram-venkat-cut_500L.webp"
+            },
+            {
+              "id": "s71",
+              "name": "Sid Srivastava",
+              "role": "Venture Partner",
+              "company": "Blue Vision Capital",
+              "moderator": false,
+              "photo": "default:sid-srivastava-cut_500L.webp"
+            },
+            {
+              "id": "sync-cong-you",
+              "name": "Cong You",
+              "role": "Ventures, M&A & Partnerships",
+              "company": "Mercedes-Benz",
+              "moderator": false,
+              "photo": null
+            }
+          ]
+        },
+        {
+          "id": "day1-pitch-xsak9osnd",
+          "sourceId": "xsak9osnd",
+          "day": "day1",
+          "stage": "pitch",
+          "stageName": "Discovery Stage",
+          "start": 955,
+          "end": 975,
+          "startLabel": "3:55",
+          "endLabel": "4:15",
+          "format": "Keynote",
+          "title": "How AI Is Redefining the Artist （*）",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": [
+            {
+              "id": "s53",
+              "name": "Ting Song",
+              "role": "Generative AI Artist",
+              "company": "Independent Artist",
+              "moderator": false,
+              "photo": "default:img-mqg2fdxv-e50e0155865b_500L.webp"
+            }
+          ]
+        },
+        {
+          "id": "day1-gpt-x3yj1r3ec",
+          "sourceId": "x3yj1r3ec",
+          "day": "day1",
+          "stage": "gpt",
+          "stageName": "AGI Stage",
+          "start": 965,
+          "end": 1005,
+          "startLabel": "4:05",
+          "endLabel": "4:45",
+          "format": "Keynote",
+          "title": "Al Infrastructure for an Accelerating World: From Data Centers to Enterprise Edge",
+          "status": "confirmed",
+          "relation": "sponsor",
+          "notified": false,
+          "people": [
+            {
+              "id": "sync-j-nathan-m",
+              "name": "J. Nathan M.",
+              "role": "Strategic Business Development Manager",
+              "company": "Supermicro",
+              "moderator": false,
+              "photo": "default:nathan-m-supermicro-t_500L.webp"
+            }
+          ]
+        },
+        {
+          "id": "day1-agi-xo0p4psa9",
+          "sourceId": "xo0p4psa9",
+          "day": "day1",
+          "stage": "agi",
+          "stageName": "Applied AI Stage",
+          "start": 975,
+          "end": 995,
+          "startLabel": "4:15",
+          "endLabel": "4:35",
+          "format": "Keynote",
+          "title": "Can AI Actually Self-Improve? | Future AGI",
+          "status": "confirmed",
+          "relation": "exhibitor",
+          "notified": true,
+          "people": [
+            {
+              "id": "sync-nikhil-pareek",
+              "name": "Nikhil Pareek",
+              "role": "Founder & CEO",
+              "company": "Future AGI",
+              "moderator": false,
+              "photo": "default:nikhil-pareek-futureagi-t_500L.webp"
+            }
+          ]
+        },
+        {
+          "id": "day1-pitch-xppxv3crh",
+          "sourceId": "xppxv3crh",
+          "day": "day1",
+          "stage": "pitch",
+          "stageName": "Discovery Stage",
+          "start": 980,
+          "end": 1000,
+          "startLabel": "4:20",
+          "endLabel": "4:40",
+          "format": "Keynote",
+          "title": "Building Real-World Applications with AGI",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": [
+            {
+              "id": "sync-henry-kang",
+              "name": "Henry Kang",
+              "role": "Founder & CEO",
+              "company": "Clipto, Inc.",
+              "moderator": false,
+              "photo": "default:henry-kang-clipto-t_500L.webp"
+            }
+          ]
+        },
+        {
+          "id": "day1-agi-xs4zc6qwu",
+          "sourceId": "xs4zc6qwu",
+          "day": "day1",
+          "stage": "agi",
+          "stageName": "Applied AI Stage",
+          "start": 1000,
+          "end": 1020,
+          "startLabel": "4:40",
+          "endLabel": "5:00",
+          "format": "Keynote",
+          "title": "Trustworthy AI Agents for Financial Services",
+          "status": "confirmed",
+          "relation": "exhibitor",
+          "notified": true,
+          "people": []
+        },
+        {
+          "id": "day1-pitch-xekm7y2p3",
+          "sourceId": "xekm7y2p3",
+          "day": "day1",
+          "stage": "pitch",
+          "stageName": "Discovery Stage",
+          "start": 1000,
+          "end": 1020,
+          "startLabel": "4:40",
+          "endLabel": "5:00",
+          "format": "Keynote",
+          "title": "The Multimodal Agent Loop: Orchestrating AI for GTM",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": [
+            {
+              "id": "sync-roan-weigert",
+              "name": "Roan Weigert",
+              "role": "DevRel AI Engineer Lead",
+              "company": "GMI Cloud",
+              "moderator": false,
+              "photo": "default:roan-weigert-gmicloud-t_500L.webp"
+            }
+          ]
+        },
+        {
+          "id": "day1-gpt-xcytpaaqe",
+          "sourceId": "xcytpaaqe",
+          "day": "day1",
+          "stage": "gpt",
+          "stageName": "AGI Stage",
+          "start": 1010,
+          "end": 1040,
+          "startLabel": "4:50",
+          "endLabel": "5:20",
+          "format": "Panel",
+          "title": "The Future of World Model - What’s Next",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": [
+            {
+              "id": "s36",
+              "name": "Viki Huang",
+              "role": "Investor",
+              "company": "Prosperity7 Ventures",
+              "moderator": false,
+              "photo": "default:img-mpvilrhi-3582ae7e73ec_500L.webp"
+            },
+            {
+              "id": "s52",
+              "name": "Chenyan Xiong",
+              "role": "Associate Professor",
+              "company": "Carnegie Mellon",
+              "moderator": false,
+              "photo": "default:img-mqfwazhd-c8c88864ca24_500L.webp"
+            },
+            {
+              "id": "s50",
+              "name": "Qing Yin",
+              "role": "Founder",
+              "company": "Visko",
+              "moderator": false,
+              "photo": "default:img-mpvilz1x-3386690e139d_500L.webp"
+            },
+            {
+              "id": "s46",
+              "name": "Hector Liu",
+              "role": "Director",
+              "company": "MBZUAI Silicon Valley Lab",
+              "moderator": false,
+              "photo": "default:img-mq61gfc1-8315989370ee_500L.webp"
+            },
+            {
+              "id": "sync-bryce-schmidtchen",
+              "name": "Bryce Schmidtchen",
+              "role": "Co-Founder & CTO",
+              "company": "Reactor",
+              "moderator": false,
+              "photo": "default:bryce-schmidtchen-reactor-t_500L.webp"
+            }
+          ]
+        },
+        {
+          "id": "day1-agi-xgca27960",
+          "sourceId": "xgca27960",
+          "day": "day1",
+          "stage": "agi",
+          "stageName": "Applied AI Stage",
+          "start": 1020,
+          "end": 1050,
+          "startLabel": "5:00",
+          "endLabel": "5:30",
+          "format": "Panel",
+          "title": "The Human Journey to AGI: Inspiring Tomorrow's AI Builders",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": [
+            {
+              "id": "sync-chengdu-huang",
+              "name": "Chengdu Huang",
+              "role": "Engineering",
+              "company": "OpenAI",
+              "moderator": false,
+              "photo": "default:chengdu-huang-openai-t_500L.webp"
+            },
+            {
+              "id": "sync-saksham-gupta",
+              "name": "Saksham Gupta",
+              "role": "MTS Intern · CMU LTI",
+              "company": "OpenAI",
+              "moderator": false,
+              "photo": null
+            },
+            {
+              "id": "sync-daiyi-peng",
+              "name": "Daiyi Peng",
+              "role": "Software Engineer",
+              "company": "Google DeepMind",
+              "moderator": false,
+              "photo": "default:daiyi-peng-google-t_500L.webp"
+            },
+            {
+              "id": "sync-julia-z-fu",
+              "name": "Julia Z. Fu",
+              "role": "Director, Global Enterprise Business Strategy and AI Transformation",
+              "company": "Microsoft",
+              "moderator": false,
+              "photo": "default:julia-fu-microsoft-t_500L.webp"
+            },
+            {
+              "id": "sync-michael-li",
+              "name": "Michael Li",
+              "role": "Founder & Chief Technology Officer",
+              "company": "Ryquo",
+              "moderator": false,
+              "photo": "default:michael-li-ryquo-t_500L.webp"
+            }
+          ]
+        },
+        {
+          "id": "day1-pitch-xcvq03t40",
+          "sourceId": "xcvq03t40",
+          "day": "day1",
+          "stage": "pitch",
+          "stageName": "Discovery Stage",
+          "start": 1025,
+          "end": 1045,
+          "startLabel": "5:05",
+          "endLabel": "5:25",
+          "format": "Keynote",
+          "title": "",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": false,
+          "people": [
+            {
+              "id": "sync-mahesh-sathiamoorthy",
+              "name": "Mahesh Sathiamoorthy",
+              "role": "Co-Founder & CEO",
+              "company": "Bespoke Labs",
+              "moderator": false,
+              "photo": "default:mahesh-sathiamoorthy_500L.webp"
+            }
+          ]
+        },
+        {
+          "id": "day1-gpt-xohddex24",
+          "sourceId": "xohddex24",
+          "day": "day1",
+          "stage": "gpt",
+          "stageName": "AGI Stage",
+          "start": 1045,
+          "end": 1075,
+          "startLabel": "5:25",
+          "endLabel": "5:55",
+          "format": "Panel",
+          "title": "When AI Agents Go to Work — Building, Trusting & Scaling Autonomous AI",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": [
+            {
+              "id": "s33",
+              "name": "Zihan Wang",
+              "role": "CTO",
+              "company": "O2 AI",
+              "moderator": true,
+              "photo": "default:img-mpvilmik-76b2a63ee75f_500L.webp"
+            },
+            {
+              "id": "s61",
+              "name": "Charlie Hu",
+              "role": "Co-Founder",
+              "company": "OpenMax",
+              "moderator": false,
+              "photo": "default:charlie-hu-cut_500L.webp"
+            },
+            {
+              "id": "s41",
+              "name": "Emery Han",
+              "role": "Go-To-Market, Platforms",
+              "company": "Stripe",
+              "moderator": false,
+              "photo": "default:img-mpvilvfa-a8a937aab607_500L.webp"
+            },
+            {
+              "id": "s67",
+              "name": "Li Erran Li",
+              "role": "Head of Science, HIL team",
+              "company": "AWS",
+              "moderator": false,
+              "photo": "default:img-mpvilto9-ebfc57cafcae_500L.webp"
+            },
+            {
+              "id": "sync-chi-zhang",
+              "name": "Chi Zhang",
+              "role": "Co-Founder & CEO",
+              "company": "Kite AI",
+              "moderator": false,
+              "photo": "default:chi-zhang-kite-t_500L.webp"
+            },
+            {
+              "id": "sync-xuewei-harvey-wu",
+              "name": "Xuewei Wu",
+              "role": "Machine Learning Engineer",
+              "company": "Meta",
+              "moderator": false,
+              "photo": "default:xuewei-harvey-wu-meta-t_500L.webp"
+            },
+            {
+              "id": "sync-henry-kang",
+              "name": "Henry Kang",
+              "role": "Founder & CEO",
+              "company": "Clipto, Inc.",
+              "moderator": false,
+              "photo": "default:henry-kang-clipto-t_500L.webp"
+            }
+          ]
+        },
+        {
+          "id": "day1-agi-xqj2f2l5a",
+          "sourceId": "xqj2f2l5a",
+          "day": "day1",
+          "stage": "agi",
+          "stageName": "Applied AI Stage",
+          "start": 1050,
+          "end": 1080,
+          "startLabel": "5:30",
+          "endLabel": "6:00",
+          "format": "Panel",
+          "title": "Learning in the Age of AGI",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": [
+            {
+              "id": "s58",
+              "name": "Jimmy Cai",
+              "role": "Founder",
+              "company": "Bayaiu.ai",
+              "moderator": false,
+              "photo": "default:img-mqn1mdyb-7f393c6c8f1a_500L.webp"
+            },
+            {
+              "id": "sync-paul-marca",
+              "name": "Paul Marca",
+              "role": "Principal",
+              "company": "Parallax Global Advisors",
+              "moderator": false,
+              "photo": "default:paul-marca_500L.webp"
+            },
+            {
+              "id": "sync-glen-qin",
+              "name": "Glen Qin",
+              "role": "President",
+              "company": "CSTU",
+              "moderator": false,
+              "photo": "default:glen-qin_500L.webp"
+            },
+            {
+              "id": "sync-lily-xiong",
+              "name": "Lily Xiong",
+              "role": "Founder",
+              "company": "Hanbridge Institute",
+              "moderator": false,
+              "photo": "default:lily-xiong_500L.webp"
+            }
+          ]
+        },
+        {
+          "id": "day1-pitch-xjwcvej97",
+          "sourceId": "xjwcvej97",
+          "day": "day1",
+          "stage": "pitch",
+          "stageName": "Discovery Stage",
+          "start": 1050,
+          "end": 1195,
+          "startLabel": "5:30",
+          "endLabel": "7:55",
+          "format": "Keynote",
+          "title": "AI for Everyone - Side Event",
+          "status": "talking",
+          "relation": "invited",
+          "notified": false,
+          "people": []
+        },
+        {
+          "id": "day1-gpt-x9ex1w2sz",
+          "sourceId": "x9ex1w2sz",
+          "day": "day1",
+          "stage": "gpt",
+          "stageName": "AGI Stage",
+          "start": 1080,
+          "end": 1110,
+          "startLabel": "6:00",
+          "endLabel": "6:30",
+          "format": "Panel",
+          "title": "Hype, Moats, and Margins: What VCs Are Really Funding in AI",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": false,
+          "people": [
+            {
+              "id": "sync-jon-chu",
+              "name": "Jon Chu",
+              "role": "Partner",
+              "company": "Khosla Ventures",
+              "moderator": false,
+              "photo": "default:jon-chu_500L.webp"
+            },
+            {
+              "id": "sync-aaron-jacobson",
+              "name": "Aaron Jacobson",
+              "role": "Partner",
+              "company": "NEA",
+              "moderator": false,
+              "photo": "default:aaron-jacobson-nea-t_500L.webp"
+            },
+            {
+              "id": "s42",
+              "name": "Gloria Zhang",
+              "role": "Vice President",
+              "company": "DCM Ventures",
+              "moderator": false,
+              "photo": "default:img-mpvilw0k-3bf7d19af105_500L.webp"
+            },
+            {
+              "id": "s60",
+              "name": "Sophie Ren",
+              "role": "Founder & CEO",
+              "company": "ChatSlide",
+              "moderator": true,
+              "photo": "default:sophie-ren-cut_500L.webp"
+            },
+            {
+              "id": "sync-lauri-j-moore",
+              "name": "Lauri J. Moore",
+              "role": "Partner",
+              "company": "Bessemer Venture Partners",
+              "moderator": false,
+              "photo": "default:lauri-moore-bessemer-t_500L.webp"
+            }
+          ]
+        },
+        {
+          "id": "day1-agi-xviqyg1ei",
+          "sourceId": "xviqyg1ei",
+          "day": "day1",
+          "stage": "agi",
+          "stageName": "Applied AI Stage",
+          "start": 1080,
+          "end": 1100,
+          "startLabel": "6:00",
+          "endLabel": "6:20",
+          "format": "Keynote",
+          "title": "Metareasoners and Expert Foundational Models",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": false,
+          "people": []
+        },
+        {
+          "id": "day1-gpt-xuc7ak7sc",
+          "sourceId": "xuc7ak7sc",
+          "day": "day1",
+          "stage": "gpt",
+          "stageName": "AGI Stage",
+          "start": 1115,
+          "end": 1140,
+          "startLabel": "6:35",
+          "endLabel": "7:00",
+          "format": "Keynote",
+          "title": "Startup Pitch",
+          "status": "talking",
+          "relation": "invited",
+          "notified": false,
+          "people": []
+        }
+      ]
+    },
+    {
+      "key": "day2",
+      "label": "Day 2",
+      "date": "July 19, 2026",
+      "sourceFile": "summit agenda creation/day 2/AGI Summit · Agenda Planner.html",
+      "sourceSha256": "e7843c6db89cc9c1cdfacf2fc3ffa14cd27eb19916ac6a6e461b255c67f923d1",
+      "sessions": [
+        {
+          "id": "day2-gpt-x4nitb1sl",
+          "sourceId": "x4nitb1sl",
+          "day": "day2",
+          "stage": "gpt",
+          "stageName": "AGI Stage",
+          "start": 540,
+          "end": 560,
+          "startLabel": "9:00",
+          "endLabel": "9:20",
+          "format": "Keynote",
+          "title": "A Chemistry Lab Where AI Does Almost Everything",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": [
+            {
+              "id": "sync-piotr-byrski",
+              "name": "Piotr Byrski",
+              "role": "Co-Founder & CEO",
+              "company": "Molecule.one",
+              "moderator": false,
+              "photo": "default:piotr-byrski-moleculeone-t_tm5f.webp"
+            },
+            {
+              "id": "sync-joe-palermo",
+              "name": "Joe Palermo",
+              "role": "Member of Technical Staff",
+              "company": "OpenAI",
+              "moderator": false,
+              "photo": "default:joe-palermo-openai-t_tm5f.webp"
+            }
+          ]
+        },
+        {
+          "id": "day2-agi-xckvog3i4",
+          "sourceId": "xckvog3i4",
+          "day": "day2",
+          "stage": "agi",
+          "stageName": "Applied AI Stage",
+          "start": 540,
+          "end": 560,
+          "startLabel": "9:00",
+          "endLabel": "9:20",
+          "format": "Keynote",
+          "title": "AI and homework: AI tutors and the impact of AI on technical education",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": [
+            {
+              "id": "sync-john-denero",
+              "name": "John DeNero",
+              "role": "Associate Teaching Professor, EECS",
+              "company": "UC Berkeley",
+              "moderator": false,
+              "photo": "default:john-denero_tm5f.webp"
+            }
+          ]
+        },
+        {
+          "id": "day2-pitch-xalmck8aq",
+          "sourceId": "xalmck8aq",
+          "day": "day2",
+          "stage": "pitch",
+          "stageName": "Discovery Stage",
+          "start": 540,
+          "end": 585,
+          "startLabel": "9:00",
+          "endLabel": "9:45",
+          "format": "Keynote",
+          "title": "The Next Wave of AI Applications Beyond Chat: ChatGPT Work for Everyday work beyond Coding",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": false,
+          "people": [
+            {
+              "id": "sync-prakhar-bansal",
+              "name": "Prakhar Bansal",
+              "role": "Go-To-Market",
+              "company": "OpenAI",
+              "moderator": false,
+              "photo": "default:img-mpvillwe-379ca6bdc894_tm5f.webp"
+            }
+          ]
+        },
+        {
+          "id": "day2-gpt-xp6xroodz",
+          "sourceId": "xp6xroodz",
+          "day": "day2",
+          "stage": "gpt",
+          "stageName": "AGI Stage",
+          "start": 560,
+          "end": 580,
+          "startLabel": "9:20",
+          "endLabel": "9:40",
+          "format": "Keynote",
+          "title": "Scaling AI Inference for the Real World",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": [
+            {
+              "id": "sync-yufei-chen",
+              "name": "Yufei Chen",
+              "role": "Co-Founder",
+              "company": "Fireworks AI",
+              "moderator": false,
+              "photo": "default:yufei-chen-fireworks-t_tm5f.webp"
+            }
+          ]
+        },
+        {
+          "id": "day2-agi-xuq535nb3",
+          "sourceId": "xuq535nb3",
+          "day": "day2",
+          "stage": "agi",
+          "stageName": "Applied AI Stage",
+          "start": 560,
+          "end": 600,
+          "startLabel": "9:20",
+          "endLabel": "10:00",
+          "format": "Panel",
+          "title": "Building trust in voice agents by keeping them on track",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": [
+            {
+              "id": "s17",
+              "name": "Shaheen Lavie-Rouse",
+              "role": "Forward Deployed Engineer",
+              "company": "ElevenLabs",
+              "moderator": false,
+              "photo": "default:shaheen-lavie-rouse_tm5f.webp"
+            },
+            {
+              "id": "s16",
+              "name": "Jonatan von Martens",
+              "role": "AI Safety Engineering",
+              "company": "ElevenLabs",
+              "moderator": false,
+              "photo": "default:jonatan-von-martens_tm5f.webp"
+            },
+            {
+              "id": "sync-raghav-misra",
+              "name": "Raghav Misra",
+              "role": "Agents Engineering",
+              "company": "ElevenLabs",
+              "moderator": false,
+              "photo": "default:raghav-misra-elevenlabs-t_tm5f.webp"
+            },
+            {
+              "id": "sync-james-zhou",
+              "name": "James Zhou",
+              "role": "Agents Engineering",
+              "company": "ElevenLabs",
+              "moderator": false,
+              "photo": "default:james-zhou-elevenlabs-t_tm5f.webp"
+            }
+          ]
+        },
+        {
+          "id": "day2-gpt-xi6kv2rpe",
+          "sourceId": "xi6kv2rpe",
+          "day": "day2",
+          "stage": "gpt",
+          "stageName": "AGI Stage",
+          "start": 580,
+          "end": 610,
+          "startLabel": "9:40",
+          "endLabel": "10:10",
+          "format": "Keynote",
+          "title": "Agentic Misalignment in 2026",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": [
+            {
+              "id": "s2",
+              "name": "Aengus Lynch",
+              "role": "Alignment Researcher",
+              "company": "Anthropic",
+              "moderator": false,
+              "photo": "default:img-mpvilfjf-e40b3c8bd266_tm5f.webp"
+            }
+          ]
+        },
+        {
+          "id": "day2-pitch-xq2orckiy",
+          "sourceId": "xq2orckiy",
+          "day": "day2",
+          "stage": "pitch",
+          "stageName": "Discovery Stage",
+          "start": 585,
+          "end": 605,
+          "startLabel": "9:45",
+          "endLabel": "10:05",
+          "format": "Keynote",
+          "title": "Rethinking the Nature of the Firm: AI Strategy, Organizational Design, and Execution",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": false,
+          "people": [
+            {
+              "id": "sync-yossi-feinberg",
+              "name": "Yossi Feinberg",
+              "role": "Professor, GSB",
+              "company": "Stanford",
+              "moderator": false,
+              "photo": "default:yossi-feinberg-stanford-t_tm5f.webp"
+            }
+          ]
+        },
+        {
+          "id": "day2-workshop-x47ixh8lp",
+          "sourceId": "x47ixh8lp",
+          "day": "day2",
+          "stage": "workshop",
+          "stageName": "Workshop",
+          "start": 590,
+          "end": 650,
+          "startLabel": "9:50",
+          "endLabel": "10:50",
+          "format": "Keynote",
+          "title": "Activeloop Workshop",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": false,
+          "people": [
+            {
+              "id": "company-activeloop-workshop",
+              "name": "Activeloop",
+              "role": "Workshop Host",
+              "company": "Activeloop",
+              "moderator": false,
+              "photo": "default:activeloop_tm5f.svg"
+            }
+          ]
+        },
+        {
+          "id": "day2-agi-x2z3zmk4u",
+          "sourceId": "x2z3zmk4u",
+          "day": "day2",
+          "stage": "agi",
+          "stageName": "Applied AI Stage",
+          "start": 600,
+          "end": 620,
+          "startLabel": "10:00",
+          "endLabel": "10:20",
+          "format": "Keynote",
+          "title": "The Next Language Is Video",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": [
+            {
+              "id": "sync-jeff-lu",
+              "name": "Jeff Lu",
+              "role": "Founder & CEO",
+              "company": "AKOOL",
+              "moderator": false,
+              "photo": "default:jeff-lu-akool-t_tm5f.webp"
+            }
+          ]
+        },
+        {
+          "id": "day2-gpt-xy78gg34k",
+          "sourceId": "xy78gg34k",
+          "day": "day2",
+          "stage": "gpt",
+          "stageName": "AGI Stage",
+          "start": 610,
+          "end": 630,
+          "startLabel": "10:10",
+          "endLabel": "10:30",
+          "format": "Keynote",
+          "title": "Superintelligence vs. Super-reliability",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": [
+            {
+              "id": "sync-dan-klein",
+              "name": "Dan Klein",
+              "role": "Professor · Co-Founder, Scaled Cognition",
+              "company": "UC Berkeley",
+              "moderator": false,
+              "photo": "default:dan-klein-berkeley_tm5f.webp"
+            }
+          ]
+        },
+        {
+          "id": "day2-agi-xqm1fg6we",
+          "sourceId": "xqm1fg6we",
+          "day": "day2",
+          "stage": "agi",
+          "stageName": "Applied AI Stage",
+          "start": 620,
+          "end": 640,
+          "startLabel": "10:20",
+          "endLabel": "10:40",
+          "format": "Keynote",
+          "title": "A new North Star for AI research",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": false,
+          "people": [
+            {
+              "id": "sync-joseph-gonzalez",
+              "name": "Joseph Gonzalez",
+              "role": "Professor, EECS",
+              "company": "UC Berkeley",
+              "moderator": false,
+              "photo": "default:joseph-gonzalez_tm5f.webp"
+            }
+          ]
+        },
+        {
+          "id": "day2-gpt-x9hr71r2z",
+          "sourceId": "x9hr71r2z",
+          "day": "day2",
+          "stage": "gpt",
+          "stageName": "AGI Stage",
+          "start": 630,
+          "end": 650,
+          "startLabel": "10:30",
+          "endLabel": "10:50",
+          "format": "Keynote",
+          "title": "Mental Health Research in the Data Science Era",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": [
+            {
+              "id": "s24",
+              "name": "Ruth O'Hara",
+              "role": "Professor of Psychiatry & Behavioral Sciences",
+              "company": "Stanford",
+              "moderator": false,
+              "photo": "default:ruth-ohara-stanford_tm5f.webp"
+            }
+          ]
+        },
+        {
+          "id": "day2-pitch-xfcvn4epi",
+          "sourceId": "xfcvn4epi",
+          "day": "day2",
+          "stage": "pitch",
+          "stageName": "Discovery Stage",
+          "start": 630,
+          "end": 670,
+          "startLabel": "10:30",
+          "endLabel": "11:10",
+          "format": "Panel",
+          "title": "Physical AI in the Real World: What B2B Customers Actually Measure Before Deploying Robots",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": []
+        },
+        {
+          "id": "day2-agi-x91ue9pyi",
+          "sourceId": "x91ue9pyi",
+          "day": "day2",
+          "stage": "agi",
+          "stageName": "Applied AI Stage",
+          "start": 640,
+          "end": 660,
+          "startLabel": "10:40",
+          "endLabel": "11:00",
+          "format": "Fireside",
+          "title": "Metareasoners and Expert Foundational Models",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": false,
+          "people": []
+        },
+        {
+          "id": "day2-gpt-x2jc483wv",
+          "sourceId": "x2jc483wv",
+          "day": "day2",
+          "stage": "gpt",
+          "stageName": "AGI Stage",
+          "start": 650,
+          "end": 670,
+          "startLabel": "10:50",
+          "endLabel": "11:10",
+          "format": "Keynote",
+          "title": "Towards a science of intelligence: understanding, improving, and melding brains and machines",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": false,
+          "people": [
+            {
+              "id": "s22",
+              "name": "Surya Ganguli",
+              "role": "Associate Professor of Applied Physics",
+              "company": "Stanford",
+              "moderator": false,
+              "photo": "default:surya-ganguli-stanford_tm5f.webp"
+            }
+          ]
+        },
+        {
+          "id": "day2-agi-xjnhe41tf",
+          "sourceId": "xjnhe41tf",
+          "day": "day2",
+          "stage": "agi",
+          "stageName": "Applied AI Stage",
+          "start": 660,
+          "end": 680,
+          "startLabel": "11:00",
+          "endLabel": "11:20",
+          "format": "Keynote",
+          "title": "Ambient Intelligence, Human Impact",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": false,
+          "people": [
+            {
+              "id": "sync-ehsan-adeli",
+              "name": "Ehsan Adeli",
+              "role": "Assistant Professor",
+              "company": "Stanford",
+              "moderator": false,
+              "photo": "default:ehsan-adeli-stanford-t_tm5f.webp"
+            }
+          ]
+        },
+        {
+          "id": "day2-gpt-gpt845dxlci",
+          "sourceId": "gpt845dxlci",
+          "day": "day2",
+          "stage": "gpt",
+          "stageName": "AGI Stage",
+          "start": 670,
+          "end": 685,
+          "startLabel": "11:10",
+          "endLabel": "11:25",
+          "format": "Keynote",
+          "title": "Brain Behind the Brains：Inside a company run by AI agents: what it taught me about being human",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": [
+            {
+              "id": "s60",
+              "name": "Sophie Ren",
+              "role": "Founder & CEO",
+              "company": "ChatSlide",
+              "moderator": false,
+              "photo": "default:sophie-ren-cut_tm5f.webp"
+            }
+          ]
+        },
+        {
+          "id": "day2-agi-xb0xjtpk0",
+          "sourceId": "xb0xjtpk0",
+          "day": "day2",
+          "stage": "agi",
+          "stageName": "Applied AI Stage",
+          "start": 680,
+          "end": 700,
+          "startLabel": "11:20",
+          "endLabel": "11:40",
+          "format": "Keynote",
+          "title": "On-Device Action: Why the Next Wave of Agents Won't Live in the Cloud",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": [
+            {
+              "id": "sync-div-garg",
+              "name": "Div Garg",
+              "role": "Founder & CEO",
+              "company": "AGI, Inc.",
+              "moderator": false,
+              "photo": "default:div-garg-agi-t_tm5f.webp"
+            }
+          ]
+        },
+        {
+          "id": "day2-pitch-xz2hm37s2",
+          "sourceId": "xz2hm37s2",
+          "day": "day2",
+          "stage": "pitch",
+          "stageName": "Discovery Stage",
+          "start": 680,
+          "end": 695,
+          "startLabel": "11:20",
+          "endLabel": "11:35",
+          "format": "Keynote",
+          "title": "Beyond LLMs: Building AI That Learns, Adapts, and Thinks",
+          "status": "confirmed",
+          "relation": "sponsor",
+          "notified": true,
+          "people": []
+        },
+        {
+          "id": "day2-gpt-xlrua0n4x",
+          "sourceId": "xlrua0n4x",
+          "day": "day2",
+          "stage": "gpt",
+          "stageName": "AGI Stage",
+          "start": 685,
+          "end": 705,
+          "startLabel": "11:25",
+          "endLabel": "11:45",
+          "format": "Keynote",
+          "title": "Closing the Continual Learning Loop",
+          "status": "confirmed",
+          "relation": "exhibitor",
+          "notified": true,
+          "people": [
+            {
+              "id": "sync-davit-buniatyan",
+              "name": "Davit Buniatyan",
+              "role": "Founder & CEO",
+              "company": "Activeloop",
+              "moderator": false,
+              "photo": "default:davit-buniatyan-activeloop-t_tm5f.webp"
+            }
+          ]
+        },
+        {
+          "id": "day2-pitch-xwctt5spw",
+          "sourceId": "xwctt5spw",
+          "day": "day2",
+          "stage": "pitch",
+          "stageName": "Discovery Stage",
+          "start": 695,
+          "end": 720,
+          "startLabel": "11:35",
+          "endLabel": "12:00",
+          "format": "Keynote",
+          "title": "Brain Economy and Cognitive Debt: Protecting Human Intelligence in an AI-Driven World",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": []
+        },
+        {
+          "id": "day2-agi-x7vxk77in",
+          "sourceId": "x7vxk77in",
+          "day": "day2",
+          "stage": "agi",
+          "stageName": "Applied AI Stage",
+          "start": 700,
+          "end": 720,
+          "startLabel": "11:40",
+          "endLabel": "12:00",
+          "format": "Keynote",
+          "title": "Obvious AI ：A Defining Moment on the Path to General Intelligence",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": []
+        },
+        {
+          "id": "day2-gpt-xm2nop832",
+          "sourceId": "xm2nop832",
+          "day": "day2",
+          "stage": "gpt",
+          "stageName": "AGI Stage",
+          "start": 710,
+          "end": 725,
+          "startLabel": "11:50",
+          "endLabel": "12:05",
+          "format": "Keynote",
+          "title": "The Borderless AI: Overcoming the Geography of Global Payment",
+          "status": "confirmed",
+          "relation": "sponsor",
+          "notified": true,
+          "people": [
+            {
+              "id": "sync-sandra-li",
+              "name": "Sandra Li",
+              "role": "Head of Business Development, US Online Business",
+              "company": "Ant International",
+              "moderator": false,
+              "photo": "default:sandra-li-antom-t_tm5f.webp"
+            }
+          ]
+        },
+        {
+          "id": "day2-agi-mroji4st58f6a",
+          "sourceId": "mroji4st58f6a",
+          "day": "day2",
+          "stage": "agi",
+          "stageName": "Applied AI Stage",
+          "start": 720,
+          "end": 870,
+          "startLabel": "12:00",
+          "endLabel": "2:30",
+          "format": "Keynote",
+          "title": "⚽ FIFA World Cup Final — Live Screening",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": false,
+          "people": []
+        },
+        {
+          "id": "day2-gpt-x0aoofi7c",
+          "sourceId": "x0aoofi7c",
+          "day": "day2",
+          "stage": "gpt",
+          "stageName": "AGI Stage",
+          "start": 780,
+          "end": 800,
+          "startLabel": "1:00",
+          "endLabel": "1:20",
+          "format": "Keynote",
+          "title": "Reimagining Mobile Living with AI - AC Future",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": []
+        },
+        {
+          "id": "day2-gpt-x9c850t2d",
+          "sourceId": "x9c850t2d",
+          "day": "day2",
+          "stage": "gpt",
+          "stageName": "AGI Stage",
+          "start": 800,
+          "end": 815,
+          "startLabel": "1:20",
+          "endLabel": "1:35",
+          "format": "Keynote",
+          "title": "The Last Mile of AI in the Physical World",
+          "status": "confirmed",
+          "relation": "sponsor",
+          "notified": true,
+          "people": [
+            {
+              "id": "sync-fangyu-du",
+              "name": "Fangyu Du",
+              "role": "Chief Technology Officer",
+              "company": "Cloudwise",
+              "moderator": false,
+              "photo": "default:fangyu-du-cloudwise-t_tm5f.webp"
+            }
+          ]
+        },
+        {
+          "id": "day2-gpt-xv8kh5c77",
+          "sourceId": "xv8kh5c77",
+          "day": "day2",
+          "stage": "gpt",
+          "stageName": "AGI Stage",
+          "start": 820,
+          "end": 840,
+          "startLabel": "1:40",
+          "endLabel": "2:00",
+          "format": "Keynote",
+          "title": "Robots and Revenue: Can AI Agents Bridge the Data Gap?",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": false,
+          "people": [
+            {
+              "id": "sync-ken-goldberg",
+              "name": "Ken Goldberg",
+              "role": "Distinguished Chair in Engineering",
+              "company": "UC Berkeley",
+              "moderator": false,
+              "photo": "default:ken-goldberg_tm5f.webp"
+            }
+          ]
+        },
+        {
+          "id": "day2-gpt-xnfrhojqx",
+          "sourceId": "xnfrhojqx",
+          "day": "day2",
+          "stage": "gpt",
+          "stageName": "AGI Stage",
+          "start": 840,
+          "end": 865,
+          "startLabel": "2:00",
+          "endLabel": "2:25",
+          "format": "Keynote",
+          "title": "The Sweet Lesson of Data",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": false,
+          "people": []
+        },
+        {
+          "id": "day2-pitch-xhw60u9hr",
+          "sourceId": "xhw60u9hr",
+          "day": "day2",
+          "stage": "pitch",
+          "stageName": "Discovery Stage",
+          "start": 840,
+          "end": 860,
+          "startLabel": "2:00",
+          "endLabel": "2:20",
+          "format": "Keynote",
+          "title": "Building High-Performing Teams in the Age of AI",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": false,
+          "people": []
+        },
+        {
+          "id": "day2-pitch-xaiki01b8",
+          "sourceId": "xaiki01b8",
+          "day": "day2",
+          "stage": "pitch",
+          "stageName": "Discovery Stage",
+          "start": 860,
+          "end": 895,
+          "startLabel": "2:20",
+          "endLabel": "2:55",
+          "format": "Keynote",
+          "title": "How to Become #1 in GEO Through Media",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": false,
+          "people": []
+        },
+        {
+          "id": "day2-gpt-xb4ft9nzl",
+          "sourceId": "xb4ft9nzl",
+          "day": "day2",
+          "stage": "gpt",
+          "stageName": "AGI Stage",
+          "start": 870,
+          "end": 890,
+          "startLabel": "2:30",
+          "endLabel": "2:50",
+          "format": "Keynote",
+          "title": "How LLMs Are Reshaping Linguistics, and What That Tells Us About Intelligence",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": [
+            {
+              "id": "sync-christopher-potts",
+              "name": "Christopher Potts",
+              "role": "Professor & Chair, Linguistics",
+              "company": "Stanford",
+              "moderator": false,
+              "photo": "default:christopher-potts_tm5f.webp"
+            }
+          ]
+        },
+        {
+          "id": "day2-agi-x26o30wmk",
+          "sourceId": "x26o30wmk",
+          "day": "day2",
+          "stage": "agi",
+          "stageName": "Applied AI Stage",
+          "start": 880,
+          "end": 910,
+          "startLabel": "2:40",
+          "endLabel": "3:10",
+          "format": "Keynote",
+          "title": "Building Shared Memory for Human-AI Teams - Teamily",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": []
+        },
+        {
+          "id": "day2-gpt-xt3cp1tgn",
+          "sourceId": "xt3cp1tgn",
+          "day": "day2",
+          "stage": "gpt",
+          "stageName": "AGI Stage",
+          "start": 890,
+          "end": 910,
+          "startLabel": "2:50",
+          "endLabel": "3:10",
+          "format": "Keynote",
+          "title": "Leading Enterprise Transformation in the Age of AI",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": [
+            {
+              "id": "s18",
+              "name": "Carol S. Scott",
+              "role": "Global AI Growth & Success Leader",
+              "company": "Microsoft",
+              "moderator": false,
+              "photo": "default:img-mpvilfn1-32e685d08ba7_tm5f.webp"
+            }
+          ]
+        },
+        {
+          "id": "day2-pitch-xs7l5khdc",
+          "sourceId": "xs7l5khdc",
+          "day": "day2",
+          "stage": "pitch",
+          "stageName": "Discovery Stage",
+          "start": 900,
+          "end": 930,
+          "startLabel": "3:00",
+          "endLabel": "3:30",
+          "format": "Keynote",
+          "title": "Building an AI-Native Supercompany: How Winning Companies Turn Inference into Business Value Faster Than Competitors.",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": false,
+          "people": []
+        },
+        {
+          "id": "day2-gpt-x6tdvknoc",
+          "sourceId": "x6tdvknoc",
+          "day": "day2",
+          "stage": "gpt",
+          "stageName": "AGI Stage",
+          "start": 910,
+          "end": 970,
+          "startLabel": "3:10",
+          "endLabel": "4:10",
+          "format": "Keynote",
+          "title": "Code Review is the New Bottleneck. It Doesn’t Need to Be",
+          "status": "confirmed",
+          "relation": "sponsor",
+          "notified": true,
+          "people": [
+            {
+              "id": "sync-kayvon-beykpour",
+              "name": "Kayvon Beykpour",
+              "role": "Chief Executive Officer",
+              "company": "Macroscope",
+              "moderator": false,
+              "photo": "default:kayvon-beykpour-macroscope-t_tm5f.webp"
+            }
+          ]
+        },
+        {
+          "id": "day2-agi-xqzfsalwe",
+          "sourceId": "xqzfsalwe",
+          "day": "day2",
+          "stage": "agi",
+          "stageName": "Applied AI Stage",
+          "start": 910,
+          "end": 930,
+          "startLabel": "3:10",
+          "endLabel": "3:30",
+          "format": "Keynote",
+          "title": "Making Every PC Agent-Ready - Bvio Tech",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": []
+        },
+        {
+          "id": "day2-agi-xiuh8g8v9",
+          "sourceId": "xiuh8g8v9",
+          "day": "day2",
+          "stage": "agi",
+          "stageName": "Applied AI Stage",
+          "start": 930,
+          "end": 950,
+          "startLabel": "3:30",
+          "endLabel": "3:50",
+          "format": "Keynote",
+          "title": "Safe Payments for Agentic Commerce - Snaplii",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": [
+            {
+              "id": "sync-spencer-xu",
+              "name": "Spencer Xu",
+              "role": "Founder & CEO",
+              "company": "Snaplii",
+              "moderator": false,
+              "photo": "default:spencer-xu-snaplii-t_tm5f.webp"
+            }
+          ]
+        },
+        {
+          "id": "day2-agi-xhaip2iwn",
+          "sourceId": "xhaip2iwn",
+          "day": "day2",
+          "stage": "agi",
+          "stageName": "Applied AI Stage",
+          "start": 950,
+          "end": 970,
+          "startLabel": "3:50",
+          "endLabel": "4:10",
+          "format": "Keynote",
+          "title": "Trustworthy AI for Optimization",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": false,
+          "people": [
+            {
+              "id": "sync-ellen-vitercik",
+              "name": "Ellen Vitercik",
+              "role": "Assistant Professor, MS&E & CS",
+              "company": "Stanford",
+              "moderator": false,
+              "photo": "default:ellen-vitercik_tm5f.webp"
+            }
+          ]
+        },
+        {
+          "id": "day2-pitch-xylu75zer",
+          "sourceId": "xylu75zer",
+          "day": "day2",
+          "stage": "pitch",
+          "stageName": "Discovery Stage",
+          "start": 960,
+          "end": 990,
+          "startLabel": "4:00",
+          "endLabel": "4:30",
+          "format": "Keynote",
+          "title": "Reserve your Biological Aging - the Science of Longevity",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": false,
+          "people": []
+        },
+        {
+          "id": "day2-gpt-xocot2aa3",
+          "sourceId": "xocot2aa3",
+          "day": "day2",
+          "stage": "gpt",
+          "stageName": "AGI Stage",
+          "start": 970,
+          "end": 990,
+          "startLabel": "4:10",
+          "endLabel": "4:30",
+          "format": "Keynote",
+          "title": "Building AI Products for the Real World",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": false,
+          "people": [
+            {
+              "id": "sync-brian-yang",
+              "name": "Brian Yang",
+              "role": "Member of Technical Staff, Ads",
+              "company": "OpenAI",
+              "moderator": false,
+              "photo": "default:brian-yang-openai-t_tm5f.webp"
+            }
+          ]
+        },
+        {
+          "id": "day2-agi-xi27m6mmg",
+          "sourceId": "xi27m6mmg",
+          "day": "day2",
+          "stage": "agi",
+          "stageName": "Applied AI Stage",
+          "start": 970,
+          "end": 1000,
+          "startLabel": "4:10",
+          "endLabel": "4:40",
+          "format": "Panel",
+          "title": "AI Sovereignty & Training Immunity: Taking Back Control of Your Private Agentic Enterprise",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": [
+            {
+              "id": "sync-michelle-g",
+              "name": "Michelle G.",
+              "role": "Sr. Director, Partnership & Product Marketing",
+              "company": "Massed Compute",
+              "moderator": false,
+              "photo": "default:michelle-g-massed-t_tm5f.webp"
+            },
+            {
+              "id": "sync-craig-gieringer",
+              "name": "Craig Gieringer",
+              "role": "SVP, Global Sales & Revenue",
+              "company": "Massed Compute",
+              "moderator": false,
+              "photo": "default:craig-gieringer-massed-t_tm5f.webp"
+            },
+            {
+              "id": "sync-ron-williams",
+              "name": "Ron Williams",
+              "role": "CEO",
+              "company": "Kindo",
+              "moderator": false,
+              "photo": "default:ron-williams-kindo-t_tm5f.webp"
+            }
+          ]
+        },
+        {
+          "id": "day2-gpt-xjlqay0fz",
+          "sourceId": "xjlqay0fz",
+          "day": "day2",
+          "stage": "gpt",
+          "stageName": "AGI Stage",
+          "start": 990,
+          "end": 1030,
+          "startLabel": "4:30",
+          "endLabel": "5:10",
+          "format": "Keynote",
+          "title": "Decision Making for Safety Critical AI",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": false,
+          "people": [
+            {
+              "id": "sync-mykel-kochenderfer",
+              "name": "Mykel Kochenderfer",
+              "role": "Associate Professor, Aeronautics & Astronautics",
+              "company": "Stanford",
+              "moderator": false,
+              "photo": "default:mykel-kochenderfer_tm5f.webp"
+            }
+          ]
+        },
+        {
+          "id": "day2-agi-x94pjnjso",
+          "sourceId": "x94pjnjso",
+          "day": "day2",
+          "stage": "agi",
+          "stageName": "Applied AI Stage",
+          "start": 1000,
+          "end": 1020,
+          "startLabel": "4:40",
+          "endLabel": "5:00",
+          "format": "Keynote",
+          "title": "Can AI Reduce Global Poverty? Lessons From the Field",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": false,
+          "people": [
+            {
+              "id": "sync-joshua-blumenstock",
+              "name": "Joshua Blumenstock",
+              "role": "Associate Professor, School of Information",
+              "company": "UC Berkeley",
+              "moderator": false,
+              "photo": "default:joshua-blumenstock_tm5f.webp"
+            }
+          ]
+        },
+        {
+          "id": "day2-pitch-x1pjbi2ms",
+          "sourceId": "x1pjbi2ms",
+          "day": "day2",
+          "stage": "pitch",
+          "stageName": "Discovery Stage",
+          "start": 1000,
+          "end": 1030,
+          "startLabel": "4:40",
+          "endLabel": "5:10",
+          "format": "Keynote",
+          "title": "TeloX: Building the Cursor for Hardware - The World’s First Conversational AI Platform for Hardware Development",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": false,
+          "people": []
+        },
+        {
+          "id": "day2-agi-x0uvezdtf",
+          "sourceId": "x0uvezdtf",
+          "day": "day2",
+          "stage": "agi",
+          "stageName": "Applied AI Stage",
+          "start": 1020,
+          "end": 1040,
+          "startLabel": "5:00",
+          "endLabel": "5:20",
+          "format": "Keynote",
+          "title": "Lightning Showcase",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": false,
+          "people": []
+        },
+        {
+          "id": "day2-pitch-xge65c1g0",
+          "sourceId": "xge65c1g0",
+          "day": "day2",
+          "stage": "pitch",
+          "stageName": "Discovery Stage",
+          "start": 1035,
+          "end": 1065,
+          "startLabel": "5:15",
+          "endLabel": "5:45",
+          "format": "Keynote",
+          "title": "Mastering Claude Code: Best Practices for Faster, Smarter, and More Cost-Effective AI Development",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": false,
+          "people": [
+            {
+              "id": "sync-alexander-dima",
+              "name": "Alexander Dima",
+              "role": "Software Engineer",
+              "company": "NVIDIA",
+              "moderator": false,
+              "photo": "default:alexander-dima-nvidia-t_tm5f.webp"
+            }
+          ]
+        },
+        {
+          "id": "day2-gpt-xvc1j5ftz",
+          "sourceId": "xvc1j5ftz",
+          "day": "day2",
+          "stage": "gpt",
+          "stageName": "AGI Stage",
+          "start": 1040,
+          "end": 1070,
+          "startLabel": "5:20",
+          "endLabel": "5:50",
+          "format": "Panel",
+          "title": "Building the Future of AI: From Community to Capital",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": [
+            {
+              "id": "s43",
+              "name": "Rocky Yu",
+              "role": "Founder & CEO",
+              "company": "AGI House",
+              "moderator": false,
+              "photo": "default:rocky-yu_tm5f.webp"
+            },
+            {
+              "id": "sync-sanjeev-kumar",
+              "name": "Sanjeev Kumar",
+              "role": "Venture Partner",
+              "company": "Fusion Fund",
+              "moderator": false,
+              "photo": "default:sanjeev-kumar-fusionfund-t_tm5f.webp"
+            }
+          ]
+        },
+        {
+          "id": "day2-agi-xm6ugwqng",
+          "sourceId": "xm6ugwqng",
+          "day": "day2",
+          "stage": "agi",
+          "stageName": "Applied AI Stage",
+          "start": 1040,
+          "end": 1060,
+          "startLabel": "5:20",
+          "endLabel": "5:40",
+          "format": "Keynote",
+          "title": "98% Deterministic AI - Lead gen to Deals to Operations",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": true,
+          "people": [
+            {
+              "id": "sync-manu-goel",
+              "name": "Manu Goel",
+              "role": "Founder & CEO",
+              "company": "Mega Impacts",
+              "moderator": false,
+              "photo": "default:manu-goel-megaimpacts-t_tm5f.webp"
+            }
+          ]
+        },
+        {
+          "id": "day2-gpt-x2ykoxj5j",
+          "sourceId": "x2ykoxj5j",
+          "day": "day2",
+          "stage": "gpt",
+          "stageName": "AGI Stage",
+          "start": 1070,
+          "end": 1120,
+          "startLabel": "5:50",
+          "endLabel": "6:40",
+          "format": "Keynote",
+          "title": "Pitch",
+          "status": "confirmed",
+          "relation": "invited",
+          "notified": false,
+          "people": []
+        }
+      ]
+    }
+  ]
+}

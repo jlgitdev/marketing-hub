@@ -20,7 +20,8 @@
     "data:reset": "node --import tsx scripts/reset-data.ts",
     "benchmark:leads": "node --env-file=.env.local --import tsx scripts/live-lead-benchmark.ts",
     "benchmark:leads:revalidate": "node --import tsx scripts/revalidate-lead-benchmark.ts",
-    "verify": "npm run lint && npm run typecheck && npm run test && npm run build"
+    "agenda:verify": "node scripts/validate-summit-agenda.mjs",
+    "verify": "npm run agenda:verify && npm run lint && npm run typecheck && npm run test && npm run build"
   },
   "dependencies": {
     "@tailwindcss/postcss": "latest",

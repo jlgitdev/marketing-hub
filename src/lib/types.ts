@@ -66,7 +66,8 @@ export type AiOperationKind =
   | "content_regenerate"
   | "content_image"
   | "spotlight_batch"
-  | "spotlight_retry";
+  | "spotlight_retry"
+  | "summit_agenda_batch";
 
 export type AiOperationStatus =
   | "queued"
@@ -96,7 +97,7 @@ export interface AiOperation {
   completedUnits: number | null;
   totalUnits: number | null;
   unitLabel: string | null;
-  resultEntityType: "research" | "outreach" | "content" | "spotlight" | "asset" | null;
+  resultEntityType: "research" | "outreach" | "content" | "spotlight" | "summit_agenda" | "asset" | null;
   resultEntityId: string | null;
   resultHref: string | null;
   originPath: string;
@@ -392,6 +393,83 @@ export interface SpeakerSpotlightBatch {
   results: SpeakerSpotlightResult[];
 }
 
+export type SummitAgendaStageKey = "gpt" | "agi" | "pitch" | "workshop";
+
+export interface SummitAgendaPerson {
+  id: string;
+  name: string;
+  role: string;
+  company: string;
+  moderator: boolean;
+  photo: string | null;
+}
+
+export interface SummitAgendaSession {
+  id: string;
+  sourceId: string;
+  day: "day1" | "day2";
+  stage: SummitAgendaStageKey;
+  stageName: string;
+  start: number;
+  end: number;
+  startLabel: string;
+  endLabel: string;
+  format: string;
+  title: string;
+  status: string;
+  relation: string;
+  notified: boolean;
+  people: SummitAgendaPerson[];
+}
+
+export interface SummitAgendaDay {
+  key: "day1" | "day2";
+  label: string;
+  date: string;
+  sourceFile: string;
+  sourceSha256: string;
+  sessions: SummitAgendaSession[];
+}
+
+export interface SummitAgendaData {
+  event: { name: string; location: string; timezone: string };
+  stages: Array<{ key: SummitAgendaStageKey; name: string }>;
+  references: { one: string; two: string; many: string };
+  days: SummitAgendaDay[];
+  updatedAt?: string;
+}
+
+export type SummitAgendaResultStatus = "queued" | "generating" | "completed" | "failed" | "canceled";
+
+export interface SummitAgendaResult {
+  id: string;
+  batchId: string;
+  sessionId: string;
+  session: SummitAgendaSession;
+  status: SummitAgendaResultStatus;
+  imageAssetId: string | null;
+  imageFileName: string | null;
+  prompt: string | null;
+  requestId: string | null;
+  error: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SummitAgendaBatch {
+  id: string;
+  sessionIds: string[];
+  status: "running" | "completed" | "partially_completed" | "failed";
+  model: string;
+  promptVersion: string;
+  provider: "openai" | "demo";
+  warnings: string[];
+  error: string | null;
+  createdAt: string;
+  completedAt: string | null;
+  results: SummitAgendaResult[];
+}
+
 export interface GeneratedAsset {
   id: string;
   campaignId: string;
@@ -453,11 +531,13 @@ export interface WorkspaceState {
   outreachCampaigns: OutreachCampaign[];
   contentCampaigns: ContentCampaign[];
   speakerSpotlightBatches: SpeakerSpotlightBatch[];
+  summitAgendaBatches: SummitAgendaBatch[];
   counts: {
     activeContext: number;
     leads: number;
     awaitingReview: number;
     campaigns: number;
     speakerSpotlights: number;
+    summitAgendaPosts: number;
   };
 }

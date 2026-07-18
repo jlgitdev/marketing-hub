@@ -7,6 +7,7 @@ import { generateOutreach, OutreachInputSchema, regenerateOutreach } from "@/ser
 import { ContentInputSchema, generateContentCampaign, regeneratePlatforms } from "@/server/services/content-service";
 import { generateCampaignGraphic, type CampaignGraphicInput } from "@/server/storage/assets";
 import { createSpeakerSpotlights, retrySpeakerSpotlight, SpeakerSpotlightInputSchema } from "@/server/services/speaker-spotlight-service";
+import { createSummitAgendaPosts, SummitAgendaGenerateSchema } from "@/server/services/summit-agenda-service";
 import { OperationCanceledError, pendingSteps, type OperationReporter } from "./types";
 import { createAiOperation, dismissAiOperationRecord, findActiveOperation, getAiOperation, listAiOperations, publicOperation, updateAiOperation, updateAiOperationInput } from "./repository";
 
@@ -27,7 +28,8 @@ const definitions: Record<AiOperationKind, Array<[string, string]>> = {
   content_regenerate: [["loading", "Load saved campaign"], ["drafting", "Regenerate platforms"], ["checking", "Check each draft"], ["saving", "Save updated drafts"]],
   content_image: [["validating", "Validate composition"], ["background", "Create background"], ["resizing", "Fit platform canvas"], ["composing", "Render exact copy"], ["saving", "Save PNG"]],
   spotlight_batch: [["preparing", "Verify campaign references"], ["processing", "Build speaker packages"], ["finalizing", "Finalize batch"]],
-  spotlight_retry: [["preparing", "Load verified package"], ["processing", "Generate saved package image"], ["finalizing", "Finalize package"]]
+  spotlight_retry: [["preparing", "Load verified package"], ["processing", "Generate saved package image"], ["finalizing", "Finalize package"]],
+  summit_agenda_batch: [["preparing", "Validate agenda records"], ["processing", "Generate live post images"], ["finalizing", "Save stripped PNGs"]]
 };
 
 export function listPublicOperations(limit = 20) {
@@ -261,6 +263,15 @@ async function executeOperation(kind: AiOperationKind, input: unknown, apiKey: s
         entityType: "spotlight", entityId: batch.id, href: `/speaker-spotlight?batch=${batch.id}`,
         partial: result?.status !== "completed", completedUnits: result?.status === "completed" ? 1 : 0,
         error: result?.status === "completed" ? null : result?.error || "The package still needs attention."
+      };
+    }
+    case "summit_agenda_batch": {
+      const batch = await createSummitAgendaPosts(SummitAgendaGenerateSchema.parse(input), apiKey, reporter);
+      return {
+        entityType: "summit_agenda", entityId: batch.id, href: `/summit-agenda?batch=${batch.id}`,
+        failed: batch.status === "failed", partial: batch.status === "partially_completed",
+        completedUnits: batch.results.filter((result) => result.status === "completed").length,
+        error: batch.status === "completed" ? null : batch.error || batch.warnings.join(" ") || "Some agenda images need attention."
       };
     }
   }
