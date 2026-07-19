@@ -1,14 +1,20 @@
 import fs from "node:fs";
 import sharp from "sharp";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { closeDatabase } from "@/server/db/database";
+import { closeDatabase, getDatabase } from "@/server/db/database";
 import { resetAllData, summitAgendaAssetStoragePath } from "@/server/db/repository";
 import { stripC2pa } from "@/server/images/strip-c2pa";
 import { createSummitAgendaPosts, getSummitAgendaWorkspace, resetSummitAgendaSession, saveSummitAgendaPortrait, updateSummitAgendaSession } from "@/server/services/summit-agenda-service";
+import { ProviderFailure } from "@/server/ai/openai-provider";
+import { OperationCanceledError } from "@/server/operations/types";
+import { buildSummitAgendaCaption } from "@/lib/summit-agenda-caption";
 
 const providerMocks = vi.hoisted(() => ({ agendaImage: vi.fn() }));
 
-vi.mock("@/server/ai/openai-provider", () => ({ summitAgendaImageWithOpenAI: providerMocks.agendaImage }));
+vi.mock("@/server/ai/openai-provider", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/server/ai/openai-provider")>()),
+  summitAgendaImageWithOpenAI: providerMocks.agendaImage
+}));
 
 beforeEach(() => {
   providerMocks.agendaImage.mockReset();
@@ -21,6 +27,66 @@ afterEach(() => {
 });
 
 describe("live summit agenda", () => {
+  it("deterministically matches the supplied live-caption templates", () => {
+    const { agenda } = getSummitAgendaWorkspace();
+    const sessions = agenda.days.flatMap((day) => day.sessions);
+    const panel = sessions.find((session) => session.title.startsWith("When AI Agents Go to Work"))!;
+    const fireside = sessions.find((session) => session.title === "Shipping AI Dev Tools Across Hundreds of Engineers")!;
+    const solo = sessions.find((session) => session.title === "AI Can Write PRs end-to-end, Should It?")!;
+
+    expect(buildSummitAgendaCaption(panel, agenda.event)).toBe(`🔴 Coming up live at AGI Summit in San Francisco!
+
+“When AI Agents Go to Work—Building, Trusting & Scaling Autonomous AI”
+
+🎙️ Moderator: Zihan Wang
+💬 Charlie Hu, Emery Han, Li Erran Li, Chi Zhang, Xuewei Wu & Henry Kang
+🕠 5:25–5:55 PM
+
+#AGISummit #AIAgents #AutonomousAI #ArtificialIntelligence #SanFrancisco`);
+    expect(buildSummitAgendaCaption(fireside, agenda.event)).toBe(`🔴 LIVE at AGI Summit
+
+“Shipping AI Dev Tools Across Hundreds of Engineers”
+
+🔥 Daksh Gupta & Chintan Turakhia
+🕘 9:20–9:40 AM
+📍 San Francisco
+
+#AGISummit #AI #DeveloperTools #Engineering #SanFrancisco`);
+    expect(buildSummitAgendaCaption(solo, agenda.event)).toBe(`🔴 LIVE at AGI Summit
+
+“AI Can Write PRs End-to-End, Should It?”
+
+🎤 Daksh Gupta
+🕘 8:40–9:00 AM
+📍 San Francisco
+
+#AGISummit #AI #SoftwareDevelopment`);
+  });
+
+  it("handles duplicate names, multiple moderators, and time-period boundaries", () => {
+    const source = getSummitAgendaWorkspace().agenda.days[0].sessions.find((session) => session.people.length >= 2)!;
+    const caption = buildSummitAgendaCaption({
+      ...source,
+      format: "Talk",
+      title: "  privacy   and AI infrastructure  ",
+      start: 710,
+      end: 730,
+      people: [
+        { ...source.people[0], name: "  Alex Smith ", moderator: true },
+        { ...source.people[1], name: "Jamie Lee", moderator: true },
+        { ...source.people[0], id: "duplicate", name: "alex smith", moderator: false },
+        { ...source.people[1], id: "speaker", name: "  Pat  Jones ", moderator: false },
+        { ...source.people[1], id: "speaker-duplicate", name: "pat jones", moderator: false }
+      ]
+    }, { name: "AGI Summit SF 2026", location: "San Francisco" });
+
+    expect(caption).toContain("🎙️ Moderators: Alex Smith & Jamie Lee");
+    expect(caption).toContain("💬 Pat Jones");
+    expect(caption).not.toContain("💬 alex smith");
+    expect(caption).toContain("🕛 11:50 AM–12:10 PM");
+    expect(caption).toContain("#Cybersecurity #AIInfrastructure");
+  });
+
   it("preserves the rendered Day 1 and Day 2 calendars and known source records", () => {
     const { agenda } = getSummitAgendaWorkspace();
     expect(agenda.days.map((day) => day.sessions.length)).toEqual([63, 49]);
@@ -63,9 +129,12 @@ describe("live summit agenda", () => {
 
   it("creates a first-pass 3:4 demo image and leaves it C2PA-free", async () => {
     const session = getSummitAgendaWorkspace().agenda.days[0].sessions.find((item) => item.startLabel === "8:40" && item.stage === "gpt")!;
-    const batch = await createSummitAgendaPosts({ sessionIds: [session.id] }, null);
+    const { batch } = await createSummitAgendaPosts({ sessionIds: [session.id] }, null);
     expect(batch).toMatchObject({ status: "completed", provider: "demo" });
-    expect(batch.results[0]).toMatchObject({ status: "completed", imageAssetId: expect.any(String) });
+    expect(batch.results[0]).toMatchObject({ status: "completed", imageAssetId: expect.any(String), caption: expect.stringContaining("🔴 LIVE at AGI Summit") });
+    expect(getSummitAgendaWorkspace().batches[0].results[0].caption).toBe(batch.results[0].caption);
+    getDatabase().prepare("UPDATE summit_agenda_results SET caption=NULL WHERE id=?").run(batch.results[0].id);
+    expect(getSummitAgendaWorkspace().batches[0].results[0].caption).toBe(batch.results[0].caption);
     const imagePath = summitAgendaAssetStoragePath(batch.results[0].imageAssetId!);
     expect(imagePath && fs.existsSync(imagePath)).toBe(true);
     const metadata = await sharp(imagePath!).metadata();
@@ -79,7 +148,7 @@ describe("live summit agenda", () => {
     providerMocks.agendaImage.mockResolvedValue({ bytes, requestId: "req_agenda_3x4" });
     const session = getSummitAgendaWorkspace().agenda.days[0].sessions.find((item) => item.startLabel === "8:40" && item.stage === "gpt")!;
 
-    const batch = await createSummitAgendaPosts({ sessionIds: [session.id] }, "sk-test-key");
+    const { batch } = await createSummitAgendaPosts({ sessionIds: [session.id] }, "sk-test-key");
     const imagePath = summitAgendaAssetStoragePath(batch.results[0].imageAssetId!);
     const metadata = await sharp(imagePath!).metadata();
 
@@ -94,11 +163,64 @@ describe("live summit agenda", () => {
 
   it("serves the retained full provider canvas for legacy cropped runs", async () => {
     const session = getSummitAgendaWorkspace().agenda.days[0].sessions.find((item) => item.startLabel === "8:40" && item.stage === "gpt")!;
-    const batch = await createSummitAgendaPosts({ sessionIds: [session.id] }, null);
+    const { batch } = await createSummitAgendaPosts({ sessionIds: [session.id] }, null);
     const storedPath = summitAgendaAssetStoragePath(batch.results[0].imageAssetId!)!;
     const legacyFullCanvasPath = storedPath.replace(/-live\.png$/i, "-provider.png");
     await sharp({ create: { width: 1024, height: 1536, channels: 4, background: "#080b24" } }).png().toFile(legacyFullCanvasPath);
 
     expect(summitAgendaAssetStoragePath(batch.results[0].imageAssetId!)).toBe(legacyFullCanvasPath);
   }, 20_000);
+
+  it("continues after a retryable image failure and resumes only the preserved failed snapshot", async () => {
+    vi.stubEnv("MARKETING_HUB_DEMO_MODE", "false");
+    const bytes = await sharp({ create: { width: 1024, height: 1536, channels: 4, background: "#080b24" } }).png().toBuffer();
+    const sessions = getSummitAgendaWorkspace().agenda.days[0].sessions.filter((session) => session.title && session.people.length && session.people.every((person) => person.photo)).slice(0, 2);
+    const timeout = new ProviderFailure("timeout", "The OpenAI request timed out. Retry the preserved package.", {
+      status: null, providerCode: null, providerType: null, param: null, requestId: null, retryable: true, moderationStage: null, moderationCategories: []
+    });
+    providerMocks.agendaImage.mockRejectedValueOnce(timeout).mockResolvedValueOnce({ bytes, requestId: "req_second" });
+    const progress = vi.fn();
+    const controller = new AbortController();
+
+    const execution = await createSummitAgendaPosts({ sessionIds: sessions.map((session) => session.id) }, "sk-test-key", {
+      signal: controller.signal, stage: vi.fn(), checkpoint: vi.fn(), progress
+    });
+
+    expect(providerMocks.agendaImage).toHaveBeenCalledTimes(2);
+    expect(execution.batch.results.map((result) => result.status)).toEqual(["failed", "completed"]);
+    expect(execution.batch.results[0].providerError).toMatchObject({ code: "timeout", retryable: true });
+    expect(progress.mock.calls.map((call) => call[0])).toEqual([1, 2]);
+    expect(execution.retryInput?.resultIds).toEqual([execution.batch.results[0].id]);
+
+    updateSummitAgendaSession({
+      sessionId: sessions[0].id, title: "Changed after the original run", format: sessions[0].format as "Keynote" | "Fireside" | "Panel" | "Workshop" | "Talk" | "Break",
+      start: sessions[0].start, end: sessions[0].end, people: sessions[0].people
+    });
+    providerMocks.agendaImage.mockReset();
+    providerMocks.agendaImage.mockResolvedValue({ bytes, requestId: "req_retry" });
+    const retried = await createSummitAgendaPosts(execution.retryInput!, "sk-test-key");
+
+    expect(providerMocks.agendaImage).toHaveBeenCalledTimes(1);
+    expect(retried.batch.results).toHaveLength(1);
+    expect(retried.batch.results[0]).toMatchObject({ status: "completed", session: { title: sessions[0].title } });
+  }, 20_000);
+
+  it("makes the active and queued results terminal when a batch is canceled", async () => {
+    vi.stubEnv("MARKETING_HUB_DEMO_MODE", "false");
+    const sessions = getSummitAgendaWorkspace().agenda.days[0].sessions.filter((session) => session.title && session.people.length && session.people.every((person) => person.photo)).slice(0, 2);
+    const controller = new AbortController();
+    providerMocks.agendaImage.mockImplementationOnce(async () => {
+      controller.abort();
+      throw new DOMException("The operation was aborted.", "AbortError");
+    });
+
+    const pending = createSummitAgendaPosts({ sessionIds: sessions.map((session) => session.id) }, "sk-test-key", {
+      signal: controller.signal, stage: vi.fn(), checkpoint: vi.fn(), progress: vi.fn()
+    });
+    await expect(pending).rejects.toBeInstanceOf(OperationCanceledError);
+
+    const batch = getSummitAgendaWorkspace().batches[0];
+    expect(batch.results.map((result) => result.status)).toEqual(["canceled", "canceled"]);
+    expect(batch.results.every((result) => result.error?.includes("Canceled"))).toBe(true);
+  });
 });

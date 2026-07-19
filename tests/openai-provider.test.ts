@@ -9,7 +9,8 @@ import {
   collectSourceMetadata,
   parseStructuredResponse,
   planResearchCandidateBatches,
-  researchWebSearchTool
+  researchWebSearchTool,
+  withOpenAIRequestDeadline
 } from "@/server/ai/openai-provider";
 import { DiscoveryBundleSchema, type DiscoveryBundle } from "@/server/ai/schemas";
 
@@ -93,6 +94,12 @@ describe("OpenAI provider diagnostics and GPT Image 2 request", () => {
     expect(failure.details.retryable).toBe(true);
     expect(OPENAI_RESEARCH_TIMEOUT_MS).toBeGreaterThan(180_000);
     expect(OPENAI_TEXT_TIMEOUT_MS).toBeGreaterThanOrEqual(180_000);
+  });
+
+  it("enforces an end-to-end deadline even when the underlying request never settles", async () => {
+    const pending = withOpenAIRequestDeadline(undefined, 20, async () => new Promise<never>(() => undefined));
+
+    await expect(pending).rejects.toMatchObject({ code: "timeout", details: { retryable: true } });
   });
 
   it("records directly opened web-search pages as provider-observed evidence", () => {

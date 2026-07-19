@@ -441,6 +441,18 @@ export interface SummitAgendaData {
 
 export type SummitAgendaResultStatus = "queued" | "generating" | "completed" | "failed" | "canceled";
 
+export interface SummitAgendaProviderError {
+  code: string;
+  status: number | null;
+  providerCode: string | null;
+  providerType: string | null;
+  param: string | null;
+  requestId: string | null;
+  retryable: boolean;
+  moderationStage: string | null;
+  moderationCategories: string[];
+}
+
 export interface SummitAgendaResult {
   id: string;
   batchId: string;
@@ -449,8 +461,10 @@ export interface SummitAgendaResult {
   status: SummitAgendaResultStatus;
   imageAssetId: string | null;
   imageFileName: string | null;
+  caption: string;
   prompt: string | null;
   requestId: string | null;
+  providerError: SummitAgendaProviderError | null;
   error: string | null;
   createdAt: string;
   updatedAt: string;

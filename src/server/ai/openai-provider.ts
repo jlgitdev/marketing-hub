@@ -79,6 +79,30 @@ function clientForKey(apiKey: string) {
   return new OpenAI({ apiKey, timeout: 90_000, maxRetries: 1 });
 }
 
+export async function withOpenAIRequestDeadline<T>(signal: AbortSignal | undefined, timeoutMs: number, request: (signal: AbortSignal) => Promise<T>): Promise<T> {
+  if (signal?.aborted) throw new DOMException("The operation was aborted.", "AbortError");
+  const controller = new AbortController();
+  let rejectControl!: (error: unknown) => void;
+  const control = new Promise<never>((_, reject) => { rejectControl = reject; });
+  const cancel = () => {
+    rejectControl(new DOMException("The operation was aborted.", "AbortError"));
+    controller.abort();
+  };
+  signal?.addEventListener("abort", cancel, { once: true });
+  const timer = setTimeout(() => {
+    rejectControl(new ProviderFailure("timeout", "The OpenAI request timed out. Retry the preserved package.", {
+      ...emptyProviderFailureDetails(), retryable: true
+    }));
+    controller.abort();
+  }, timeoutMs);
+  try {
+    return await Promise.race([request(controller.signal), control]);
+  } finally {
+    clearTimeout(timer);
+    signal?.removeEventListener("abort", cancel);
+  }
+}
+
 function emptyProviderFailureDetails(): ProviderFailureDetails {
   return { status: null, providerCode: null, providerType: null, param: null, requestId: null, retryable: false, moderationStage: null, moderationCategories: [] };
 }
@@ -300,7 +324,10 @@ export async function socialWithOpenAI(apiKey: string, input: SocialRequest, sig
 
 export async function imageWithOpenAI(apiKey: string, prompt: string, size: "1024x1024" | "1536x1024" | "1024x1536" = "1024x1024", signal?: AbortSignal) {
   try {
-    const result = await clientForKey(apiKey).images.generate({ model: MODELS.image, prompt, size, quality: "low", output_format: "png" }, { signal, timeout: OPENAI_IMAGE_TIMEOUT_MS, maxRetries: 0 });
+    const result = await withOpenAIRequestDeadline(signal, OPENAI_IMAGE_TIMEOUT_MS, (requestSignal) => clientForKey(apiKey).images.generate(
+      { model: MODELS.image, prompt, size, quality: "low", output_format: "png" },
+      { signal: requestSignal, timeout: OPENAI_IMAGE_TIMEOUT_MS, maxRetries: 0 }
+    ));
     const encoded = result.data?.[0]?.b64_json;
     if (!encoded) throw new ProviderFailure("provider_unavailable", "OpenAI did not return image data.");
     return Buffer.from(encoded, "base64");
@@ -312,13 +339,15 @@ export async function imageWithOpenAI(apiKey: string, prompt: string, size: "102
 
 export async function speakerSpotlightImageWithOpenAI(apiKey: string, input: { headshotPath: string; headshotMimeType: string; styleReferencePath: string; prompt: string }, signal?: AbortSignal) {
   try {
-    const client = clientForKey(apiKey);
-    const styleReferenceMimeType = /\.jpe?g$/i.test(input.styleReferencePath) ? "image/jpeg" : /\.webp$/i.test(input.styleReferencePath) ? "image/webp" : "image/png";
-    const images = await Promise.all([
-      toFile(fs.createReadStream(input.styleReferencePath), path.basename(input.styleReferencePath), { type: styleReferenceMimeType }),
-      toFile(fs.createReadStream(input.headshotPath), path.basename(input.headshotPath), { type: input.headshotMimeType })
-    ]);
-    const result = await client.images.edit(buildSpeakerSpotlightImageEditRequest(images, input.prompt), { signal, timeout: OPENAI_IMAGE_TIMEOUT_MS, maxRetries: 0 });
+    const result = await withOpenAIRequestDeadline(signal, OPENAI_IMAGE_TIMEOUT_MS, async (requestSignal) => {
+      const client = clientForKey(apiKey);
+      const styleReferenceMimeType = /\.jpe?g$/i.test(input.styleReferencePath) ? "image/jpeg" : /\.webp$/i.test(input.styleReferencePath) ? "image/webp" : "image/png";
+      const images = await Promise.all([
+        toFile(fs.createReadStream(input.styleReferencePath), path.basename(input.styleReferencePath), { type: styleReferenceMimeType }),
+        toFile(fs.createReadStream(input.headshotPath), path.basename(input.headshotPath), { type: input.headshotMimeType })
+      ]);
+      return client.images.edit(buildSpeakerSpotlightImageEditRequest(images, input.prompt), { signal: requestSignal, timeout: OPENAI_IMAGE_TIMEOUT_MS, maxRetries: 0 });
+    });
     const encoded = result.data?.[0]?.b64_json;
     if (!encoded) throw new ProviderFailure("provider_unavailable", "OpenAI did not return Speaker Spotlight image data.");
     return { bytes: Buffer.from(encoded, "base64"), requestId: (result as unknown as { _request_id?: string })._request_id || null };
@@ -341,8 +370,10 @@ export function buildSpeakerSpotlightImageEditRequest(image: Awaited<ReturnType<
 
 export async function summitAgendaImageWithOpenAI(apiKey: string, input: { images: Array<{ filePath: string; mimeType: string }>; prompt: string }, signal?: AbortSignal) {
   try {
-    const files = await Promise.all(input.images.map((item) => toFile(fs.createReadStream(item.filePath), path.basename(item.filePath), { type: item.mimeType })));
-    const result = await clientForKey(apiKey).images.edit(buildSummitAgendaImageEditRequest(files, input.prompt), { signal, timeout: OPENAI_IMAGE_TIMEOUT_MS, maxRetries: 0 });
+    const result = await withOpenAIRequestDeadline(signal, OPENAI_IMAGE_TIMEOUT_MS, async (requestSignal) => {
+      const files = await Promise.all(input.images.map((item) => toFile(fs.createReadStream(item.filePath), path.basename(item.filePath), { type: item.mimeType })));
+      return clientForKey(apiKey).images.edit(buildSummitAgendaImageEditRequest(files, input.prompt), { signal: requestSignal, timeout: OPENAI_IMAGE_TIMEOUT_MS, maxRetries: 0 });
+    });
     const encoded = result.data?.[0]?.b64_json;
     if (!encoded) throw new ProviderFailure("provider_unavailable", "OpenAI did not return a live agenda image.");
     return { bytes: Buffer.from(encoded, "base64"), requestId: (result as unknown as { _request_id?: string })._request_id || null };

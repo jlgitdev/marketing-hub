@@ -7,7 +7,8 @@ import { generateOutreach, OutreachInputSchema, regenerateOutreach } from "@/ser
 import { ContentInputSchema, generateContentCampaign, regeneratePlatforms } from "@/server/services/content-service";
 import { generateCampaignGraphic, type CampaignGraphicInput } from "@/server/storage/assets";
 import { createSpeakerSpotlights, retrySpeakerSpotlight, SpeakerSpotlightInputSchema } from "@/server/services/speaker-spotlight-service";
-import { createSummitAgendaPosts, SummitAgendaGenerateSchema } from "@/server/services/summit-agenda-service";
+import { createSummitAgendaPosts, SummitAgendaGenerateSchema, SummitAgendaOperationSchema, SummitAgendaResumeSchema } from "@/server/services/summit-agenda-service";
+import { listSummitAgendaBatches } from "@/server/db/repository";
 import { OperationCanceledError, pendingSteps, type OperationReporter } from "./types";
 import { createAiOperation, dismissAiOperationRecord, findActiveOperation, getAiOperation, listAiOperations, publicOperation, updateAiOperation, updateAiOperationInput } from "./repository";
 
@@ -91,11 +92,31 @@ export function retryAiOperation(id: string, sessionId: string | null) {
   const operation = getAiOperation(id);
   if (!operation) throw new Error("AI operation not found.");
   if (!["failed", "partially_completed", "canceled", "interrupted"].includes(operation.status)) throw new Error("Only failed, partial, canceled, or interrupted operations can be retried.");
+  if (!operation.retryable) throw new Error("This operation cannot be retried without changing its inputs.");
+  const operationInput = operation.kind === "summit_agenda_batch" ? resolveSummitAgendaRetryInput(operation) : operation.input;
+  const preserved = SummitAgendaResumeSchema.safeParse(operationInput);
   return startAiOperation({
-    kind: operation.kind, label: `Retry · ${operation.label}`, operationInput: operation.input,
+    kind: operation.kind, label: `Retry · ${operation.label}`, operationInput,
     originPath: operation.originPath, targetKey: operation.targetKey, sessionId,
-    totalUnits: operation.totalUnits, unitLabel: operation.unitLabel
+    totalUnits: preserved.success ? preserved.data.resultIds.length : operation.totalUnits, unitLabel: operation.unitLabel
   });
+}
+
+function resolveSummitAgendaRetryInput(operation: NonNullable<ReturnType<typeof getAiOperation>>) {
+  const preserved = SummitAgendaResumeSchema.safeParse(operation.input);
+  if (preserved.success) return preserved.data;
+  const original = SummitAgendaGenerateSchema.parse(operation.input);
+  const expected = [...new Set(original.sessionIds)].sort().join("|");
+  const batches = listSummitAgendaBatches();
+  const source = (operation.resultEntityId ? batches.find((batch) => batch.id === operation.resultEntityId) : null)
+    || batches
+      .filter((batch) => [...batch.sessionIds].sort().join("|") === expected && Math.abs(new Date(batch.createdAt).getTime() - new Date(operation.createdAt).getTime()) <= 60_000)
+      .sort((a, b) => Math.abs(new Date(a.createdAt).getTime() - new Date(operation.createdAt).getTime()) - Math.abs(new Date(b.createdAt).getTime() - new Date(operation.createdAt).getTime()))[0];
+  if (!source && (operation.completedUnits || 0) === 0) return original;
+  if (!source) throw new Error("The preserved agenda batch for this retry could not be found.");
+  const resultIds = source.results.filter((result) => result.status !== "completed").map((result) => result.id);
+  if (!resultIds.length) throw new Error("This agenda batch has no unfinished images to retry.");
+  return SummitAgendaResumeSchema.parse({ sourceBatchId: source.id, resultIds });
 }
 
 function scheduleDrain() {
@@ -154,20 +175,28 @@ async function drainQueue() {
     updateAiOperation(operation.id, {
       status: terminalStatus, steps: outcome.failed ? failLastStep(getAiOperation(operation.id)?.steps || operation.steps) : completeSteps(getAiOperation(operation.id)?.steps || operation.steps),
       resultEntityType: outcome.entityType, resultEntityId: outcome.entityId, resultHref: outcome.href,
-      error: outcome.error || null, retryable: Boolean(outcome.partial || outcome.failed), completedAt,
+      error: outcome.error || null, retryable: outcome.retryable ?? Boolean(outcome.partial || outcome.failed), completedAt,
       ...(outcome.completedUnits !== undefined ? { completedUnits: outcome.completedUnits } : {})
     });
     if (outcome.retryInput) updateAiOperationInput(operation.id, outcome.retryInput);
   } catch (error) {
     const current = getAiOperation(operation.id) || operation;
     const canceled = error instanceof OperationCanceledError || queueState.controller.signal.aborted || (error instanceof Error && /cancel|abort/i.test(error.message));
+    const canceledOutcome = error instanceof OperationCanceledError ? error.outcome : null;
     const completedAt = new Date().toISOString();
+    if (canceledOutcome?.retryInput !== undefined) updateAiOperationInput(operation.id, canceledOutcome.retryInput);
     updateAiOperation(operation.id, {
       status: canceled ? "canceled" : "failed",
       steps: canceled ? cancelSteps(current.steps) : failSteps(current.steps),
       error: canceled ? "The operation was canceled. Completed sub-results were preserved." : redactSecrets(error instanceof Error ? error.message : "The operation failed."),
-      retryable: true,
-      completedAt
+      retryable: canceledOutcome?.retryable ?? true,
+      completedAt,
+      ...(canceledOutcome ? {
+        resultEntityType: canceledOutcome.resultEntityType,
+        resultEntityId: canceledOutcome.resultEntityId,
+        resultHref: canceledOutcome.resultHref,
+        ...(canceledOutcome.completedUnits !== undefined ? { completedUnits: canceledOutcome.completedUnits } : {})
+      } : {})
     });
   } finally {
     queueState.activeId = null;
@@ -208,6 +237,7 @@ async function executeOperation(kind: AiOperationKind, input: unknown, apiKey: s
   error?: string | null;
   completedUnits?: number;
   retryInput?: unknown;
+  retryable?: boolean;
 }> {
   switch (kind) {
     case "research": {
@@ -266,12 +296,14 @@ async function executeOperation(kind: AiOperationKind, input: unknown, apiKey: s
       };
     }
     case "summit_agenda_batch": {
-      const batch = await createSummitAgendaPosts(SummitAgendaGenerateSchema.parse(input), apiKey, reporter);
+      const execution = await createSummitAgendaPosts(SummitAgendaOperationSchema.parse(input), apiKey, reporter);
+      const batch = execution.batch;
       return {
         entityType: "summit_agenda", entityId: batch.id, href: `/summit-agenda?batch=${batch.id}`,
         failed: batch.status === "failed", partial: batch.status === "partially_completed",
         completedUnits: batch.results.filter((result) => result.status === "completed").length,
-        error: batch.status === "completed" ? null : batch.error || batch.warnings.join(" ") || "Some agenda images need attention."
+        error: batch.status === "completed" ? null : batch.error || batch.warnings.join(" ") || "Some agenda images need attention.",
+        retryable: Boolean(execution.retryInput), retryInput: execution.retryInput || undefined
       };
     }
   }

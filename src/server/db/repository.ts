@@ -20,6 +20,7 @@ import type {
   SupportingSource,
   WorkspaceState
 } from "@/lib/types";
+import { buildSummitAgendaCaption } from "@/lib/summit-agenda-caption";
 import { MAX_FILES } from "@/lib/config";
 import { dataDirectory, isDemoMode, isPathInsideDataDirectory } from "@/server/config";
 import { ensureDataDirectories, getDatabase, withTransaction } from "./database";
@@ -584,12 +585,17 @@ export function saveSummitAgendaData(data: SummitAgendaData) {
 }
 
 function summitAgendaResultFromRow(row: Record<string, unknown>): SummitAgendaResult {
+  const session = json(String(row.session_snapshot), {} as SummitAgendaResult["session"]);
   return {
     id: String(row.id), batchId: String(row.batch_id), sessionId: String(row.session_id),
-    session: json(String(row.session_snapshot), {} as SummitAgendaResult["session"]),
+    session,
     status: row.status as SummitAgendaResult["status"], imageAssetId: row.image_asset_id ? String(row.image_asset_id) : null,
-    imageFileName: row.image_file_name ? String(row.image_file_name) : null, prompt: row.prompt ? String(row.prompt) : null,
-    requestId: row.request_id ? String(row.request_id) : null, error: row.error ? String(row.error) : null,
+    imageFileName: row.image_file_name ? String(row.image_file_name) : null,
+    caption: row.caption ? String(row.caption) : buildSummitAgendaCaption(session),
+    prompt: row.prompt ? String(row.prompt) : null,
+    requestId: row.request_id ? String(row.request_id) : null,
+    providerError: row.provider_error ? json(String(row.provider_error), null) : null,
+    error: row.error ? String(row.error) : null,
     createdAt: String(row.created_at), updatedAt: String(row.updated_at)
   };
 }
@@ -600,8 +606,8 @@ export function createSummitAgendaBatch(batch: SummitAgendaBatch) {
     db.prepare("INSERT INTO summit_agenda_batches(id,session_ids,status,model,prompt_version,provider,warnings,error,created_at,completed_at) VALUES (?,?,?,?,?,?,?,?,?,?)")
       .run(batch.id, JSON.stringify(batch.sessionIds), batch.status, batch.model, batch.promptVersion, batch.provider, JSON.stringify(batch.warnings), batch.error, batch.createdAt, batch.completedAt);
     for (const result of batch.results) {
-      db.prepare("INSERT INTO summit_agenda_results(id,batch_id,session_id,session_snapshot,status,image_asset_id,image_file_name,image_storage_path,prompt,request_id,error,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)")
-        .run(result.id, result.batchId, result.sessionId, JSON.stringify(result.session), result.status, result.imageAssetId, result.imageFileName, null, result.prompt, result.requestId, result.error, result.createdAt, result.updatedAt);
+      db.prepare("INSERT INTO summit_agenda_results(id,batch_id,session_id,session_snapshot,status,image_asset_id,image_file_name,image_storage_path,caption,prompt,request_id,provider_error,error,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+        .run(result.id, result.batchId, result.sessionId, JSON.stringify(result.session), result.status, result.imageAssetId, result.imageFileName, null, result.caption, result.prompt, result.requestId, result.providerError ? JSON.stringify(result.providerError) : null, result.error, result.createdAt, result.updatedAt);
     }
   });
   addActivity("summit_agenda_started", "Live agenda post batch", `${batch.sessionIds.length} sessions`, batch.id);
@@ -624,8 +630,8 @@ export function updateSummitAgendaResult(resultId: string, patch: Partial<Summit
   if (!row) throw new Error("Live agenda post result not found.");
   const current = summitAgendaResultFromRow(row);
   const next = { ...current, ...patch, updatedAt: new Date().toISOString() };
-  db.prepare("UPDATE summit_agenda_results SET session_snapshot=?,status=?,image_asset_id=?,image_file_name=?,image_storage_path=COALESCE(?,image_storage_path),prompt=?,request_id=?,error=?,updated_at=? WHERE id=?")
-    .run(JSON.stringify(next.session), next.status, next.imageAssetId, next.imageFileName, patch.imageStoragePath ?? null, next.prompt, next.requestId, next.error, next.updatedAt, resultId);
+  db.prepare("UPDATE summit_agenda_results SET session_snapshot=?,status=?,image_asset_id=?,image_file_name=?,image_storage_path=COALESCE(?,image_storage_path),caption=?,prompt=?,request_id=?,provider_error=?,error=?,updated_at=? WHERE id=?")
+    .run(JSON.stringify(next.session), next.status, next.imageAssetId, next.imageFileName, patch.imageStoragePath ?? null, next.caption, next.prompt, next.requestId, next.providerError ? JSON.stringify(next.providerError) : null, next.error, next.updatedAt, resultId);
   return next;
 }
 

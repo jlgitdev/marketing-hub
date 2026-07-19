@@ -5,8 +5,9 @@ import sharp, { type OverlayOptions } from "sharp";
 import { z } from "zod";
 import agendaJson from "@/data/summit-agenda.json";
 import { MAX_ASSET_BYTES, PROMPT_VERSIONS, SUMMIT_AGENDA_IMAGE_SPEC } from "@/lib/config";
-import type { SummitAgendaBatch, SummitAgendaData, SummitAgendaPerson, SummitAgendaResult, SummitAgendaSession } from "@/lib/types";
-import { summitAgendaImageWithOpenAI } from "@/server/ai/openai-provider";
+import { buildSummitAgendaCaption } from "@/lib/summit-agenda-caption";
+import type { SummitAgendaBatch, SummitAgendaData, SummitAgendaPerson, SummitAgendaProviderError, SummitAgendaResult, SummitAgendaSession } from "@/lib/types";
+import { ProviderFailure, summitAgendaImageWithOpenAI } from "@/server/ai/openai-provider";
 import { dataDirectory, isDemoMode } from "@/server/config";
 import {
   createSummitAgendaBatch,
@@ -50,6 +51,18 @@ export const SummitAgendaSessionUpdateSchema = z.object({
 export const SummitAgendaGenerateSchema = z.object({
   sessionIds: z.array(z.string().trim().min(1).max(240)).min(1).max(20)
 });
+
+export const SummitAgendaResumeSchema = z.object({
+  sourceBatchId: z.string().uuid(),
+  resultIds: z.array(z.string().uuid()).min(1).max(20)
+});
+
+export const SummitAgendaOperationSchema = z.union([SummitAgendaGenerateSchema, SummitAgendaResumeSchema]);
+
+export interface SummitAgendaExecution {
+  batch: SummitAgendaBatch;
+  retryInput: z.infer<typeof SummitAgendaResumeSchema> | null;
+}
 
 export function getSummitAgendaWorkspace() {
   return { agenda: getSummitAgendaData(sourceAgenda), batches: listSummitAgendaBatches() };
@@ -116,14 +129,28 @@ export function resolveSummitAgendaPortrait(token: string) {
   return resolved;
 }
 
-export async function createSummitAgendaPosts(input: z.infer<typeof SummitAgendaGenerateSchema>, apiKey: string | null, reporter?: OperationReporter) {
+export async function createSummitAgendaPosts(input: z.infer<typeof SummitAgendaOperationSchema>, apiKey: string | null, reporter?: OperationReporter): Promise<SummitAgendaExecution> {
   if (!isDemoMode() && !apiKey) throw new Error("Connect an OpenAI API key before generating live agenda posts.");
-  const agenda = getSummitAgendaData(sourceAgenda);
-  const sessionIds = [...new Set(input.sessionIds)];
-  const sessions = sessionIds.map((sessionId) => findSession(agenda, sessionId)?.session || null);
-  const missing = sessionIds.filter((_, index) => !sessions[index]);
-  if (missing.length) throw new Error(`Agenda sessions not found: ${missing.join(", ")}.`);
-  const selected = sessions as SummitAgendaSession[];
+  let selected: SummitAgendaSession[];
+  let sessionIds: string[];
+  if ("sourceBatchId" in input) {
+    const sourceBatch = listSummitAgendaBatches().find((batch) => batch.id === input.sourceBatchId);
+    if (!sourceBatch) throw new Error("The preserved agenda batch could not be found.");
+    const uniqueResultIds = [...new Set(input.resultIds)];
+    const sourceResults = uniqueResultIds.map((resultId) => sourceBatch.results.find((result) => result.id === resultId) || null);
+    const unavailable = uniqueResultIds.filter((_, index) => !sourceResults[index]);
+    if (unavailable.length) throw new Error("One or more preserved agenda results could not be found.");
+    if (sourceResults.some((result) => result?.status === "completed")) throw new Error("Completed agenda images cannot be regenerated through a recovery retry.");
+    selected = (sourceResults as SummitAgendaResult[]).map((result) => structuredClone(result.session));
+    sessionIds = selected.map((session) => session.id);
+  } else {
+    const agenda = getSummitAgendaData(sourceAgenda);
+    sessionIds = [...new Set(input.sessionIds)];
+    const sessions = sessionIds.map((sessionId) => findSession(agenda, sessionId)?.session || null);
+    const missing = sessionIds.filter((_, index) => !sessions[index]);
+    if (missing.length) throw new Error(`Agenda sessions not found: ${missing.join(", ")}.`);
+    selected = sessions as SummitAgendaSession[];
+  }
   for (const session of selected) validateGenerationReady(session);
 
   reporter?.stage("preparing", "Freezing the selected agenda records and checking every portrait.");
@@ -131,7 +158,9 @@ export async function createSummitAgendaPosts(input: z.infer<typeof SummitAgenda
   const batchId = crypto.randomUUID();
   const results: SummitAgendaResult[] = selected.map((session, index) => ({
     id: crypto.randomUUID(), batchId, sessionId: session.id, session: structuredClone(session), status: "queued",
-    imageAssetId: null, imageFileName: null, prompt: null, requestId: null, error: null,
+    imageAssetId: null, imageFileName: null,
+    caption: buildSummitAgendaCaption(session, sourceAgenda.event),
+    prompt: null, requestId: null, providerError: null, error: null,
     createdAt: new Date(Date.now() + index).toISOString(), updatedAt: now
   }));
   const batch: SummitAgendaBatch = {
@@ -144,33 +173,71 @@ export async function createSummitAgendaPosts(input: z.infer<typeof SummitAgenda
   fs.mkdirSync(batchDirectory, { recursive: true });
 
   let completed = 0;
+  let processed = 0;
+  const retryableResultIds: string[] = [];
   try {
     for (const result of results) {
       reporter?.checkpoint();
       reporter?.stage("processing", `${result.session.startLabel} · ${result.session.title}`);
-      updateSummitAgendaResult(result.id, { status: "generating", error: null });
+      updateSummitAgendaResult(result.id, { status: "generating", providerError: null, error: null });
       try {
         const generated = await generateSessionImage(result.session, batchDirectory, apiKey, reporter);
         updateSummitAgendaResult(result.id, {
           status: "completed", imageAssetId: crypto.randomUUID(), imageFileName: generated.fileName,
-          imageStoragePath: generated.filePath, prompt: generated.prompt, requestId: generated.requestId, error: null
+          imageStoragePath: generated.filePath, prompt: generated.prompt, requestId: generated.requestId, providerError: null, error: null
         });
         completed += 1;
       } catch (error) {
-        if (reporter?.signal.aborted || error instanceof OperationCanceledError) throw new OperationCanceledError();
-        updateSummitAgendaResult(result.id, { status: "failed", error: error instanceof Error ? error.message : "Image generation failed." });
+        if (reporter?.signal.aborted || error instanceof OperationCanceledError) {
+          updateSummitAgendaResult(result.id, { status: "canceled", providerError: null, error: "Canceled while this image was generating." });
+          throw new OperationCanceledError();
+        }
+        const providerError = summitAgendaProviderError(error);
+        if (providerError?.retryable) retryableResultIds.push(result.id);
+        updateSummitAgendaResult(result.id, {
+          status: "failed", requestId: providerError?.requestId || null, providerError,
+          error: error instanceof Error ? error.message : "Image generation failed."
+        });
       }
-      reporter?.progress(completed, results.length, "posts", `${completed} of ${results.length} agenda posts complete.`);
+      processed += 1;
+      reporter?.progress(processed, results.length, "posts", `${processed} of ${results.length} processed; ${completed} completed.`);
     }
+    reporter?.stage("finalizing", "Saving the complete C2PA-stripped PNG canvases and the completed batch record.");
+    const finalized = finalizeBatch(batchId);
+    return {
+      batch: finalized,
+      retryInput: retryableResultIds.length ? { sourceBatchId: finalized.id, resultIds: retryableResultIds } : null
+    };
   } catch (error) {
-    for (const queued of listSummitAgendaBatches().find((item) => item.id === batchId)?.results.filter((item) => item.status === "queued") || []) {
-      updateSummitAgendaResult(queued.id, { status: "canceled", error: "Canceled before this image started." });
+    const canceled = reporter?.signal.aborted || error instanceof OperationCanceledError;
+    for (const unfinished of listSummitAgendaBatches().find((item) => item.id === batchId)?.results.filter((item) => item.status === "queued" || item.status === "generating") || []) {
+      updateSummitAgendaResult(unfinished.id, {
+        status: canceled ? "canceled" : "failed", providerError: null,
+        error: canceled ? unfinished.status === "generating" ? "Canceled while this image was generating." : "Canceled before this image started." : "The batch stopped before this image completed."
+      });
     }
-    finalizeBatch(batchId);
+    const finalized = finalizeBatch(batchId);
+    if (canceled) {
+      const resultIds = finalized.results.filter((result) => result.status === "canceled").map((result) => result.id);
+      throw new OperationCanceledError({
+        resultEntityType: "summit_agenda", resultEntityId: finalized.id, resultHref: `/summit-agenda?batch=${finalized.id}`,
+        completedUnits: finalized.results.filter((result) => result.status === "completed").length,
+        retryable: resultIds.length > 0,
+        retryInput: resultIds.length ? { sourceBatchId: finalized.id, resultIds } : undefined
+      });
+    }
     throw error;
   }
-  reporter?.stage("finalizing", "Saving the complete C2PA-stripped PNG canvases and the completed batch record.");
-  return finalizeBatch(batchId);
+}
+
+function summitAgendaProviderError(error: unknown): SummitAgendaProviderError | null {
+  if (!(error instanceof ProviderFailure)) return null;
+  return {
+    code: error.code, status: error.details.status, providerCode: error.details.providerCode,
+    providerType: error.details.providerType, param: error.details.param, requestId: error.details.requestId,
+    retryable: error.details.retryable, moderationStage: error.details.moderationStage,
+    moderationCategories: error.details.moderationCategories
+  };
 }
 
 function finalizeBatch(batchId: string) {

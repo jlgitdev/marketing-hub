@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useCallback, useEffect, useState } from "react";
-import { AlertTriangle, CalendarDays, Check, Clock3, Download, ImageIcon, Pencil, Plus, RotateCcw, Sparkles, Trash2, Users, X } from "lucide-react";
+import { AlertTriangle, CalendarDays, Check, Clipboard, Clock3, Download, ImageIcon, Pencil, Plus, RotateCcw, Sparkles, Trash2, Users, X } from "lucide-react";
 import type { SummitAgendaBatch, SummitAgendaData, SummitAgendaPerson, SummitAgendaSession } from "@/lib/types";
 import { InlineOperation, useOperations } from "./operations";
 import { apiRequest, ConnectionBadge, formatDate, PageState, useWorkspace } from "./workspace";
@@ -22,6 +22,7 @@ export function SummitAgendaClient({ initialBatchId = null }: { initialBatchId?:
   const [editing, setEditing] = useState<SummitAgendaSession | null>(null);
   const [pendingFiles, setPendingFiles] = useState<Record<string, File>>({});
   const [saving, setSaving] = useState(false);
+  const [copiedCaptionId, setCopiedCaptionId] = useState<string | null>(null);
   const [activeBatchId, setActiveBatchId] = useState<string | null>(initialBatchId);
   const [operationId, setOperationId] = useState<string | null>(null);
   const [handledOperationId, setHandledOperationId] = useState<string | null>(null);
@@ -52,10 +53,21 @@ export function SummitAgendaClient({ initialBatchId = null }: { initialBatchId?:
     }, 0);
     return () => window.clearTimeout(timer);
   }, [operation, handledOperationId, load]);
+  useEffect(() => {
+    if (!busy || !operation?.updatedAt) return;
+    const timer = window.setTimeout(() => void load(), 0);
+    return () => window.clearTimeout(timer);
+  }, [busy, operation?.updatedAt, load]);
 
   const day = data?.agenda.days.find((item) => item.key === activeDay) || null;
   const batches = data?.batches || [];
   const activeBatch = batches.find((batch) => batch.id === (operation?.resultEntityId || activeBatchId)) || batches[0] || null;
+  const activeBatchCounts = activeBatch ? {
+    completed: activeBatch.results.filter((result) => result.status === "completed").length,
+    failed: activeBatch.results.filter((result) => result.status === "failed").length,
+    canceled: activeBatch.results.filter((result) => result.status === "canceled").length,
+    active: activeBatch.results.filter((result) => result.status === "queued" || result.status === "generating").length
+  } : null;
   const readyOnDay = day?.sessions.filter((session) => !generationIssue(session)) || [];
   const selectedSessions = data?.agenda.days.flatMap((item) => item.sessions).filter((session) => selected.has(session.id)) || [];
 
@@ -114,6 +126,16 @@ export function SummitAgendaClient({ initialBatchId = null }: { initialBatchId?:
     catch (error) { setMessage(error instanceof Error ? error.message : "Could not delete the batch."); }
   }
 
+  async function copyCaption(resultId: string, caption: string) {
+    try {
+      await navigator.clipboard.writeText(caption);
+      setCopiedCaptionId(resultId);
+      window.setTimeout(() => setCopiedCaptionId((current) => current === resultId ? null : current), 1800);
+    } catch {
+      setMessage("Could not copy the caption. Select the text and copy it manually.");
+    }
+  }
+
   const dayStart = Math.floor(Math.min(...day.sessions.map((session) => session.start)) / 20) * 20;
   const dayEnd = Math.ceil(Math.max(...day.sessions.map((session) => session.end)) / 20) * 20;
   const timelineHeight = Math.max(760, (dayEnd - dayStart) * PIXELS_PER_MINUTE);
@@ -162,7 +184,15 @@ export function SummitAgendaClient({ initialBatchId = null }: { initialBatchId?:
     </section>
 
     {batches.length > 0 && <section className="section-block agenda-results-section"><div className="section-heading split spotlight-batch-heading"><div><h2>Generated live posts</h2><p className="muted">First-pass provider canvases are saved locally without cropping or resizing.</p></div><div className="toolbar spotlight-batch-controls"><select className="spotlight-batch-select" value={activeBatch?.id || ""} onChange={(event) => { setOperationId(null); setActiveBatchId(event.target.value); }}>{batches.map((batch) => <option key={batch.id} value={batch.id}>{formatDate(batch.createdAt)} · {batch.results.length} post{batch.results.length === 1 ? "" : "s"}</option>)}</select>{activeBatch && <button className="button secondary small danger-text" onClick={() => void removeBatch(activeBatch.id)}><Trash2 size={14}/>Delete</button>}</div></div>
-      {activeBatch && <><div className="spotlight-batch-summary"><span><strong>{activeBatch.results.filter((result) => result.status === "completed").length}</strong> completed</span><span><strong>{activeBatch.results.filter((result) => result.status === "failed").length}</strong> failed</span><span><strong>{activeBatch.model}</strong> image model</span><span><strong>3:4</strong> requested composition</span></div><div className="agenda-result-grid">{activeBatch.results.map((result) => <article className="agenda-result-card" key={result.id}><div className="agenda-result-heading"><div><span className={`status-icon ${result.status === "completed" ? "completed" : result.status === "failed" ? "failed" : "running"}`}>{result.status === "completed" ? <Check size={17}/> : result.status === "failed" ? <AlertTriangle size={17}/> : <Sparkles size={17}/>}</span><div><h3>{result.session.title}</h3><small>{result.session.startLabel}–{result.session.endLabel} · {result.session.stageName}</small></div></div>{result.imageAssetId && <span className="badge success">C2PA stripped</span>}</div>{result.error && <div className="warnings"><AlertTriangle/><span>{result.error}</span></div>}{result.imageAssetId ? <><div className="agenda-result-image"><Image src={`/api/summit-agenda/asset?id=${result.imageAssetId}`} alt={`${result.session.title} live agenda post`} width={1080} height={1440} unoptimized/></div><a className="button secondary" href={`/api/summit-agenda/asset?id=${result.imageAssetId}&download=1`}><Download size={15}/>Download provider PNG</a></> : <div className="agenda-result-placeholder"><ImageIcon/><span>{result.status.replaceAll("_", " ")}</span></div>}</article>)}</div></>}
+      {activeBatch && activeBatchCounts && <>
+        <div className="spotlight-batch-summary"><span><strong>{activeBatchCounts.completed}</strong> completed</span><span><strong>{activeBatchCounts.failed}</strong> failed</span>{activeBatchCounts.canceled > 0 && <span><strong>{activeBatchCounts.canceled}</strong> canceled</span>}{activeBatchCounts.active > 0 && <span><strong>{activeBatchCounts.active}</strong> in progress</span>}<span><strong>{activeBatch.model}</strong> image model</span><span><strong>3:4</strong> requested composition</span></div>
+        <div className="agenda-result-grid">{activeBatch.results.map((result) => <article className="agenda-result-card" key={result.id}>
+          <div className="agenda-result-heading"><div><span className={`status-icon ${result.status === "completed" ? "completed" : result.status === "failed" ? "failed" : "running"}`}>{result.status === "completed" ? <Check size={17}/> : result.status === "failed" ? <AlertTriangle size={17}/> : <Sparkles size={17}/>}</span><div><h3>{result.session.title}</h3><small>{result.session.startLabel}–{result.session.endLabel} · {result.session.stageName}</small></div></div>{result.imageAssetId && <span className="badge success">C2PA stripped</span>}</div>
+          {result.error && <div className="warnings"><AlertTriangle/><span>{result.error}</span></div>}
+          {result.imageAssetId ? <><div className="agenda-result-image"><Image src={`/api/summit-agenda/asset?id=${result.imageAssetId}`} alt={`${result.session.title} live agenda post`} width={1080} height={1440} unoptimized/></div><a className="button secondary" href={`/api/summit-agenda/asset?id=${result.imageAssetId}&download=1`}><Download size={15}/>Download provider PNG</a></> : <div className="agenda-result-placeholder"><ImageIcon/><span>{result.status.replaceAll("_", " ")}</span></div>}
+          <div className="agenda-caption"><div className="copy-heading"><strong>Social media caption</strong><button className="icon-button" aria-label={`Copy ${result.session.title} caption`} onClick={() => void copyCaption(result.id, result.caption)}>{copiedCaptionId === result.id ? <Check size={15}/> : <Clipboard size={15}/>}</button></div><pre>{result.caption}</pre></div>
+        </article>)}</div>
+      </>}
     </section>}
 
     {editing && <div className="agenda-modal" role="dialog" aria-modal="true" aria-labelledby="agenda-edit-title"><button className="agenda-modal-backdrop" aria-label="Close editor" onClick={() => !saving && setEditing(null)}/><div className="agenda-modal-panel"><div className="agenda-modal-head"><div><span className="eyebrow">{editing.stageName} · {editing.startLabel}</span><h2 id="agenda-edit-title">Edit session data</h2><p>Changes are stored together and become the exact context sent to image generation.</p></div><button className="icon-button" onClick={() => setEditing(null)} disabled={saving} aria-label="Close"><X size={18}/></button></div>

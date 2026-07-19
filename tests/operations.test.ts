@@ -1,11 +1,12 @@
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEMO_CONTEXT } from "@/server/ai/demo-provider";
 import { closeDatabase, getDatabase } from "@/server/db/database";
-import { createContextDocument, createSpeakerSpotlightBatch, listResearchRuns, listSpeakerSpotlightBatches, resetAllData } from "@/server/db/repository";
+import { createContextDocument, createSpeakerSpotlightBatch, createSummitAgendaBatch, listResearchRuns, listSpeakerSpotlightBatches, resetAllData } from "@/server/db/repository";
 import { cancelAiOperation, dismissAiOperation, listPublicOperations, retryAiOperation, sanitizeOperationInput, startAiOperation } from "@/server/operations/manager";
 import { createAiOperation, getAiOperation, publicOperation, updateAiOperation } from "@/server/operations/repository";
 import { pendingSteps } from "@/server/operations/types";
 import { generateContentCampaign } from "@/server/services/content-service";
+import { getSummitAgendaWorkspace } from "@/server/services/summit-agenda-service";
 import { hasExternalSpeakerSite } from "./external-speaker-site";
 
 beforeEach(() => resetAllData());
@@ -124,6 +125,38 @@ describe("persistent AI operations", () => {
     const retried = retryAiOperation(stored.id, null);
     expect(retried).toMatchObject({ status: "queued", kind: "research" });
     expect(retried.id).not.toBe(stored.id);
+    cancelAiOperation(retried.id);
+  });
+
+  it("converts a legacy agenda retry into only the preserved unfinished result", () => {
+    vi.stubEnv("MARKETING_HUB_DEMO_DELAY_MS", "500");
+    const sessions = getSummitAgendaWorkspace().agenda.days[0].sessions.filter((session) => session.title && session.people.length && session.people.every((person) => person.photo)).slice(0, 2);
+    const operation = createAiOperation({
+      kind: "summit_agenda_batch", label: "Legacy agenda batch", steps: pendingSteps([["processing", "Generate"]]),
+      originPath: "/summit-agenda", targetKey: "summit-agenda:legacy", operationInput: { sessionIds: sessions.map((session) => session.id) },
+      completedUnits: 1, totalUnits: 2, unitLabel: "posts"
+    });
+    const now = new Date().toISOString();
+    const batchId = "00000000-0000-4000-8000-000000000030";
+    const completedId = "00000000-0000-4000-8000-000000000031";
+    const canceledId = "00000000-0000-4000-8000-000000000032";
+    createSummitAgendaBatch({
+      id: batchId, sessionIds: sessions.map((session) => session.id), status: "partially_completed", model: "gpt-image-2",
+      promptVersion: "test", provider: "openai", warnings: [], error: "1 of 2 agenda posts completed.", createdAt: now, completedAt: now,
+      results: sessions.map((session, index) => ({
+        id: index ? canceledId : completedId, batchId, sessionId: session.id, session, status: index ? "canceled" : "completed",
+        imageAssetId: index ? null : "asset-completed", imageFileName: index ? null : "completed.png", caption: "Preserved caption", prompt: "Preserved prompt",
+        requestId: index ? null : "req_completed", providerError: null, error: index ? "Canceled before this image started." : null,
+        createdAt: new Date(Date.now() + index).toISOString(), updatedAt: now
+      }))
+    });
+    updateAiOperation(operation.id, { status: "canceled", retryable: true, completedAt: now });
+
+    const retried = retryAiOperation(operation.id, null);
+    const stored = getAiOperation(retried.id)!;
+
+    expect(stored.totalUnits).toBe(1);
+    expect(stored.input).toEqual({ sourceBatchId: batchId, resultIds: [canceledId] });
     cancelAiOperation(retried.id);
   });
 

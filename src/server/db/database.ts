@@ -4,6 +4,7 @@ import { DatabaseSync } from "node:sqlite";
 import { dataDirectory } from "@/server/config";
 
 const globalDb = globalThis as typeof globalThis & { __marketingHubDb?: DatabaseSync };
+const migratedConnections = new WeakSet<DatabaseSync>();
 
 const migrations = [
   {
@@ -271,6 +272,28 @@ const migrations = [
       CREATE INDEX IF NOT EXISTS summit_agenda_results_batch_idx ON summit_agenda_results(batch_id);
       CREATE INDEX IF NOT EXISTS summit_agenda_results_asset_idx ON summit_agenda_results(image_asset_id);
     `
+  },
+  {
+    version: 13,
+    sql: `
+      ALTER TABLE summit_agenda_results ADD COLUMN provider_error TEXT;
+    `
+  },
+  {
+    version: 14,
+    sql: `
+      UPDATE summit_agenda_results
+      SET status='canceled',
+          error=COALESCE(error, 'Canceled before this image completed.')
+      WHERE status IN ('queued','generating')
+        AND batch_id IN (SELECT id FROM summit_agenda_batches WHERE completed_at IS NOT NULL);
+    `
+  },
+  {
+    version: 15,
+    sql: `
+      ALTER TABLE summit_agenda_results ADD COLUMN caption TEXT;
+    `
   }
 ];
 
@@ -283,20 +306,19 @@ export function ensureDataDirectories() {
 }
 
 export function getDatabase() {
-  if (globalDb.__marketingHubDb) return globalDb.__marketingHubDb;
+  if (globalDb.__marketingHubDb) {
+    if (!migratedConnections.has(globalDb.__marketingHubDb)) {
+      applyMigrations(globalDb.__marketingHubDb);
+      migratedConnections.add(globalDb.__marketingHubDb);
+    }
+    return globalDb.__marketingHubDb;
+  }
   const root = ensureDataDirectories();
   const db = new DatabaseSync(path.join(root, "marketing-hub.sqlite"));
   db.exec("PRAGMA journal_mode = WAL");
   db.exec("PRAGMA foreign_keys = ON");
-  db.exec("CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)");
-  const applied = new Set((db.prepare("SELECT version FROM schema_migrations").all() as Array<{ version: number }>).map((row) => row.version));
-  for (const migration of migrations) {
-    if (applied.has(migration.version)) continue;
-    withTransaction(db, () => {
-      db.exec(migration.sql);
-      db.prepare("INSERT INTO schema_migrations(version, applied_at) VALUES (?, ?)").run(migration.version, new Date().toISOString());
-    });
-  }
+  applyMigrations(db);
+  migratedConnections.add(db);
   const interruptedAt = new Date().toISOString();
   withTransaction(db, () => {
     db.prepare("UPDATE research_runs SET status='failed', error=COALESCE(error, 'The local process stopped before this run completed.'), completed_at=COALESCE(completed_at, ?) WHERE status IN ('running','queued')").run(interruptedAt);
@@ -329,6 +351,18 @@ export function getDatabase() {
   });
   globalDb.__marketingHubDb = db;
   return db;
+}
+
+function applyMigrations(db: DatabaseSync) {
+  db.exec("CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)");
+  const applied = new Set((db.prepare("SELECT version FROM schema_migrations").all() as Array<{ version: number }>).map((row) => row.version));
+  for (const migration of migrations) {
+    if (applied.has(migration.version)) continue;
+    withTransaction(db, () => {
+      db.exec(migration.sql);
+      db.prepare("INSERT INTO schema_migrations(version, applied_at) VALUES (?, ?)").run(migration.version, new Date().toISOString());
+    });
+  }
 }
 
 export function withTransaction<T>(db: DatabaseSync, work: () => T) {
