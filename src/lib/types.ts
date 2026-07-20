@@ -393,6 +393,20 @@ export interface SpeakerSpotlightBatch {
   results: SpeakerSpotlightResult[];
 }
 
+export interface SpeakerSpotlightBatchSummary {
+  id: string;
+  speakerNames: string[];
+  status: SpeakerSpotlightBatch["status"];
+  model: string;
+  promptVersion: string;
+  warnings: string[];
+  error: string | null;
+  createdAt: string;
+  completedAt: string | null;
+  completedCount: number;
+  resultCount: number;
+}
+
 export type SummitAgendaStageKey = "gpt" | "agi" | "pitch" | "workshop";
 
 export interface SummitAgendaPerson {
@@ -484,6 +498,19 @@ export interface SummitAgendaBatch {
   results: SummitAgendaResult[];
 }
 
+export interface SummitAgendaBatchSummary {
+  id: string;
+  status: SummitAgendaBatch["status"];
+  model: string;
+  promptVersion: string;
+  warnings: string[];
+  error: string | null;
+  createdAt: string;
+  completedAt: string | null;
+  completedCount: number;
+  resultCount: number;
+}
+
 export interface GeneratedAsset {
   id: string;
   campaignId: string;
@@ -544,8 +571,8 @@ export interface WorkspaceState {
   leads: LeadRecord[];
   outreachCampaigns: OutreachCampaign[];
   contentCampaigns: ContentCampaign[];
-  speakerSpotlightBatches: SpeakerSpotlightBatch[];
-  summitAgendaBatches: SummitAgendaBatch[];
+  speakerSpotlightBatches: SpeakerSpotlightBatchSummary[];
+  summitAgendaBatches: SummitAgendaBatchSummary[];
   counts: {
     activeContext: number;
     leads: number;

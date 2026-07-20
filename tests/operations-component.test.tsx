@@ -53,6 +53,14 @@ describe("AI progress components", () => {
     expect(screen.getByText(/platforms processed/)).toBeInTheDocument();
   });
 
+  it("does not reload the full workspace while Spotlight progress is polled", async () => {
+    mocks.apiRequest.mockResolvedValue({ operations: [{ ...operation, kind: "spotlight_batch", originPath: "/speaker-spotlight" }] });
+    render(<OperationsProvider><div>Speaker workspace</div></OperationsProvider>);
+
+    await waitFor(() => expect(mocks.apiRequest).toHaveBeenCalledWith("/api/operations?limit=20", expect.objectContaining({ cache: "no-store" })));
+    expect(mocks.refresh).not.toHaveBeenCalled();
+  });
+
   it("clearly marks terminal work as stopped and dismisses it from recent activity", async () => {
     const failed = { ...operation, status: "failed" as const, completedAt: "2026-07-12T12:00:01.500Z", error: "A verified headshot was not found.", retryable: true };
     render(<OperationsProvider><InlineOperation operation={failed}/></OperationsProvider>);

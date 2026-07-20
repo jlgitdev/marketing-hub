@@ -37,7 +37,7 @@ function AppFrame({ children }: { children: React.ReactNode }) {
           {nav.map((item) => {
             const Icon = item.icon;
             const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
-            return <Link key={item.href} href={item.href} className={active ? "nav-link active" : "nav-link"}><Icon size={18} aria-hidden="true"/><span>{item.label}</span></Link>;
+            return <Link key={item.href} href={item.href} aria-label={item.label} className={active ? "nav-link active" : "nav-link"}><Icon size={18} aria-hidden="true"/><span>{item.label}</span></Link>;
           })}
         </nav>
         <div className="sidebar-footer">

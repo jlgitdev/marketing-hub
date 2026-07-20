@@ -1,8 +1,9 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Check, Clipboard, Download, MicVocal, RotateCcw, Trash2, TriangleAlert } from "lucide-react";
+import type { SpeakerSpotlightBatch, SpeakerSpotlightBatchSummary } from "@/lib/types";
 import { apiRequest, ConnectionBadge, formatDate, PageState, useWorkspace } from "./workspace";
 import { InlineOperation, useOperations } from "./operations";
 
@@ -12,22 +13,45 @@ const defaults = {
   discountCopy: "15% off automatically applied through the link", siteDirectory: "agi-summit-site"
 };
 
+interface SpotlightResponse {
+  defaults: typeof defaults;
+  batches: SpeakerSpotlightBatchSummary[];
+  batch: SpeakerSpotlightBatch | null;
+}
+
 export function SpeakerSpotlightClient({ initialBatchId = null }: { initialBatchId?: string | null }) {
   const workspace = useWorkspace();
   const operations = useOperations();
   const [message, setMessage] = useState<string | null>(null);
   const [activeBatchId, setActiveBatchId] = useState<string | null>(initialBatchId);
+  const [followLatestBatch, setFollowLatestBatch] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
   const [batchOperationId, setBatchOperationId] = useState<string | null>(null);
   const [retryOperationIds, setRetryOperationIds] = useState<Record<string, string>>({});
   const [approvingResultId, setApprovingResultId] = useState<string | null>(null);
   const [campaignDefaults, setCampaignDefaults] = useState(defaults);
+  const [batches, setBatches] = useState<SpeakerSpotlightBatchSummary[]>([]);
+  const [activeBatch, setActiveBatch] = useState<SpeakerSpotlightBatch | null>(null);
   const batchOperation = operations.findOperation({ id: batchOperationId, kind: "spotlight_batch", originPath: "/speaker-spotlight" });
   const batchBusy = Boolean(batchOperation && ["queued", "running", "cancel_requested"].includes(batchOperation.status));
-  const batches = useMemo(() => workspace.state?.speakerSpotlightBatches || [], [workspace.state?.speakerSpotlightBatches]);
-  const completedOperationBatchId = batchOperation?.resultEntityId && ["completed", "partially_completed", "failed"].includes(batchOperation.status) ? batchOperation.resultEntityId : null;
-  const activeBatch = useMemo(() => batches.find((batch) => batch.id === (completedOperationBatchId || activeBatchId)) || batches[0] || null, [batches, activeBatchId, completedOperationBatchId]);
-  useEffect(() => { void apiRequest<{ defaults: typeof defaults }>("/api/speaker-spotlights").then((response) => setCampaignDefaults(response.defaults)).catch(() => undefined); }, []);
+  const loadSpotlights = useCallback(async (batchId: string | null = null) => {
+    const response = await apiRequest<SpotlightResponse>(batchId ? `/api/speaker-spotlights?batch=${encodeURIComponent(batchId)}` : "/api/speaker-spotlights", { cache: "no-store" });
+    setCampaignDefaults(response.defaults);
+    setBatches(response.batches);
+    setActiveBatch(response.batch);
+    setActiveBatchId(response.batch?.id || null);
+  }, []);
+  useEffect(() => {
+    const timer = window.setTimeout(() => void loadSpotlights(initialBatchId).catch((error) => setMessage(error instanceof Error ? error.message : "Could not load saved Speaker Spotlights.")), 0);
+    return () => window.clearTimeout(timer);
+  }, [initialBatchId, loadSpotlights]);
+  const trackedOperations = [batchOperation, ...Object.values(retryOperationIds).map((id) => operations.findOperation({ id }))].filter((operation) => Boolean(operation));
+  const operationUpdateKey = trackedOperations.map((operation) => `${operation!.id}:${operation!.updatedAt}:${operation!.status}`).join("|");
+  useEffect(() => {
+    if (!operationUpdateKey) return;
+    const timer = window.setTimeout(() => void loadSpotlights(batchOperation?.resultEntityId || (followLatestBatch ? null : activeBatchId)).catch(() => undefined), 0);
+    return () => window.clearTimeout(timer);
+  }, [operationUpdateKey, batchOperation?.resultEntityId, followLatestBatch, activeBatchId, loadSpotlights]);
   if (!workspace.state) return <PageState loading={workspace.loading} error={workspace.error} retry={workspace.refresh}/>;
   const state = workspace.state;
 
@@ -38,12 +62,13 @@ export function SpeakerSpotlightClient({ initialBatchId = null }: { initialBatch
     try {
       const operation = await operations.startOperation("/api/speaker-spotlights", { method: "POST", body: JSON.stringify({ speakerNames, config: { eventName: form.get("eventName"), eventDates: form.get("eventDates"), eventVenue: form.get("eventVenue"), eventWebsite: form.get("eventWebsite"), ticketUrl: form.get("ticketUrl"), discountCopy: form.get("discountCopy"), siteDirectory: form.get("siteDirectory") } }) });
       setBatchOperationId(operation.id);
+      setFollowLatestBatch(true);
     } catch (error) { setMessage(error instanceof Error ? error.message : "Speaker Spotlight generation could not be started."); }
   }
 
   async function removeBatch(batchId: string) {
     if (!confirm("Delete this Speaker Spotlight batch and its local output files?")) return;
-    try { await apiRequest(`/api/speaker-spotlights?id=${batchId}`, { method: "DELETE" }); setActiveBatchId(null); await workspace.refresh(); }
+    try { await apiRequest(`/api/speaker-spotlights?id=${batchId}`, { method: "DELETE" }); setActiveBatchId(null); setFollowLatestBatch(false); await Promise.all([loadSpotlights(), workspace.refresh()]); }
     catch (error) { setMessage(error instanceof Error ? error.message : "Could not delete the batch."); }
   }
 
@@ -64,7 +89,7 @@ export function SpeakerSpotlightClient({ initialBatchId = null }: { initialBatch
     setMessage(null); setApprovingResultId(resultId);
     try {
       await apiRequest("/api/speaker-spotlights", { method: "PUT", body: JSON.stringify({ resultId, decision: "approve" }) });
-      await workspace.refresh();
+      await Promise.all([loadSpotlights(activeBatch?.id || activeBatchId), workspace.refresh()]);
     } catch (error) { setMessage(error instanceof Error ? error.message : "Could not approve the Speaker Spotlight image."); }
     finally { setApprovingResultId(null); }
   }
@@ -88,13 +113,13 @@ export function SpeakerSpotlightClient({ initialBatchId = null }: { initialBatch
     </section>
 
     {batches.length > 0 && <section className="section-block">
-      <div className="section-heading split spotlight-batch-heading"><h2>Saved batches</h2><div className="toolbar spotlight-batch-controls"><select className="spotlight-batch-select" aria-label="Open Speaker Spotlight batch" title={activeBatch ? `${formatDate(activeBatch.createdAt)} · ${activeBatch.speakerNames.join(", ")}` : undefined} value={activeBatch?.id || ""} onChange={(event) => { setBatchOperationId(null); setActiveBatchId(event.target.value); }}>{batches.map((batch) => <option key={batch.id} value={batch.id}>{formatDate(batch.createdAt)} · {batch.speakerNames.join(", ")}</option>)}</select>{activeBatch && <button className="button secondary small danger-text" onClick={() => void removeBatch(activeBatch.id)}><Trash2 size={14}/>Delete batch</button>}</div></div>
+      <div className="section-heading split spotlight-batch-heading"><h2>Saved batches</h2><div className="toolbar spotlight-batch-controls"><select className="spotlight-batch-select" aria-label="Open Speaker Spotlight batch" title={activeBatch ? `${formatDate(activeBatch.createdAt)} · ${activeBatch.speakerNames.join(", ")}` : undefined} value={activeBatch?.id || ""} onChange={(event) => { const id = event.target.value; setBatchOperationId(null); setFollowLatestBatch(false); setActiveBatchId(id); void loadSpotlights(id).catch((error) => setMessage(error instanceof Error ? error.message : "Could not open the saved batch.")); }}>{batches.map((batch) => <option key={batch.id} value={batch.id}>{formatDate(batch.createdAt)} · {batch.speakerNames.join(", ")}</option>)}</select>{activeBatch && <button className="button secondary small danger-text" onClick={() => void removeBatch(activeBatch.id)}><Trash2 size={14}/>Delete batch</button>}</div></div>
       {activeBatch && <><div className="spotlight-batch-summary"><span><strong>{activeBatch.results.filter((result) => result.status === "completed").length}</strong> completed</span><span><strong>{activeBatch.results.filter((result) => result.status === "image_review_required").length}</strong> review required</span><span><strong>{activeBatch.results.filter((result) => result.status === "failed" || result.status === "extraction_failed").length}</strong> failed</span><span><strong>{activeBatch.model}</strong> image model</span></div><div className="spotlight-results">{activeBatch.results.map((result, resultIndex) => { const retryOperation = operations.findOperation({ id: retryOperationIds[result.id] || null, kind: "spotlight_retry", targetPrefix: `spotlight:retry:${result.id}` }); const retrying = Boolean(retryOperation && ["queued", "running", "cancel_requested"].includes(retryOperation.status)); return <article className={`spotlight-result ${retrying ? "operation-active" : ""}`} key={result.id}>
         <div className="spotlight-result-heading"><div><span className={`status-icon ${result.status === "completed" ? "completed" : result.status.includes("failed") ? "failed" : ""}`}>{result.status === "completed" ? <Check size={18}/> : result.status.includes("failed") || result.status === "image_review_required" ? <TriangleAlert size={18}/> : <MicVocal size={18}/>}</span><div><h3>{result.profile?.displayName || result.inputName}</h3><small>{result.status.replaceAll("_", " ")}</small></div></div><div className="row-actions">{(result.imageAssetId || result.headshotAssetId) && <span className="badge success">C2PA stripped</span>}{result.imageAssetId && <a className="button secondary small" href={`/api/speaker-spotlights/asset?id=${result.imageAssetId}&download=1`}><Download size={14}/>Download image</a>}{result.status === "image_review_required" && <button className="button secondary small" disabled={approvingResultId === result.id} onClick={() => void approveResult(result.id)}><Check size={14}/>{approvingResultId === result.id ? "Approving…" : "Approve image"}</button>}{result.profile && result.headshotAssetId && result.imagePrompt && (result.status === "failed" || result.status === "image_review_required") && <button className="button secondary small" disabled={retrying || approvingResultId === result.id || (!state.demoMode && !state.connection.connected)} onClick={() => void retryResult(result.id)}><RotateCcw size={14}/>{retrying ? "Retrying…" : "Retry package"}</button>}</div></div>
         {result.error && <div className="warnings"><TriangleAlert/><span>{result.error}{result.providerError && <small>Stage: {result.providerError.stage.replaceAll("_", " ")}{result.providerError.requestId ? ` · Request ${result.providerError.requestId}` : ""}{result.providerError.retryable ? " · Safe to retry" : ""}</small>}</span></div>}
         {result.qa?.humanReviewApprovedAt && <div className="notice"><Check size={16}/><span>Approved after human review. Automated QA notes remain preserved in the package record.</span></div>}
         <InlineOperation operation={retryOperation} compact/>
-        <div className="spotlight-output-grid"><div className="spotlight-image-wrap">{result.imageAssetId ? <Image src={`/api/speaker-spotlights/asset?id=${result.imageAssetId}`} alt={`${result.inputName} Speaker Spotlight`} width={1024} height={1536} loading={resultIndex === 0 ? "eager" : "lazy"} unoptimized/> : result.headshotAssetId ? <Image src={`/api/speaker-spotlights/asset?id=${result.headshotAssetId}`} alt={`${result.inputName} verified headshot`} width={480} height={480} loading={resultIndex === 0 ? "eager" : "lazy"} unoptimized/> : <div className="spotlight-placeholder"><MicVocal/><span>No verified image output</span></div>}</div><div className="spotlight-copy">{result.profile && <details><summary>Verified speaker data</summary><p>{result.profile.roleLine || result.profile.bio}</p><ul>{result.profile.highlights.map((highlight) => <li key={`${highlight.label}-${highlight.text}`}><strong>{highlight.label}</strong> — {highlight.text}</li>)}</ul></details>}{result.post ? <><div className="copy-heading"><strong>Cross-platform caption</strong><button className="icon-button" aria-label={`Copy ${result.inputName} caption`} onClick={() => void copyPost(result.id, result.post!)}>{copied === result.id ? <Check size={15}/> : <Clipboard size={15}/>}</button></div><pre>{result.post}</pre></> : <p className="muted-copy">No caption was approved for this speaker.</p>}</div></div>
+        <div className="spotlight-output-grid"><div className="spotlight-image-wrap">{result.imageAssetId ? <Image src={`/api/speaker-spotlights/asset?id=${result.imageAssetId}&preview=1`} alt={`${result.inputName} Speaker Spotlight`} width={1024} height={1536} loading={resultIndex === 0 ? "eager" : "lazy"} unoptimized/> : result.headshotAssetId ? <Image src={`/api/speaker-spotlights/asset?id=${result.headshotAssetId}&preview=1`} alt={`${result.inputName} verified headshot`} width={480} height={480} loading={resultIndex === 0 ? "eager" : "lazy"} unoptimized/> : <div className="spotlight-placeholder"><MicVocal/><span>No verified image output</span></div>}</div><div className="spotlight-copy">{result.profile && <details><summary>Verified speaker data</summary><p>{result.profile.roleLine || result.profile.bio}</p><ul>{result.profile.highlights.map((highlight) => <li key={`${highlight.label}-${highlight.text}`}><strong>{highlight.label}</strong> — {highlight.text}</li>)}</ul></details>}{result.post ? <><div className="copy-heading"><strong>Cross-platform caption</strong><button className="icon-button" aria-label={`Copy ${result.inputName} caption`} onClick={() => void copyPost(result.id, result.post!)}>{copied === result.id ? <Check size={15}/> : <Clipboard size={15}/>}</button></div><pre>{result.post}</pre></> : <p className="muted-copy">No caption was approved for this speaker.</p>}</div></div>
       </article>; })}</div></>}
     </section>}
   </div>;

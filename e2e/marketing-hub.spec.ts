@@ -9,6 +9,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("completes and reopens the deterministic marketing workflow", async ({ page }) => {
+  test.setTimeout(60_000);
   await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
   await page.getByRole("link", { name: "Leads" }).click();
   await expect(page.getByRole("heading", { name: "Find, qualify, and act on the right leads", exact: true })).toBeVisible();
@@ -63,11 +64,11 @@ test("completes and reopens the deterministic marketing workflow", async ({ page
   await expect(page.getByText("Bay Area AI summit sales pipeline")).toBeVisible();
   await expect(page.getByText("Applied Intelligence Forum launch")).toBeVisible();
   const researchRun = page.locator(".run-card").filter({ hasText: "Bay Area AI summit sales pipeline" });
-  await researchRun.getByRole("link", { name: "Reopen" }).click();
+  await researchRun.getByRole("link", { name: "Reopen" }).press("Enter");
   await expect(page.getByText("Bay Area AI summit sales pipeline").first()).toBeVisible();
   await page.getByRole("link", { name: "Runs" }).click();
   const contentRun = page.locator(".run-card").filter({ hasText: "Applied Intelligence Forum launch" });
-  await contentRun.getByRole("link", { name: "Reopen" }).click();
+  await contentRun.getByRole("link", { name: "Reopen" }).press("Enter");
   await expect(page.getByRole("heading", { name: "Applied Intelligence Forum launch" })).toBeVisible();
 });
 

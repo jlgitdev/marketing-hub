@@ -50,7 +50,7 @@ export function OperationsProvider({ children }: { children: React.ReactNode }) 
       priorRef.current = new Map(response.operations.map((operation) => [operation.id, operation]));
       initializedRef.current = true;
       setOperations(response.operations);
-      if (terminalTransition || response.operations.some((operation) => ACTIVE_STATUSES.has(operation.status) && operation.kind.startsWith("spotlight"))) await refreshWorkspace();
+      if (terminalTransition) await refreshWorkspace();
     } catch (error) {
       setConnectionError(error instanceof Error ? error.message : "Could not reach the local Marketing Hub server.");
     } finally { setLoading(false); }

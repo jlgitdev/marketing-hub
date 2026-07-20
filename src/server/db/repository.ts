@@ -13,8 +13,10 @@ import type {
   PlatformPost,
   ResearchRun,
   SpeakerSpotlightBatch,
+  SpeakerSpotlightBatchSummary,
   SpeakerSpotlightResult,
   SummitAgendaBatch,
+  SummitAgendaBatchSummary,
   SummitAgendaData,
   SummitAgendaResult,
   SupportingSource,
@@ -535,14 +537,40 @@ export function speakerSpotlightResultStorage(resultId: string) {
   };
 }
 
-export function listSpeakerSpotlightBatches() {
+function speakerSpotlightBatchFromRow(row: Record<string, unknown>): SpeakerSpotlightBatch {
   const db = getDatabase();
-  return (db.prepare("SELECT * FROM speaker_spotlight_batches ORDER BY created_at DESC").all() as Array<Record<string, unknown>>).map((row): SpeakerSpotlightBatch => ({
+  return {
     id: String(row.id), speakerNames: json(String(row.speaker_names), []), status: row.status as SpeakerSpotlightBatch["status"],
     config: json(String(row.config), {} as SpeakerSpotlightBatch["config"]), model: String(row.model), promptVersion: String(row.prompt_version),
     provider: row.provider as SpeakerSpotlightBatch["provider"], warnings: json(String(row.warnings || "[]"), []), error: row.error ? String(row.error) : null,
     createdAt: String(row.created_at), completedAt: row.completed_at ? String(row.completed_at) : null,
     results: (db.prepare("SELECT * FROM speaker_spotlight_results WHERE batch_id=? ORDER BY created_at").all(String(row.id)) as Array<Record<string, unknown>>).map(spotlightResultFromRow)
+  };
+}
+
+export function getSpeakerSpotlightBatch(batchId: string) {
+  const row = getDatabase().prepare("SELECT * FROM speaker_spotlight_batches WHERE id=?").get(batchId) as Record<string, unknown> | undefined;
+  return row ? speakerSpotlightBatchFromRow(row) : null;
+}
+
+export function listSpeakerSpotlightBatches() {
+  return (getDatabase().prepare("SELECT * FROM speaker_spotlight_batches ORDER BY created_at DESC").all() as Array<Record<string, unknown>>).map(speakerSpotlightBatchFromRow);
+}
+
+export function listSpeakerSpotlightBatchSummaries(): SpeakerSpotlightBatchSummary[] {
+  return (getDatabase().prepare(`
+    SELECT b.*,
+      COUNT(r.id) AS result_count,
+      COALESCE(SUM(CASE WHEN r.status='completed' THEN 1 ELSE 0 END), 0) AS completed_count
+    FROM speaker_spotlight_batches b
+    LEFT JOIN speaker_spotlight_results r ON r.batch_id=b.id
+    GROUP BY b.id
+    ORDER BY b.created_at DESC
+  `).all() as Array<Record<string, unknown>>).map((row) => ({
+    id: String(row.id), speakerNames: json(String(row.speaker_names), []), status: row.status as SpeakerSpotlightBatch["status"],
+    model: String(row.model), promptVersion: String(row.prompt_version), warnings: json(String(row.warnings || "[]"), []),
+    error: row.error ? String(row.error) : null, createdAt: String(row.created_at), completedAt: row.completed_at ? String(row.completed_at) : null,
+    completedCount: Number(row.completed_count || 0), resultCount: Number(row.result_count || 0)
   }));
 }
 
@@ -635,14 +663,40 @@ export function updateSummitAgendaResult(resultId: string, patch: Partial<Summit
   return next;
 }
 
-export function listSummitAgendaBatches() {
+function summitAgendaBatchFromRow(row: Record<string, unknown>): SummitAgendaBatch {
   const db = getDatabase();
-  return (db.prepare("SELECT * FROM summit_agenda_batches ORDER BY created_at DESC").all() as Array<Record<string, unknown>>).map((row): SummitAgendaBatch => ({
+  return {
     id: String(row.id), sessionIds: json(String(row.session_ids), []), status: row.status as SummitAgendaBatch["status"],
     model: String(row.model), promptVersion: String(row.prompt_version), provider: row.provider as SummitAgendaBatch["provider"],
     warnings: json(String(row.warnings || "[]"), []), error: row.error ? String(row.error) : null,
     createdAt: String(row.created_at), completedAt: row.completed_at ? String(row.completed_at) : null,
     results: (db.prepare("SELECT * FROM summit_agenda_results WHERE batch_id=? ORDER BY created_at").all(String(row.id)) as Array<Record<string, unknown>>).map(summitAgendaResultFromRow)
+  };
+}
+
+export function getSummitAgendaBatch(batchId: string) {
+  const row = getDatabase().prepare("SELECT * FROM summit_agenda_batches WHERE id=?").get(batchId) as Record<string, unknown> | undefined;
+  return row ? summitAgendaBatchFromRow(row) : null;
+}
+
+export function listSummitAgendaBatches() {
+  return (getDatabase().prepare("SELECT * FROM summit_agenda_batches ORDER BY created_at DESC").all() as Array<Record<string, unknown>>).map(summitAgendaBatchFromRow);
+}
+
+export function listSummitAgendaBatchSummaries(): SummitAgendaBatchSummary[] {
+  return (getDatabase().prepare(`
+    SELECT b.*,
+      COUNT(r.id) AS result_count,
+      COALESCE(SUM(CASE WHEN r.status='completed' THEN 1 ELSE 0 END), 0) AS completed_count
+    FROM summit_agenda_batches b
+    LEFT JOIN summit_agenda_results r ON r.batch_id=b.id
+    GROUP BY b.id
+    ORDER BY b.created_at DESC
+  `).all() as Array<Record<string, unknown>>).map((row) => ({
+    id: String(row.id), status: row.status as SummitAgendaBatch["status"], model: String(row.model), promptVersion: String(row.prompt_version),
+    warnings: json(String(row.warnings || "[]"), []), error: row.error ? String(row.error) : null,
+    createdAt: String(row.created_at), completedAt: row.completed_at ? String(row.completed_at) : null,
+    completedCount: Number(row.completed_count || 0), resultCount: Number(row.result_count || 0)
   }));
 }
 
@@ -673,10 +727,12 @@ export function getWorkspaceState(connection: WorkspaceState["connection"]): Wor
   const contextDocuments = listContextDocuments();
   const leads = listLeads();
   const contentCampaigns = listContentCampaigns();
+  const speakerSpotlightBatches = listSpeakerSpotlightBatchSummaries();
+  const summitAgendaBatches = listSummitAgendaBatchSummaries();
   return {
     demoMode: isDemoMode(), dataPath: dataDirectory(), connection, contextDocuments, brandAssets: listBrandAssets(),
-    researchRuns: listResearchRuns(), leads, outreachCampaigns: listOutreachCampaigns(), contentCampaigns, speakerSpotlightBatches: listSpeakerSpotlightBatches(), summitAgendaBatches: listSummitAgendaBatches(),
-    counts: { activeContext: contextDocuments.filter((document) => document.active).length, leads: leads.length, awaitingReview: leads.filter((lead) => lead.reviewStatus === "unreviewed" || lead.reviewStatus === "needs_review").length, campaigns: contentCampaigns.length, speakerSpotlights: listSpeakerSpotlightBatches().reduce((sum, batch) => sum + batch.results.filter((result) => result.status === "completed").length, 0), summitAgendaPosts: listSummitAgendaBatches().reduce((sum, batch) => sum + batch.results.filter((result) => result.status === "completed").length, 0) }
+    researchRuns: listResearchRuns(), leads, outreachCampaigns: listOutreachCampaigns(), contentCampaigns, speakerSpotlightBatches, summitAgendaBatches,
+    counts: { activeContext: contextDocuments.filter((document) => document.active).length, leads: leads.length, awaitingReview: leads.filter((lead) => lead.reviewStatus === "unreviewed" || lead.reviewStatus === "needs_review").length, campaigns: contentCampaigns.length, speakerSpotlights: speakerSpotlightBatches.reduce((sum, batch) => sum + batch.completedCount, 0), summitAgendaPosts: summitAgendaBatches.reduce((sum, batch) => sum + batch.completedCount, 0) }
   };
 }
 

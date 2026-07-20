@@ -1,15 +1,18 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { currentSessionId, errorResponse, requireSafeOrigin } from "@/server/security/request";
-import { deleteSpeakerSpotlightBatch, listSpeakerSpotlightBatches } from "@/server/db/repository";
+import { deleteSpeakerSpotlightBatch, getSpeakerSpotlightBatch, listSpeakerSpotlightBatchSummaries } from "@/server/db/repository";
 import { approveSpeakerSpotlightImage, SpeakerSpotlightInputSchema, SpeakerSpotlightRetrySchema, SpeakerSpotlightReviewSchema, speakerSpotlightDefaults } from "@/server/services/speaker-spotlight-service";
 import { startAiOperation } from "@/server/operations/manager";
 
 export const runtime = "nodejs";
 export const maxDuration = 900;
 
-export async function GET() {
-  return NextResponse.json({ defaults: speakerSpotlightDefaults(), batches: listSpeakerSpotlightBatches() });
+export async function GET(request: Request) {
+  const summaries = listSpeakerSpotlightBatchSummaries();
+  const requested = z.string().uuid().safeParse(new URL(request.url).searchParams.get("batch"));
+  const selectedId = requested.success && summaries.some((batch) => batch.id === requested.data) ? requested.data : summaries[0]?.id;
+  return NextResponse.json({ defaults: speakerSpotlightDefaults(), batches: summaries, batch: selectedId ? getSpeakerSpotlightBatch(selectedId) : null });
 }
 
 export async function POST(request: Request) {

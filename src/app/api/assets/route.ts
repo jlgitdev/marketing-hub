@@ -7,16 +7,20 @@ import { validateAssetUpload } from "@/server/security/validation";
 import { storeBrandAsset } from "@/server/storage/assets";
 import { isPathInsideDataDirectory } from "@/server/config";
 import { stripC2pa } from "@/server/images/strip-c2pa";
+import { renderWebpPreview } from "@/server/images/preview";
 
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
   try {
-    const id = z.string().uuid().parse(new URL(request.url).searchParams.get("id"));
+    const url = new URL(request.url);
+    const id = z.string().uuid().parse(url.searchParams.get("id"));
     const filePath = brandAssetStoragePath(id);
     if (!filePath || !isPathInsideDataDirectory(filePath)) return NextResponse.json({ error: "Asset not found." }, { status: 404 });
     const output = stripC2pa(fs.readFileSync(filePath)).bytes;
-    return new NextResponse(Uint8Array.from(output), { headers: { "Content-Type": filePath.endsWith(".png") ? "image/png" : filePath.endsWith(".webp") ? "image/webp" : "image/jpeg", "Cache-Control": "private, max-age=3600", "X-Content-Credentials": "removed" } });
+    const preview = url.searchParams.get("preview") === "1";
+    const response = preview ? await renderWebpPreview(output, 128) : output;
+    return new NextResponse(Uint8Array.from(response), { headers: { "Content-Type": preview ? "image/webp" : filePath.endsWith(".png") ? "image/png" : filePath.endsWith(".webp") ? "image/webp" : "image/jpeg", "Cache-Control": "private, max-age=3600", "X-Content-Credentials": "removed" } });
   } catch (error) { return errorResponse(error); }
 }
 

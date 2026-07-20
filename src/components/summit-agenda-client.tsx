@@ -3,11 +3,11 @@
 import Image from "next/image";
 import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, CalendarDays, Check, Clipboard, Clock3, Download, ImageIcon, Pencil, Plus, RotateCcw, Sparkles, Trash2, Users, X } from "lucide-react";
-import type { SummitAgendaBatch, SummitAgendaData, SummitAgendaPerson, SummitAgendaSession } from "@/lib/types";
+import type { SummitAgendaBatch, SummitAgendaBatchSummary, SummitAgendaData, SummitAgendaPerson, SummitAgendaSession } from "@/lib/types";
 import { InlineOperation, useOperations } from "./operations";
 import { apiRequest, ConnectionBadge, formatDate, PageState, useWorkspace } from "./workspace";
 
-interface AgendaResponse { agenda: SummitAgendaData; batches: SummitAgendaBatch[] }
+interface AgendaResponse { agenda: SummitAgendaData; batches: SummitAgendaBatchSummary[]; batch: SummitAgendaBatch | null }
 const PIXELS_PER_MINUTE = 2.7;
 const formats = ["Keynote", "Fireside", "Panel", "Workshop", "Talk", "Break"];
 
@@ -24,44 +24,45 @@ export function SummitAgendaClient({ initialBatchId = null }: { initialBatchId?:
   const [saving, setSaving] = useState(false);
   const [copiedCaptionId, setCopiedCaptionId] = useState<string | null>(null);
   const [activeBatchId, setActiveBatchId] = useState<string | null>(initialBatchId);
+  const [followLatestBatch, setFollowLatestBatch] = useState(false);
   const [operationId, setOperationId] = useState<string | null>(null);
   const [handledOperationId, setHandledOperationId] = useState<string | null>(null);
   const operation = operations.findOperation({ id: operationId, kind: "summit_agenda_batch", originPath: "/summit-agenda" });
   const busy = Boolean(operation && ["queued", "running", "cancel_requested"].includes(operation.status));
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (batchId: string | null = null) => {
     try {
-      const response = await apiRequest<AgendaResponse>("/api/summit-agenda");
+      const response = await apiRequest<AgendaResponse>(batchId ? `/api/summit-agenda?batch=${encodeURIComponent(batchId)}` : "/api/summit-agenda");
       setData(response);
+      setActiveBatchId(response.batch?.id || null);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not load the summit agenda.");
     } finally { setLoading(false); }
   }, []);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => void load(), 0);
+    const timer = window.setTimeout(() => void load(initialBatchId), 0);
     return () => window.clearTimeout(timer);
-  }, [load]);
+  }, [initialBatchId, load]);
   useEffect(() => {
     if (!operation || handledOperationId === operation.id || !["completed", "partially_completed", "failed", "canceled", "interrupted"].includes(operation.status)) return;
     const timer = window.setTimeout(() => {
       setHandledOperationId(operation.id);
-      void load().then(() => {
-        if (operation.resultEntityId) setActiveBatchId(operation.resultEntityId);
+      void load(operation.resultEntityId || (followLatestBatch ? null : activeBatchId)).then(() => {
         if (operation.status === "completed") setSelected(new Set());
       });
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [operation, handledOperationId, load]);
+  }, [operation, handledOperationId, load, followLatestBatch, activeBatchId]);
   useEffect(() => {
     if (!busy || !operation?.updatedAt) return;
-    const timer = window.setTimeout(() => void load(), 0);
+    const timer = window.setTimeout(() => void load(operation.resultEntityId || (followLatestBatch ? null : activeBatchId)), 0);
     return () => window.clearTimeout(timer);
-  }, [busy, operation?.updatedAt, load]);
+  }, [busy, operation?.updatedAt, operation?.resultEntityId, followLatestBatch, activeBatchId, load]);
 
   const day = data?.agenda.days.find((item) => item.key === activeDay) || null;
   const batches = data?.batches || [];
-  const activeBatch = batches.find((batch) => batch.id === (operation?.resultEntityId || activeBatchId)) || batches[0] || null;
+  const activeBatch = data?.batch || null;
   const activeBatchCounts = activeBatch ? {
     completed: activeBatch.results.filter((result) => result.status === "completed").length,
     failed: activeBatch.results.filter((result) => result.status === "failed").length,
@@ -91,6 +92,7 @@ export function SummitAgendaClient({ initialBatchId = null }: { initialBatchId?:
       const started = await operations.startOperation("/api/summit-agenda", { method: "POST", body: JSON.stringify({ sessionIds: [...selected] }) });
       setOperationId(started.id);
       setHandledOperationId(null);
+      setFollowLatestBatch(true);
     } catch (error) { setMessage(error instanceof Error ? error.message : "Could not start agenda image generation."); }
   }
 
@@ -105,7 +107,7 @@ export function SummitAgendaClient({ initialBatchId = null }: { initialBatchId?:
         const form = new FormData(); form.set("sessionId", editing.id); form.set("personId", personId); form.set("file", file);
         await apiRequest("/api/summit-agenda/portrait", { method: "POST", body: form });
       }
-      await load(); setEditing(null); setPendingFiles({});
+      await load(activeBatchId); setEditing(null); setPendingFiles({});
     } catch (error) { setMessage(error instanceof Error ? error.message : "Could not save the session."); }
     finally { setSaving(false); }
   }
@@ -115,14 +117,14 @@ export function SummitAgendaClient({ initialBatchId = null }: { initialBatchId?:
     setSaving(true); setMessage(null);
     try {
       await apiRequest("/api/summit-agenda", { method: "PUT", body: JSON.stringify({ sessionId: editing.id, action: "reset" }) });
-      await load(); setEditing(null); setPendingFiles({});
+      await load(activeBatchId); setEditing(null); setPendingFiles({});
     } catch (error) { setMessage(error instanceof Error ? error.message : "Could not restore the source session."); }
     finally { setSaving(false); }
   }
 
   async function removeBatch(batchId: string) {
     if (!confirm("Delete this generated agenda batch and its local PNG files?")) return;
-    try { await apiRequest(`/api/summit-agenda?batch=${batchId}`, { method: "DELETE" }); setActiveBatchId(null); await load(); await workspace.refresh(); }
+    try { await apiRequest(`/api/summit-agenda?batch=${batchId}`, { method: "DELETE" }); setActiveBatchId(null); setFollowLatestBatch(false); await load(); await workspace.refresh(); }
     catch (error) { setMessage(error instanceof Error ? error.message : "Could not delete the batch."); }
   }
 
@@ -174,7 +176,7 @@ export function SummitAgendaClient({ initialBatchId = null }: { initialBatchId?:
               return <article key={session.id} className={`agenda-session-card format-${session.format.toLowerCase()} ${checked ? "selected" : ""} ${issue ? "not-ready" : ""}`} style={cardStyle} onClick={() => toggleSession(session)} title={issue || `${session.title} · ${session.people.map((person) => person.name).join(", ")}`}>
                 <div className="agenda-card-top"><span className="agenda-card-check" aria-label={checked ? "Selected" : issue || "Ready to select"}>{checked ? <Check size={13}/> : issue ? <AlertTriangle size={12}/> : null}</span><time>{session.startLabel}–{session.endLabel}</time><span className="agenda-format">{session.format}</span><button className="agenda-edit-button" aria-label={`Edit ${session.title || "session"}`} onClick={(event) => { event.stopPropagation(); setEditing(structuredClone(session)); setPendingFiles({}); }}><Pencil size={12}/></button></div>
                 <h3>{session.title || "Title not supplied"}</h3>
-                <div className="agenda-card-people"><div className="agenda-mini-portraits">{session.people.slice(0, 5).map((person) => person.photo ? <Image key={person.id} src={portraitUrl(person.photo)} alt="" width={28} height={28} unoptimized/> : <span key={person.id}><Users size={12}/></span>)}{session.people.length > 5 && <b>+{session.people.length - 5}</b>}</div><small>{session.people.length ? session.people.map((person) => person.name).join(" · ") : "No speakers attached"}</small></div>
+                <div className="agenda-card-people"><div className="agenda-mini-portraits">{session.people.slice(0, 5).map((person) => person.photo ? <Image key={person.id} src={portraitUrl(person.photo, 56)} alt="" width={28} height={28} unoptimized/> : <span key={person.id}><Users size={12}/></span>)}{session.people.length > 5 && <b>+{session.people.length - 5}</b>}</div><small>{session.people.length ? session.people.map((person) => person.name).join(" · ") : "No speakers attached"}</small></div>
                 {issue && <span className="agenda-card-issue">{issue}</span>}
               </article>;
             })}</div>;
@@ -183,13 +185,13 @@ export function SummitAgendaClient({ initialBatchId = null }: { initialBatchId?:
       </div>
     </section>
 
-    {batches.length > 0 && <section className="section-block agenda-results-section"><div className="section-heading split spotlight-batch-heading"><div><h2>Generated live posts</h2><p className="muted">First-pass provider canvases are saved locally without cropping or resizing.</p></div><div className="toolbar spotlight-batch-controls"><select className="spotlight-batch-select" value={activeBatch?.id || ""} onChange={(event) => { setOperationId(null); setActiveBatchId(event.target.value); }}>{batches.map((batch) => <option key={batch.id} value={batch.id}>{formatDate(batch.createdAt)} · {batch.results.length} post{batch.results.length === 1 ? "" : "s"}</option>)}</select>{activeBatch && <button className="button secondary small danger-text" onClick={() => void removeBatch(activeBatch.id)}><Trash2 size={14}/>Delete</button>}</div></div>
+    {batches.length > 0 && <section className="section-block agenda-results-section"><div className="section-heading split spotlight-batch-heading"><div><h2>Generated live posts</h2><p className="muted">First-pass provider canvases are saved locally without cropping or resizing.</p></div><div className="toolbar spotlight-batch-controls"><select className="spotlight-batch-select" value={activeBatch?.id || ""} onChange={(event) => { const id = event.target.value; setOperationId(null); setFollowLatestBatch(false); setActiveBatchId(id); void load(id); }}>{batches.map((batch) => <option key={batch.id} value={batch.id}>{formatDate(batch.createdAt)} · {batch.resultCount} post{batch.resultCount === 1 ? "" : "s"}</option>)}</select>{activeBatch && <button className="button secondary small danger-text" onClick={() => void removeBatch(activeBatch.id)}><Trash2 size={14}/>Delete</button>}</div></div>
       {activeBatch && activeBatchCounts && <>
         <div className="spotlight-batch-summary"><span><strong>{activeBatchCounts.completed}</strong> completed</span><span><strong>{activeBatchCounts.failed}</strong> failed</span>{activeBatchCounts.canceled > 0 && <span><strong>{activeBatchCounts.canceled}</strong> canceled</span>}{activeBatchCounts.active > 0 && <span><strong>{activeBatchCounts.active}</strong> in progress</span>}<span><strong>{activeBatch.model}</strong> image model</span><span><strong>3:4</strong> requested composition</span></div>
-        <div className="agenda-result-grid">{activeBatch.results.map((result) => <article className="agenda-result-card" key={result.id}>
+        <div className="agenda-result-grid">{activeBatch.results.map((result, resultIndex) => <article className="agenda-result-card" key={result.id}>
           <div className="agenda-result-heading"><div><span className={`status-icon ${result.status === "completed" ? "completed" : result.status === "failed" ? "failed" : "running"}`}>{result.status === "completed" ? <Check size={17}/> : result.status === "failed" ? <AlertTriangle size={17}/> : <Sparkles size={17}/>}</span><div><h3>{result.session.title}</h3><small>{result.session.startLabel}–{result.session.endLabel} · {result.session.stageName}</small></div></div>{result.imageAssetId && <span className="badge success">C2PA stripped</span>}</div>
           {result.error && <div className="warnings"><AlertTriangle/><span>{result.error}</span></div>}
-          {result.imageAssetId ? <><div className="agenda-result-image"><Image src={`/api/summit-agenda/asset?id=${result.imageAssetId}`} alt={`${result.session.title} live agenda post`} width={1080} height={1440} unoptimized/></div><a className="button secondary" href={`/api/summit-agenda/asset?id=${result.imageAssetId}&download=1`}><Download size={15}/>Download provider PNG</a></> : <div className="agenda-result-placeholder"><ImageIcon/><span>{result.status.replaceAll("_", " ")}</span></div>}
+          {result.imageAssetId ? <><div className="agenda-result-image"><Image src={`/api/summit-agenda/asset?id=${result.imageAssetId}&preview=1`} alt={`${result.session.title} live agenda post`} width={1080} height={1440} loading={resultIndex === 0 ? "eager" : "lazy"} unoptimized/></div><a className="button secondary" href={`/api/summit-agenda/asset?id=${result.imageAssetId}&download=1`}><Download size={15}/>Download provider PNG</a></> : <div className="agenda-result-placeholder"><ImageIcon/><span>{result.status.replaceAll("_", " ")}</span></div>}
           <div className="agenda-caption"><div className="copy-heading"><strong>Social media caption</strong><button className="icon-button" aria-label={`Copy ${result.session.title} caption`} onClick={() => void copyCaption(result.id, result.caption)}>{copiedCaptionId === result.id ? <Check size={15}/> : <Clipboard size={15}/>}</button></div><pre>{result.caption}</pre></div>
         </article>)}</div>
       </>}
@@ -197,7 +199,7 @@ export function SummitAgendaClient({ initialBatchId = null }: { initialBatchId?:
 
     {editing && <div className="agenda-modal" role="dialog" aria-modal="true" aria-labelledby="agenda-edit-title"><button className="agenda-modal-backdrop" aria-label="Close editor" onClick={() => !saving && setEditing(null)}/><div className="agenda-modal-panel"><div className="agenda-modal-head"><div><span className="eyebrow">{editing.stageName} · {editing.startLabel}</span><h2 id="agenda-edit-title">Edit session data</h2><p>Changes are stored together and become the exact context sent to image generation.</p></div><button className="icon-button" onClick={() => setEditing(null)} disabled={saving} aria-label="Close"><X size={18}/></button></div>
       <div className="agenda-edit-fields"><label className="span-two">Talk title<input value={editing.title} maxLength={320} onChange={(event) => setEditing({ ...editing, title: event.target.value })} placeholder="Add the exact live-post headline"/></label><label>Session type<select value={editing.format} onChange={(event) => setEditing({ ...editing, format: event.target.value })}>{formats.map((format) => <option key={format}>{format}</option>)}</select></label><div className="agenda-time-fields"><label>Starts<input type="time" value={timeInput(editing.start)} onChange={(event) => setEditing({ ...editing, start: minutesFromInput(event.target.value) })}/></label><label>Ends<input type="time" value={timeInput(editing.end)} onChange={(event) => setEditing({ ...editing, end: minutesFromInput(event.target.value) })}/></label></div></div>
-      <div className="agenda-people-editor"><div className="panel-heading"><div><h3>People and portraits</h3><small>Use the real source photo or upload a replacement.</small></div><button className="button secondary small" onClick={() => setEditing({ ...editing, people: [...editing.people, newPerson()] })}><Plus size={14}/>Add person</button></div>{editing.people.length ? <div className="agenda-person-list">{editing.people.map((person, index) => <div className="agenda-person-row" key={person.id}><div className="agenda-person-photo">{person.photo ? <Image src={portraitUrl(person.photo)} alt={`${person.name} portrait`} width={64} height={64} unoptimized/> : <Users size={20}/>}<label className="agenda-photo-button"><ImageIcon size={13}/>{pendingFiles[person.id]?.name || "Change"}<input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => { const file = event.target.files?.[0]; if (file) setPendingFiles((current) => ({ ...current, [person.id]: file })); }}/></label></div><div className="agenda-person-fields"><label>Name<input value={person.name} onChange={(event) => updateDraftPerson(setEditing, editing, person.id, { name: event.target.value })}/></label><label>Role<input value={person.role} onChange={(event) => updateDraftPerson(setEditing, editing, person.id, { role: event.target.value })}/></label><label>Company<input value={person.company} onChange={(event) => updateDraftPerson(setEditing, editing, person.id, { company: event.target.value })}/></label><label className="moderator-check"><input type="radio" name="moderator" checked={person.moderator} onChange={() => setEditing({ ...editing, people: editing.people.map((item) => ({ ...item, moderator: item.id === person.id })) })}/>Moderator</label></div><button className="icon-button danger-text" aria-label={`Remove ${person.name}`} onClick={() => { setEditing({ ...editing, people: editing.people.filter((item) => item.id !== person.id) }); setPendingFiles((current) => { const next = { ...current }; delete next[person.id]; return next; }); }}><Trash2 size={15}/></button><span className="agenda-person-number">{index + 1}</span></div>)}</div> : <div className="compact-empty"><Users/><div><strong>No people attached</strong><p>Add at least one person and portrait before generating.</p></div></div>}</div>
+      <div className="agenda-people-editor"><div className="panel-heading"><div><h3>People and portraits</h3><small>Use the real source photo or upload a replacement.</small></div><button className="button secondary small" onClick={() => setEditing({ ...editing, people: [...editing.people, newPerson()] })}><Plus size={14}/>Add person</button></div>{editing.people.length ? <div className="agenda-person-list">{editing.people.map((person, index) => <div className="agenda-person-row" key={person.id}><div className="agenda-person-photo">{person.photo ? <Image src={portraitUrl(person.photo, 128)} alt={`${person.name} portrait`} width={64} height={64} unoptimized/> : <Users size={20}/>}<label className="agenda-photo-button"><ImageIcon size={13}/>{pendingFiles[person.id]?.name || "Change"}<input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => { const file = event.target.files?.[0]; if (file) setPendingFiles((current) => ({ ...current, [person.id]: file })); }}/></label></div><div className="agenda-person-fields"><label>Name<input value={person.name} onChange={(event) => updateDraftPerson(setEditing, editing, person.id, { name: event.target.value })}/></label><label>Role<input value={person.role} onChange={(event) => updateDraftPerson(setEditing, editing, person.id, { role: event.target.value })}/></label><label>Company<input value={person.company} onChange={(event) => updateDraftPerson(setEditing, editing, person.id, { company: event.target.value })}/></label><label className="moderator-check"><input type="radio" name="moderator" checked={person.moderator} onChange={() => setEditing({ ...editing, people: editing.people.map((item) => ({ ...item, moderator: item.id === person.id })) })}/>Moderator</label></div><button className="icon-button danger-text" aria-label={`Remove ${person.name}`} onClick={() => { setEditing({ ...editing, people: editing.people.filter((item) => item.id !== person.id) }); setPendingFiles((current) => { const next = { ...current }; delete next[person.id]; return next; }); }}><Trash2 size={15}/></button><span className="agenda-person-number">{index + 1}</span></div>)}</div> : <div className="compact-empty"><Users/><div><strong>No people attached</strong><p>Add at least one person and portrait before generating.</p></div></div>}</div>
       <div className="agenda-modal-footer"><button className="button secondary danger-text" onClick={() => void resetEdit()} disabled={saving}><RotateCcw size={14}/>Restore downloaded data</button><div><button className="button secondary" onClick={() => setEditing(null)} disabled={saving}>Cancel</button><button className="button" onClick={() => void saveEdit()} disabled={saving || editing.end <= editing.start || editing.people.some((person) => !person.name.trim())}>{saving ? "Saving…" : "Save session"}</button></div></div>
     </div></div>}
   </div>;
@@ -210,7 +212,7 @@ function generationIssue(session: SummitAgendaSession) {
   return missing ? `Photo needed: ${missing.name}` : null;
 }
 
-function portraitUrl(token: string) { return `/api/summit-agenda/portrait?token=${encodeURIComponent(token)}`; }
+function portraitUrl(token: string, size?: number) { return `/api/summit-agenda/portrait?token=${encodeURIComponent(token)}${size ? `&size=${size}` : ""}`; }
 
 function formatClock(minutes: number) {
   const hour = Math.floor(minutes / 60) % 24;

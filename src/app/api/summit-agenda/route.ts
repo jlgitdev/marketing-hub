@@ -3,7 +3,7 @@ import { z } from "zod";
 import { currentSessionId, errorResponse, requireSafeOrigin } from "@/server/security/request";
 import { deleteSummitAgendaBatch } from "@/server/db/repository";
 import {
-  getSummitAgendaWorkspace,
+  getSummitAgendaView,
   resetSummitAgendaSession,
   SummitAgendaGenerateSchema,
   SummitAgendaSessionUpdateSchema,
@@ -14,8 +14,9 @@ import { startAiOperation } from "@/server/operations/manager";
 export const runtime = "nodejs";
 export const maxDuration = 900;
 
-export async function GET() {
-  return NextResponse.json(getSummitAgendaWorkspace());
+export async function GET(request: Request) {
+  const parsed = z.string().uuid().safeParse(new URL(request.url).searchParams.get("batch"));
+  return NextResponse.json(getSummitAgendaView(parsed.success ? parsed.data : null));
 }
 
 export async function POST(request: Request) {

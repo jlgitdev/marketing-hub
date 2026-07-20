@@ -11,7 +11,9 @@ import { ProviderFailure, summitAgendaImageWithOpenAI } from "@/server/ai/openai
 import { dataDirectory, isDemoMode } from "@/server/config";
 import {
   createSummitAgendaBatch,
+  getSummitAgendaBatch,
   getSummitAgendaData,
+  listSummitAgendaBatchSummaries,
   listSummitAgendaBatches,
   saveSummitAgendaData,
   updateSummitAgendaBatch,
@@ -66,6 +68,12 @@ export interface SummitAgendaExecution {
 
 export function getSummitAgendaWorkspace() {
   return { agenda: getSummitAgendaData(sourceAgenda), batches: listSummitAgendaBatches() };
+}
+
+export function getSummitAgendaView(requestedBatchId: string | null = null) {
+  const batches = listSummitAgendaBatchSummaries();
+  const selectedId = requestedBatchId && batches.some((batch) => batch.id === requestedBatchId) ? requestedBatchId : batches[0]?.id;
+  return { agenda: getSummitAgendaData(sourceAgenda), batches, batch: selectedId ? getSummitAgendaBatch(selectedId) : null };
 }
 
 export function updateSummitAgendaSession(input: z.infer<typeof SummitAgendaSessionUpdateSchema>) {
