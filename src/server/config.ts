@@ -1,9 +1,12 @@
 import path from "node:path";
+import { baseDataDirectory } from "@/server/data-root";
+import { workspaceDataDirectory } from "@/server/workspaces/registry";
 
 export function dataDirectory() {
-  const configured = process.env.MARKETING_HUB_DATA_DIR || ".marketing-hub";
-  return path.resolve(process.cwd(), configured);
+  return workspaceDataDirectory();
 }
+
+export { baseDataDirectory };
 
 export function isPathInsideDataDirectory(candidate: string) {
   const relative = path.relative(dataDirectory(), path.resolve(candidate));

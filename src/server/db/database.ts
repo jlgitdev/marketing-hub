@@ -1,9 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { dataDirectory } from "@/server/config";
+import { currentWorkspaceId, workspaceDataDirectory } from "@/server/workspaces/registry";
 
-const globalDb = globalThis as typeof globalThis & { __marketingHubDb?: DatabaseSync };
+const globalDb = globalThis as typeof globalThis & { __marketingHubDbs?: Map<string, DatabaseSync> };
+const databaseConnections = globalDb.__marketingHubDbs ?? new Map<string, DatabaseSync>();
+globalDb.__marketingHubDbs = databaseConnections;
 const migratedConnections = new WeakSet<DatabaseSync>();
 
 const migrations = [
@@ -365,8 +367,8 @@ const migrations = [
   }
 ];
 
-export function ensureDataDirectories() {
-  const root = dataDirectory();
+export function ensureDataDirectories(workspaceId = currentWorkspaceId()) {
+  const root = workspaceDataDirectory(workspaceId);
   for (const name of ["", "uploads", "generated", "exports", "tmp", "speaker_spotlights", "speaker_spotlight_templates", "summit_agenda", "summit_agenda/custom_portraits", "summit_agenda/batches"]) {
     fs.mkdirSync(path.join(root, name), { recursive: true });
   }
@@ -374,14 +376,21 @@ export function ensureDataDirectories() {
 }
 
 export function getDatabase() {
-  if (globalDb.__marketingHubDb) {
-    if (!migratedConnections.has(globalDb.__marketingHubDb)) {
-      applyMigrations(globalDb.__marketingHubDb);
-      migratedConnections.add(globalDb.__marketingHubDb);
+  return getDatabaseForWorkspace(currentWorkspaceId());
+}
+
+export function getDatabaseForWorkspace(workspaceId: string) {
+  const root = workspaceDataDirectory(workspaceId);
+  const connectionKey = path.resolve(root);
+  const existing = databaseConnections.get(connectionKey);
+  if (existing) {
+    if (!migratedConnections.has(existing)) {
+      applyMigrations(existing);
+      migratedConnections.add(existing);
     }
-    return globalDb.__marketingHubDb;
+    return existing;
   }
-  const root = ensureDataDirectories();
+  ensureDataDirectories(workspaceId);
   const db = new DatabaseSync(path.join(root, "marketing-hub.sqlite"));
   db.exec("PRAGMA journal_mode = WAL");
   db.exec("PRAGMA foreign_keys = ON");
@@ -417,7 +426,7 @@ export function getDatabase() {
     db.prepare("UPDATE summit_agenda_results SET status='failed', error=COALESCE(error, 'The local process stopped during this image.'), updated_at=? WHERE status IN ('queued','generating')").run(interruptedAt);
     db.prepare("UPDATE summit_agenda_batches SET status=CASE WHEN EXISTS (SELECT 1 FROM summit_agenda_results r WHERE r.batch_id=summit_agenda_batches.id AND r.status='completed') THEN 'partially_completed' ELSE 'failed' END, error=COALESCE(error, 'The local process stopped before this batch completed.'), completed_at=COALESCE(completed_at, ?) WHERE status='running'").run(interruptedAt);
   });
-  globalDb.__marketingHubDb = db;
+  databaseConnections.set(connectionKey, db);
   return db;
 }
 
@@ -445,7 +454,13 @@ export function withTransaction<T>(db: DatabaseSync, work: () => T) {
   }
 }
 
-export function closeDatabase() {
-  globalDb.__marketingHubDb?.close();
-  delete globalDb.__marketingHubDb;
+export function closeDatabase(workspaceId = currentWorkspaceId()) {
+  const connectionKey = path.resolve(workspaceDataDirectory(workspaceId));
+  databaseConnections.get(connectionKey)?.close();
+  databaseConnections.delete(connectionKey);
+}
+
+export function closeAllDatabases() {
+  for (const connection of databaseConnections.values()) connection.close();
+  databaseConnections.clear();
 }

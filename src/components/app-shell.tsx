@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { BookOpenText, CalendarDays, ContactRound, FileClock, Home, MicVocal, PenLine, Settings } from "lucide-react";
 import { WorkspaceProvider, useWorkspace } from "./workspace";
 import { OperationsProvider } from "./operations";
+import { WorkspaceGuide, WorkspaceSwitcher } from "./workspace-switcher";
 
 const nav = [
   { href: "/", label: "Overview", icon: Home },
@@ -18,7 +19,13 @@ const nav = [
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  return <WorkspaceProvider><OperationsProvider><AppFrame>{children}</AppFrame></OperationsProvider></WorkspaceProvider>;
+  return <WorkspaceProvider><WorkspaceRuntime>{children}</WorkspaceRuntime></WorkspaceProvider>;
+}
+
+function WorkspaceRuntime({ children }: { children: React.ReactNode }) {
+  const workspace = useWorkspace();
+  const workspaceId = workspace.state?.activeWorkspace.id || "opening";
+  return <OperationsProvider key={workspaceId}><AppFrame>{children}</AppFrame></OperationsProvider>;
 }
 
 function AppFrame({ children }: { children: React.ReactNode }) {
@@ -28,10 +35,7 @@ function AppFrame({ children }: { children: React.ReactNode }) {
   return (
     <div className="app-frame">
       <aside className="sidebar">
-        <Link href="/" className="brand" aria-label="Marketing Hub home">
-          <span className="brand-mark" aria-hidden="true"><i/><i/><i/><i/></span>
-          <span className="brand-copy"><strong>Marketing Hub</strong><small>AGI Summit workspace</small></span>
-        </Link>
+        <WorkspaceSwitcher state={workspace.state} onRefresh={workspace.refresh}/>
         <span className="nav-label">Workspace</span>
         <nav aria-label="Primary navigation">
           {nav.map((item) => {
@@ -47,6 +51,7 @@ function AppFrame({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
       <main className="main-content">{children}</main>
+      {workspace.state && <WorkspaceGuide state={workspace.state} onRefresh={workspace.refresh}/>}
     </div>
   );
 }

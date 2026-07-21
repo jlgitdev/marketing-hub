@@ -588,7 +588,21 @@ export interface ConnectionStatus {
   message: string;
 }
 
+export interface WorkspaceSummary {
+  id: string;
+  name: string;
+  eventDate: string | null;
+  location: string | null;
+  goal: string | null;
+  createdAt: string;
+  updatedAt: string;
+  lastOpenedAt: string;
+  onboardingDismissedAt: string | null;
+}
+
 export interface WorkspaceState {
+  activeWorkspace: WorkspaceSummary;
+  workspaces: WorkspaceSummary[];
   demoMode: boolean;
   dataPath: string;
   connection: ConnectionStatus;

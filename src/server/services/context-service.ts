@@ -5,6 +5,7 @@ import type { ContextDocument, Platform } from "@/lib/types";
 import { MAX_CONTEXT_CHARS } from "@/lib/config";
 import { isDemoMode, projectContextDirectory } from "@/server/config";
 import { listContextDocuments, updateContextDocument, upsertImportedContextDocument } from "@/server/db/repository";
+import { shouldImportProjectContext } from "@/server/workspaces/registry";
 
 export type ContextWorkflow = "research" | "outreach" | "content" | "speaker_spotlight";
 
@@ -53,6 +54,7 @@ export function deriveContextMetadata(title: string, body: string, sourcePath: s
 }
 
 export function ensureProjectContextImported() {
+  if (!shouldImportProjectContext()) { ensureContextMetadataBackfilled(); return []; }
   if (isDemoMode()) { ensureContextMetadataBackfilled(); return []; }
   const directory = projectContextDirectory();
   if (!fs.existsSync(directory) || !fs.statSync(directory).isDirectory()) return [];

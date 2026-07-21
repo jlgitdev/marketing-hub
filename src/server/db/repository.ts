@@ -30,6 +30,7 @@ import { MAX_FILES } from "@/lib/config";
 import { dataDirectory, isDemoMode, isPathInsideDataDirectory } from "@/server/config";
 import { ensureDataDirectories, getDatabase, withTransaction } from "./database";
 import { canonicalLeadKey, qualifyLead } from "@/server/services/lead-qualification";
+import { getActiveWorkspace, getWorkspaceRecord, listWorkspaces } from "@/server/workspaces/registry";
 
 const id = () => crypto.randomUUID();
 const json = <T>(value: string | null, fallback: T): T => {
@@ -690,8 +691,23 @@ export function getSummitAgendaData(defaultData: SummitAgendaData) {
   const row = db.prepare("SELECT payload FROM summit_agenda_state WHERE id='current'").get() as Record<string, unknown> | undefined;
   if (row) return json(String(row.payload), defaultData);
   const now = new Date().toISOString();
-  const seeded = { ...defaultData, updatedAt: now };
-  const digest = defaultData.days.map((day) => day.sourceSha256).join(":");
+  const workspace = getWorkspaceRecord();
+  const start = workspace.eventDate && /^\d{4}-\d{2}-\d{2}$/.test(workspace.eventDate)
+    ? new Date(`${workspace.eventDate}T12:00:00Z`)
+    : null;
+  const seedData = workspace.importProjectContext ? defaultData : {
+    ...defaultData,
+    event: { ...defaultData.event, name: workspace.name, location: workspace.location || "" },
+    days: defaultData.days.map((day, index) => ({
+      ...day,
+      date: start ? new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" }).format(new Date(start.getTime() + index * 86_400_000)) : "Date not set",
+      sourceFile: "",
+      sourceSha256: "",
+      sessions: []
+    }))
+  };
+  const seeded = { ...seedData, updatedAt: now };
+  const digest = seedData.days.map((day) => day.sourceSha256).join(":");
   db.prepare("INSERT INTO summit_agenda_state(id,payload,source_digest,updated_at) VALUES ('current',?,?,?)")
     .run(JSON.stringify(seeded), digest, now);
   return seeded;
@@ -825,6 +841,7 @@ export function getWorkspaceState(connection: WorkspaceState["connection"]): Wor
   const speakerSpotlightBatches = listSpeakerSpotlightBatchSummaries();
   const summitAgendaBatches = listSummitAgendaBatchSummaries();
   return {
+    activeWorkspace: getActiveWorkspace(), workspaces: listWorkspaces(),
     demoMode: isDemoMode(), dataPath: dataDirectory(), connection, contextDocuments, brandAssets: listBrandAssets(),
     researchRuns: listResearchRuns(), leads, outreachCampaigns: listOutreachCampaigns(), contentCampaigns, speakerSpotlightTemplates, speakerSpotlightBatches, summitAgendaBatches,
     counts: { activeContext: contextDocuments.filter((document) => document.active).length, leads: leads.length, awaitingReview: leads.filter((lead) => lead.reviewStatus === "unreviewed" || lead.reviewStatus === "needs_review").length, campaigns: contentCampaigns.length, speakerSpotlightTemplates: speakerSpotlightTemplates.filter((template) => template.status === "ready").length, speakerSpotlights: speakerSpotlightBatches.reduce((sum, batch) => sum + batch.completedCount, 0), summitAgendaPosts: summitAgendaBatches.reduce((sum, batch) => sum + batch.completedCount, 0) }

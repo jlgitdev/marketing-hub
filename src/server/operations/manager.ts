@@ -12,14 +12,15 @@ import { createSummitAgendaPosts, SummitAgendaGenerateSchema, SummitAgendaOperat
 import { listSummitAgendaBatches } from "@/server/db/repository";
 import { OperationCanceledError, pendingSteps, type OperationReporter } from "./types";
 import { createAiOperation, dismissAiOperationRecord, findActiveOperation, getAiOperation, listAiOperations, publicOperation, updateAiOperation, updateAiOperationInput } from "./repository";
+import { activeWorkspaceId, currentWorkspaceId, runInWorkspace } from "@/server/workspaces/registry";
 
-interface QueueItem { operationId: string; sessionId: string | null; }
-interface QueueState { queue: QueueItem[]; activeId: string | null; controller: AbortController | null; scheduled: boolean; }
+interface QueueItem { operationId: string; sessionId: string | null; workspaceId?: string; }
+interface QueueState { queue: QueueItem[]; activeId: string | null; activeWorkspaceId: string | null; controller: AbortController | null; scheduled: boolean; }
 
 const ACTIVE_OPERATION_STATUSES = new Set<AiOperationStatus>(["queued", "running", "cancel_requested"]);
 
 const globalOperations = globalThis as typeof globalThis & { __marketingHubOperationQueue?: QueueState };
-const queueState = globalOperations.__marketingHubOperationQueue ?? { queue: [], activeId: null, controller: null, scheduled: false };
+const queueState = globalOperations.__marketingHubOperationQueue ?? { queue: [], activeId: null, activeWorkspaceId: null, controller: null, scheduled: false };
 globalOperations.__marketingHubOperationQueue = queueState;
 
 const definitions: Record<AiOperationKind, Array<[string, string]>> = {
@@ -57,7 +58,7 @@ export function startAiOperation(input: {
     targetKey: input.targetKey, operationInput: sanitizedInput, completedUnits: input.totalUnits ? 0 : null,
     totalUnits: input.totalUnits ?? null, unitLabel: input.unitLabel ?? null
   });
-  queueState.queue.push({ operationId: operation.id, sessionId: input.sessionId });
+  queueState.queue.push({ operationId: operation.id, sessionId: input.sessionId, workspaceId: currentWorkspaceId() });
   scheduleDrain();
   return publicOperation(operation);
 }
@@ -132,24 +133,28 @@ function scheduleDrain() {
 
 function recoverUnexpectedQueueFailure(error: unknown) {
   const operationId = queueState.activeId;
+  const workspaceId = queueState.activeWorkspaceId;
   queueState.activeId = null;
+  queueState.activeWorkspaceId = null;
   queueState.controller = null;
-  if (operationId) {
-    try {
-      const operation = getAiOperation(operationId);
-      if (operation && ACTIVE_OPERATION_STATUSES.has(operation.status)) {
-        const completedAt = new Date().toISOString();
-        updateAiOperation(operationId, {
-          status: "failed",
-          steps: failSteps(operation.steps),
-          error: redactSecrets(error instanceof Error ? error.message : "The background operation stopped unexpectedly."),
-          retryable: true,
-          completedAt
-        });
+  if (operationId && workspaceId) {
+    runInWorkspace(workspaceId, () => {
+      try {
+        const operation = getAiOperation(operationId);
+        if (operation && ACTIVE_OPERATION_STATUSES.has(operation.status)) {
+          const completedAt = new Date().toISOString();
+          updateAiOperation(operationId, {
+            status: "failed",
+            steps: failSteps(operation.steps),
+            error: redactSecrets(error instanceof Error ? error.message : "The background operation stopped unexpectedly."),
+            retryable: true,
+            completedAt
+          });
+        }
+      } catch (recoveryError) {
+        console.error("Could not persist an unexpected AI queue failure.", recoveryError);
       }
-    } catch (recoveryError) {
-      console.error("Could not persist an unexpected AI queue failure.", recoveryError);
-    }
+    });
   }
   console.error("Unexpected AI queue failure.", error);
   scheduleDrain();
@@ -159,9 +164,15 @@ async function drainQueue() {
   if (queueState.activeId) return;
   const item = queueState.queue.shift();
   if (!item) return;
+  const workspaceId = item.workspaceId || activeWorkspaceId();
+  return runInWorkspace(workspaceId, () => drainQueueItem(item, workspaceId));
+}
+
+async function drainQueueItem(item: QueueItem, workspaceId: string) {
   const operation = getAiOperation(item.operationId);
   if (!operation || operation.status !== "queued") { scheduleDrain(); return; }
   queueState.activeId = operation.id;
+  queueState.activeWorkspaceId = workspaceId;
   queueState.controller = new AbortController();
   const startedAt = new Date().toISOString();
   updateAiOperation(operation.id, { status: "running", startedAt, error: null, retryable: false, steps: activateFirst(operation.steps) });
@@ -202,6 +213,7 @@ async function drainQueue() {
     });
   } finally {
     queueState.activeId = null;
+    queueState.activeWorkspaceId = null;
     queueState.controller = null;
     scheduleDrain();
   }

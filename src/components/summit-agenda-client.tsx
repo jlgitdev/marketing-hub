@@ -1,8 +1,9 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { AlertTriangle, CalendarDays, Check, Clipboard, Clock3, Download, ImageIcon, Pencil, Plus, RotateCcw, Sparkles, Trash2, Users, X } from "lucide-react";
+import { AlertTriangle, BookOpenText, CalendarDays, Check, Clipboard, Clock3, Download, ImageIcon, Pencil, Plus, RotateCcw, Sparkles, Trash2, Users, X } from "lucide-react";
 import type { SummitAgendaBatch, SummitAgendaBatchSummary, SummitAgendaData, SummitAgendaPerson, SummitAgendaSession } from "@/lib/types";
 import { InlineOperation, useOperations } from "./operations";
 import { apiRequest, ConnectionBadge, formatDate, PageState, useWorkspace } from "./workspace";
@@ -137,6 +138,13 @@ export function SummitAgendaClient({ initialBatchId = null }: { initialBatchId?:
       setMessage("Could not copy the caption. Select the text and copy it manually.");
     }
   }
+
+  const hasAgendaSessions = data.agenda.days.some((item) => item.sessions.length > 0);
+  if (!hasAgendaSessions) return <div className="page summit-agenda-page">
+    <header className="page-header split"><div><span className="eyebrow"><span className="live-pulse"/>Live media studio</span><h1>Summit Agenda</h1><p className="lede">Build live session graphics for {workspace.state.activeWorkspace.name} once the program and speaker assets are ready.</p></div><ConnectionBadge state={workspace.state}/></header>
+    {message && <div className="notice danger" role="status">{message}</div>}
+    <div className="empty-state agenda-workspace-empty"><CalendarDays/><h2>No agenda in this workspace</h2><p>New workspaces start clean, without sessions or generated posts from another summit. Add the event program and speaker details to Context when they are ready.</p><Link className="button" href="/context"><BookOpenText size={15}/>Open Context</Link></div>
+  </div>;
 
   const dayStart = Math.floor(Math.min(...day.sessions.map((session) => session.start)) / 20) * 20;
   const dayEnd = Math.ceil(Math.max(...day.sessions.map((session) => session.end)) / 20) * 20;

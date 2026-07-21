@@ -21,7 +21,7 @@ import { speakerSpotlightTemplateWithOpenAI } from "@/server/ai/openai-provider"
 import type { OperationReporter } from "@/server/operations/types";
 import { safeFileName } from "@/server/security/validation";
 
-const DEFAULT_TEMPLATE_SEED_KEY = "speaker_spotlight_default_template_seeded_v1";
+export const DEFAULT_TEMPLATE_SEED_KEY = "speaker_spotlight_default_template_seeded_v1";
 
 export const SpeakerSpotlightTemplateCreateSchema = z.object({
   name: z.string().trim().min(2).max(120),

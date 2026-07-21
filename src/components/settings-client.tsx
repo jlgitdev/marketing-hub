@@ -26,7 +26,7 @@ export function SettingsClient() {
     if (!first) return;
     const phrase = prompt("Type RESET MARKETING HUB to confirm.");
     if (phrase !== "RESET MARKETING HUB") return setMessage("Reset canceled; confirmation phrase did not match.");
-    setBusy("reset"); try { await apiRequest("/api/reset", { method: "POST", body: JSON.stringify({ confirm: true }) }); setMessage("All local Marketing Hub records and assets were removed."); await workspace.refresh(); }
+    setBusy("reset"); try { await apiRequest("/api/reset", { method: "POST", body: JSON.stringify({ confirm: true }) }); setMessage("This workspace’s records and assets were removed."); await workspace.refresh(); }
     catch (error) { setMessage(error instanceof Error ? error.message : "Reset failed."); } finally { setBusy(null); }
   }
 
