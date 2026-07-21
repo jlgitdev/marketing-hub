@@ -15,6 +15,9 @@ import type {
   SpeakerSpotlightBatch,
   SpeakerSpotlightBatchSummary,
   SpeakerSpotlightResult,
+  SpeakerSpotlightTemplate,
+  SpeakerSpotlightTemplateBlueprint,
+  SpeakerSpotlightTemplateSnapshot,
   SummitAgendaBatch,
   SummitAgendaBatchSummary,
   SummitAgendaData,
@@ -475,45 +478,129 @@ export function deleteContentCampaign(campaignId: string) {
 }
 
 function spotlightResultFromRow(row: Record<string, unknown>): SpeakerSpotlightResult {
-  const storedQa = row.qa ? json<SpeakerSpotlightResult["qa"]>(String(row.qa), null) : null;
-  const qa = storedQa ? {
-    ...storedQa,
-    imageValidationMode: storedQa.imageValidationMode || "vision_qa",
-    imageAttemptResults: storedQa.imageAttemptResults || [],
-    humanReviewApprovedAt: storedQa.humanReviewApprovedAt || null
-  } : null;
   return {
     id: String(row.id), batchId: String(row.batch_id), inputName: String(row.input_name), profileKey: String(row.profile_key),
     slug: String(row.slug), status: row.status as SpeakerSpotlightResult["status"], profile: row.profile ? json(String(row.profile), null) : null,
     post: row.post ? String(row.post) : null, headshotFileName: row.headshot_file_name ? String(row.headshot_file_name) : null,
     imageFileName: row.image_file_name ? String(row.image_file_name) : null, headshotAssetId: row.headshot_asset_id ? String(row.headshot_asset_id) : null,
     imageAssetId: row.image_asset_id ? String(row.image_asset_id) : null, imagePrompt: row.image_prompt ? String(row.image_prompt) : null,
-    qa, requestIds: json(String(row.request_ids || "[]"), []), retryCount: Number(row.retry_count || 0),
+    requestIds: json(String(row.request_ids || "[]"), []), retryCount: Number(row.retry_count || 0),
     providerError: row.provider_error ? json(String(row.provider_error), null) : null,
     error: row.error ? String(row.error) : null, createdAt: String(row.created_at), updatedAt: String(row.updated_at)
   };
 }
 
+function speakerSpotlightTemplateFromRow(row: Record<string, unknown>): SpeakerSpotlightTemplate {
+  const storedBlueprint = row.blueprint ? json<Record<string, unknown>>(String(row.blueprint), {}) : null;
+  if (storedBlueprint) delete storedBlueprint.protectedRegions;
+  return {
+    id: String(row.id), name: String(row.name), status: row.status as SpeakerSpotlightTemplate["status"],
+    version: Number(row.version || 1), selected: bool(row.selected), sourceType: row.source_type as SpeakerSpotlightTemplate["sourceType"],
+    originalFileName: String(row.original_file_name), mimeType: String(row.mime_type), width: Number(row.width), height: Number(row.height),
+    aspectRatio: String(row.aspect_ratio), sizeBytes: Number(row.size_bytes),
+    exampleSpeakerName: row.example_speaker_name ? String(row.example_speaker_name) : null,
+    fixedGuidance: String(row.fixed_guidance || ""), variableGuidance: String(row.variable_guidance || ""),
+    captionGuidance: String(row.caption_guidance || ""), additionalGuidance: String(row.additional_guidance || ""),
+    blueprint: storedBlueprint as SpeakerSpotlightTemplateBlueprint | null,
+    model: row.model ? String(row.model) : null, requestId: row.request_id ? String(row.request_id) : null,
+    error: row.error ? String(row.error) : null, createdAt: String(row.created_at), updatedAt: String(row.updated_at),
+    completedAt: row.completed_at ? String(row.completed_at) : null
+  };
+}
+
+export function listSpeakerSpotlightTemplates() {
+  return (getDatabase().prepare("SELECT * FROM speaker_spotlight_templates ORDER BY selected DESC, created_at DESC").all() as Array<Record<string, unknown>>).map(speakerSpotlightTemplateFromRow);
+}
+
+export function getSpeakerSpotlightTemplate(templateId: string) {
+  const row = getDatabase().prepare("SELECT * FROM speaker_spotlight_templates WHERE id=?").get(templateId) as Record<string, unknown> | undefined;
+  return row ? speakerSpotlightTemplateFromRow(row) : null;
+}
+
+export function speakerSpotlightTemplateStorage(templateId: string) {
+  const row = getDatabase().prepare("SELECT storage_path,thumbnail_storage_path FROM speaker_spotlight_templates WHERE id=?").get(templateId) as Record<string, unknown> | undefined;
+  if (!row) return null;
+  return { storagePath: String(row.storage_path), thumbnailPath: String(row.thumbnail_storage_path) };
+}
+
+export function createSpeakerSpotlightTemplate(input: SpeakerSpotlightTemplate & { storagePath: string; thumbnailPath: string }) {
+  const db = getDatabase();
+  withTransaction(db, () => {
+    if (input.selected) db.prepare("UPDATE speaker_spotlight_templates SET selected=0").run();
+    db.prepare(`INSERT INTO speaker_spotlight_templates(id,name,status,version,selected,source_type,original_file_name,storage_path,thumbnail_storage_path,mime_type,width,height,aspect_ratio,size_bytes,example_speaker_name,fixed_guidance,variable_guidance,caption_guidance,additional_guidance,blueprint,model,request_id,error,created_at,updated_at,completed_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+      .run(input.id, input.name, input.status, input.version, Number(input.selected), input.sourceType, input.originalFileName, input.storagePath, input.thumbnailPath, input.mimeType, input.width, input.height, input.aspectRatio, input.sizeBytes, input.exampleSpeakerName, input.fixedGuidance, input.variableGuidance, input.captionGuidance, input.additionalGuidance, input.blueprint ? JSON.stringify(input.blueprint) : null, input.model, input.requestId, input.error, input.createdAt, input.updatedAt, input.completedAt);
+  });
+  addActivity("speaker_spotlight_template_created", `Added ${input.name}`, "Speaker Spotlight template", input.id);
+  return getSpeakerSpotlightTemplate(input.id)!;
+}
+
+export function updateSpeakerSpotlightTemplate(templateId: string, patch: Partial<Pick<SpeakerSpotlightTemplate, "name" | "status" | "selected" | "blueprint" | "model" | "requestId" | "error" | "completedAt">>) {
+  const current = getSpeakerSpotlightTemplate(templateId);
+  if (!current) throw new Error("Speaker Spotlight template not found.");
+  const next = { ...current, ...patch, updatedAt: new Date().toISOString() };
+  const db = getDatabase();
+  withTransaction(db, () => {
+    if (next.selected) db.prepare("UPDATE speaker_spotlight_templates SET selected=0 WHERE id<>?").run(templateId);
+    db.prepare("UPDATE speaker_spotlight_templates SET name=?,status=?,selected=?,blueprint=?,model=?,request_id=?,error=?,updated_at=?,completed_at=? WHERE id=?")
+      .run(next.name, next.status, Number(next.selected), next.blueprint ? JSON.stringify(next.blueprint) : null, next.model, next.requestId, next.error, next.updatedAt, next.completedAt, templateId);
+  });
+  return getSpeakerSpotlightTemplate(templateId)!;
+}
+
+export function selectSpeakerSpotlightTemplate(templateId: string) {
+  const template = getSpeakerSpotlightTemplate(templateId);
+  if (!template || template.status !== "ready") throw new Error("Choose a ready Speaker Spotlight template.");
+  return updateSpeakerSpotlightTemplate(templateId, { selected: true });
+}
+
+export function deleteSpeakerSpotlightTemplateRecord(templateId: string) {
+  const template = getSpeakerSpotlightTemplate(templateId);
+  const storage = speakerSpotlightTemplateStorage(templateId);
+  if (!template || !storage) throw new Error("Speaker Spotlight template not found.");
+  if (template.status === "analyzing") throw new Error("Cancel or wait for template analysis before deleting this template.");
+  const db = getDatabase();
+  withTransaction(db, () => {
+    db.prepare("DELETE FROM speaker_spotlight_templates WHERE id=?").run(templateId);
+    const selected = db.prepare("SELECT id FROM speaker_spotlight_templates WHERE selected=1 AND status='ready' LIMIT 1").get() as { id?: string } | undefined;
+    if (!selected?.id) {
+      const fallback = db.prepare("SELECT id FROM speaker_spotlight_templates WHERE status='ready' ORDER BY created_at DESC LIMIT 1").get() as { id?: string } | undefined;
+      if (fallback?.id) db.prepare("UPDATE speaker_spotlight_templates SET selected=1 WHERE id=?").run(fallback.id);
+    }
+  });
+  addActivity("speaker_spotlight_template_deleted", `Deleted ${template.name}`, "Speaker Spotlight template", templateId);
+  return { template, ...storage };
+}
+
+export function getWorkspaceSetting(key: string) {
+  const row = getDatabase().prepare("SELECT value FROM workspace_settings WHERE key=?").get(key) as { value?: string } | undefined;
+  return row?.value ?? null;
+}
+
+export function setWorkspaceSetting(key: string, value: string) {
+  const now = new Date().toISOString();
+  getDatabase().prepare("INSERT INTO workspace_settings(key,value,updated_at) VALUES (?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at").run(key, value, now);
+}
+
 export function createSpeakerSpotlightBatch(batch: SpeakerSpotlightBatch) {
   const db = getDatabase();
   withTransaction(db, () => {
-    db.prepare(`INSERT INTO speaker_spotlight_batches(id,speaker_names,status,config,model,prompt_version,provider,warnings,error,created_at,completed_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)`)
-      .run(batch.id, JSON.stringify(batch.speakerNames), batch.status, JSON.stringify(batch.config), batch.model, batch.promptVersion, batch.provider, JSON.stringify(batch.warnings), batch.error, batch.createdAt, batch.completedAt);
+    db.prepare(`INSERT INTO speaker_spotlight_batches(id,speaker_names,status,config,model,prompt_version,provider,warnings,error,created_at,completed_at,template_id,template_snapshot,template_storage_path) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+      .run(batch.id, JSON.stringify(batch.speakerNames), batch.status, JSON.stringify(batch.config), batch.model, batch.promptVersion, batch.provider, JSON.stringify(batch.warnings), batch.error, batch.createdAt, batch.completedAt, batch.templateId, batch.templateSnapshot ? JSON.stringify(batch.templateSnapshot) : null, null);
     for (const result of batch.results) {
-      db.prepare(`INSERT INTO speaker_spotlight_results(id,batch_id,input_name,profile_key,slug,status,profile,post,headshot_file_name,image_file_name,headshot_asset_id,image_asset_id,headshot_storage_path,image_storage_path,image_prompt,qa,request_ids,retry_count,provider_error,error,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
-        .run(result.id, result.batchId, result.inputName, result.profileKey, result.slug, result.status, result.profile ? JSON.stringify(result.profile) : null, result.post, result.headshotFileName, result.imageFileName, result.headshotAssetId, result.imageAssetId, null, null, result.imagePrompt, result.qa ? JSON.stringify(result.qa) : null, JSON.stringify(result.requestIds), result.retryCount, result.providerError ? JSON.stringify(result.providerError) : null, result.error, result.createdAt, result.updatedAt);
+      db.prepare(`INSERT INTO speaker_spotlight_results(id,batch_id,input_name,profile_key,slug,status,profile,post,headshot_file_name,image_file_name,headshot_asset_id,image_asset_id,headshot_storage_path,image_storage_path,image_prompt,request_ids,retry_count,provider_error,error,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+        .run(result.id, result.batchId, result.inputName, result.profileKey, result.slug, result.status, result.profile ? JSON.stringify(result.profile) : null, result.post, result.headshotFileName, result.imageFileName, result.headshotAssetId, result.imageAssetId, null, null, result.imagePrompt, JSON.stringify(result.requestIds), result.retryCount, result.providerError ? JSON.stringify(result.providerError) : null, result.error, result.createdAt, result.updatedAt);
     }
   });
   addActivity("speaker_spotlight_started", "Speaker Spotlight batch", `${batch.speakerNames.length} speakers`, batch.id);
   return batch;
 }
 
-export function updateSpeakerSpotlightBatch(batchId: string, patch: Partial<Pick<SpeakerSpotlightBatch, "status" | "warnings" | "error" | "completedAt">>) {
+export function updateSpeakerSpotlightBatch(batchId: string, patch: Partial<Pick<SpeakerSpotlightBatch, "status" | "warnings" | "error" | "completedAt" | "templateId" | "templateSnapshot">> & { templateStoragePath?: string | null }) {
   const batch = listSpeakerSpotlightBatches().find((item) => item.id === batchId);
   if (!batch) throw new Error("Speaker Spotlight batch not found.");
   const next = { ...batch, ...patch };
-  getDatabase().prepare("UPDATE speaker_spotlight_batches SET status=?,warnings=?,error=?,completed_at=? WHERE id=?")
-    .run(next.status, JSON.stringify(next.warnings), next.error, next.completedAt, batchId);
+  getDatabase().prepare("UPDATE speaker_spotlight_batches SET status=?,warnings=?,error=?,completed_at=?,template_id=?,template_snapshot=?,template_storage_path=COALESCE(?,template_storage_path) WHERE id=?")
+    .run(next.status, JSON.stringify(next.warnings), next.error, next.completedAt, next.templateId, next.templateSnapshot ? JSON.stringify(next.templateSnapshot) : null, patch.templateStoragePath ?? null, batchId);
   if (next.completedAt) addActivity("speaker_spotlight_completed", "Speaker Spotlight batch", `${next.results.filter((result) => result.status === "completed").length} completed`, batchId);
   return next;
 }
@@ -523,8 +610,8 @@ export function updateSpeakerSpotlightResult(resultId: string, patch: Partial<Sp
   if (!row) throw new Error("Speaker Spotlight result not found.");
   const current = spotlightResultFromRow(row);
   const next = { ...current, ...patch, updatedAt: new Date().toISOString() };
-  getDatabase().prepare(`UPDATE speaker_spotlight_results SET profile_key=?,slug=?,status=?,profile=?,post=?,headshot_file_name=?,image_file_name=?,headshot_asset_id=?,image_asset_id=?,headshot_storage_path=COALESCE(?,headshot_storage_path),image_storage_path=COALESCE(?,image_storage_path),image_prompt=?,qa=?,request_ids=?,retry_count=?,provider_error=?,error=?,updated_at=? WHERE id=?`)
-    .run(next.profileKey, next.slug, next.status, next.profile ? JSON.stringify(next.profile) : null, next.post, next.headshotFileName, next.imageFileName, next.headshotAssetId, next.imageAssetId, patch.headshotStoragePath ?? null, patch.imageStoragePath ?? null, next.imagePrompt, next.qa ? JSON.stringify(next.qa) : null, JSON.stringify(next.requestIds), next.retryCount, next.providerError ? JSON.stringify(next.providerError) : null, next.error, next.updatedAt, resultId);
+  getDatabase().prepare(`UPDATE speaker_spotlight_results SET profile_key=?,slug=?,status=?,profile=?,post=?,headshot_file_name=?,image_file_name=?,headshot_asset_id=?,image_asset_id=?,headshot_storage_path=COALESCE(?,headshot_storage_path),image_storage_path=COALESCE(?,image_storage_path),image_prompt=?,request_ids=?,retry_count=?,provider_error=?,error=?,updated_at=? WHERE id=?`)
+    .run(next.profileKey, next.slug, next.status, next.profile ? JSON.stringify(next.profile) : null, next.post, next.headshotFileName, next.imageFileName, next.headshotAssetId, next.imageAssetId, patch.headshotStoragePath ?? null, patch.imageStoragePath ?? null, next.imagePrompt, JSON.stringify(next.requestIds), next.retryCount, next.providerError ? JSON.stringify(next.providerError) : null, next.error, next.updatedAt, resultId);
   return next;
 }
 
@@ -541,11 +628,18 @@ function speakerSpotlightBatchFromRow(row: Record<string, unknown>): SpeakerSpot
   const db = getDatabase();
   return {
     id: String(row.id), speakerNames: json(String(row.speaker_names), []), status: row.status as SpeakerSpotlightBatch["status"],
+    templateId: row.template_id ? String(row.template_id) : null,
+    templateSnapshot: row.template_snapshot ? json<SpeakerSpotlightTemplateSnapshot>(String(row.template_snapshot), null as unknown as SpeakerSpotlightTemplateSnapshot) : null,
     config: json(String(row.config), {} as SpeakerSpotlightBatch["config"]), model: String(row.model), promptVersion: String(row.prompt_version),
     provider: row.provider as SpeakerSpotlightBatch["provider"], warnings: json(String(row.warnings || "[]"), []), error: row.error ? String(row.error) : null,
     createdAt: String(row.created_at), completedAt: row.completed_at ? String(row.completed_at) : null,
     results: (db.prepare("SELECT * FROM speaker_spotlight_results WHERE batch_id=? ORDER BY created_at").all(String(row.id)) as Array<Record<string, unknown>>).map(spotlightResultFromRow)
   };
+}
+
+export function speakerSpotlightBatchTemplateStoragePath(batchId: string) {
+  const row = getDatabase().prepare("SELECT template_storage_path FROM speaker_spotlight_batches WHERE id=?").get(batchId) as { template_storage_path?: unknown } | undefined;
+  return row?.template_storage_path ? String(row.template_storage_path) : null;
 }
 
 export function getSpeakerSpotlightBatch(batchId: string) {
@@ -727,20 +821,21 @@ export function getWorkspaceState(connection: WorkspaceState["connection"]): Wor
   const contextDocuments = listContextDocuments();
   const leads = listLeads();
   const contentCampaigns = listContentCampaigns();
+  const speakerSpotlightTemplates = listSpeakerSpotlightTemplates();
   const speakerSpotlightBatches = listSpeakerSpotlightBatchSummaries();
   const summitAgendaBatches = listSummitAgendaBatchSummaries();
   return {
     demoMode: isDemoMode(), dataPath: dataDirectory(), connection, contextDocuments, brandAssets: listBrandAssets(),
-    researchRuns: listResearchRuns(), leads, outreachCampaigns: listOutreachCampaigns(), contentCampaigns, speakerSpotlightBatches, summitAgendaBatches,
-    counts: { activeContext: contextDocuments.filter((document) => document.active).length, leads: leads.length, awaitingReview: leads.filter((lead) => lead.reviewStatus === "unreviewed" || lead.reviewStatus === "needs_review").length, campaigns: contentCampaigns.length, speakerSpotlights: speakerSpotlightBatches.reduce((sum, batch) => sum + batch.completedCount, 0), summitAgendaPosts: summitAgendaBatches.reduce((sum, batch) => sum + batch.completedCount, 0) }
+    researchRuns: listResearchRuns(), leads, outreachCampaigns: listOutreachCampaigns(), contentCampaigns, speakerSpotlightTemplates, speakerSpotlightBatches, summitAgendaBatches,
+    counts: { activeContext: contextDocuments.filter((document) => document.active).length, leads: leads.length, awaitingReview: leads.filter((lead) => lead.reviewStatus === "unreviewed" || lead.reviewStatus === "needs_review").length, campaigns: contentCampaigns.length, speakerSpotlightTemplates: speakerSpotlightTemplates.filter((template) => template.status === "ready").length, speakerSpotlights: speakerSpotlightBatches.reduce((sum, batch) => sum + batch.completedCount, 0), summitAgendaPosts: summitAgendaBatches.reduce((sum, batch) => sum + batch.completedCount, 0) }
   };
 }
 
 export function resetAllData() {
   const db = getDatabase();
   withTransaction(db, () => {
-    for (const table of ["ai_operations", "activity_events", "summit_agenda_results", "summit_agenda_batches", "summit_agenda_state", "speaker_spotlight_results", "speaker_spotlight_batches", "generated_assets", "platform_posts", "content_campaigns", "outreach_recipients", "outreach_campaigns", "lead_sources", "leads", "research_sources", "research_runs", "brand_assets", "context_documents", "context_asset_imports"]) db.prepare(`DELETE FROM ${table}`).run();
+    for (const table of ["ai_operations", "activity_events", "summit_agenda_results", "summit_agenda_batches", "summit_agenda_state", "speaker_spotlight_results", "speaker_spotlight_batches", "speaker_spotlight_templates", "workspace_settings", "generated_assets", "platform_posts", "content_campaigns", "outreach_recipients", "outreach_campaigns", "lead_sources", "leads", "research_sources", "research_runs", "brand_assets", "context_documents", "context_asset_imports"]) db.prepare(`DELETE FROM ${table}`).run();
   });
-  for (const name of ["uploads", "generated", "exports", "tmp", "speaker_spotlights", "summit_agenda"]) fs.rmSync(path.join(dataDirectory(), name), { recursive: true, force: true });
+  for (const name of ["uploads", "generated", "exports", "tmp", "speaker_spotlights", "speaker_spotlight_templates", "summit_agenda"]) fs.rmSync(path.join(dataDirectory(), name), { recursive: true, force: true });
   ensureDataDirectories();
 }

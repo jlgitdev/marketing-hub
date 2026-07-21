@@ -11,8 +11,8 @@ vi.mock("@/server/ai/openai-provider", () => {
   }
   return {
     ProviderFailure,
-    speakerHeadshotQaWithOpenAI: vi.fn(async () => ({
-      requestId: "req_headshot_qa",
+    speakerHeadshotFaceCheckWithOpenAI: vi.fn(async () => ({
+      requestId: "req_headshot_face_check",
       bundle: { faceVisible: true, approved: true, singlePerson: true, usablePortrait: true, notLogoGraphicOrThumbnail: true, notVisiblyCorrupted: true, issues: [] }
     })),
     speakerPostWithOpenAI: vi.fn(async () => ({
@@ -59,7 +59,7 @@ describe.skipIf(!hasExternalSpeakerSite)("Speaker Spotlight partial-result prese
     expect(result.status).toBe("failed");
     expect(result.post).toContain("Speaker Spotlight: Joe Palermo");
     expect(result.imageAssetId).toBeNull();
-    expect(result.requestIds).toEqual(["req_headshot_qa", "req_caption", "req_image_edit"]);
+    expect(result.requestIds).toEqual(["req_headshot_face_check", "req_caption", "req_image_edit"]);
     expect(result.providerError).toMatchObject({
       stage: "image_edit",
       code: "invalid_request",

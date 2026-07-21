@@ -28,10 +28,10 @@ describe("performance-safe data views", () => {
     const now = "2026-07-20T12:00:00.000Z";
     const speakerBatchId = "00000000-0000-4000-8000-000000000101";
     createSpeakerSpotlightBatch({
-      id: speakerBatchId, speakerNames: ["Ada Example"], status: "completed",
+      id: speakerBatchId, speakerNames: ["Ada Example"], status: "completed", templateId: null, templateSnapshot: null,
       config: { eventName: "AGI Summit", eventDates: "July 18–19", eventVenue: "San Francisco", eventWebsite: "agisummit.ai", ticketUrl: "https://example.com", discountCopy: "Test", siteDirectory: "/tmp" },
       model: "demo", promptVersion: "test", provider: "demo", warnings: [], error: null, createdAt: now, completedAt: now,
-      results: [{ id: "00000000-0000-4000-8000-000000000102", batchId: speakerBatchId, inputName: "Ada Example", profileKey: "adaexample", slug: "ada-example", status: "completed", profile: null, post: "Caption", headshotFileName: null, imageFileName: null, headshotAssetId: null, imageAssetId: null, imagePrompt: null, qa: null, requestIds: [], retryCount: 0, providerError: null, error: null, createdAt: now, updatedAt: now }]
+      results: [{ id: "00000000-0000-4000-8000-000000000102", batchId: speakerBatchId, inputName: "Ada Example", profileKey: "adaexample", slug: "ada-example", status: "completed", profile: null, post: "Caption", headshotFileName: null, imageFileName: null, headshotAssetId: null, imageAssetId: null, imagePrompt: null, requestIds: [], retryCount: 0, providerError: null, error: null, createdAt: now, updatedAt: now }]
     });
 
     const agendaBatchId = "00000000-0000-4000-8000-000000000103";

@@ -3,14 +3,15 @@ import fs from "node:fs";
 import path from "node:path";
 import sharp from "sharp";
 import { z } from "zod";
-import { PROMPT_VERSIONS, SPEAKER_SPOTLIGHT_IMAGE_SPEC } from "@/lib/config";
-import type { SpeakerProfile, SpeakerSpotlightBatch, SpeakerSpotlightImageAttemptResult, SpeakerSpotlightProviderError, SpeakerSpotlightQa, SpeakerSpotlightResult, SpeakerSpotlightStage } from "@/lib/types";
+import { PROMPT_VERSIONS } from "@/lib/config";
+import type { SpeakerProfile, SpeakerSpotlightBatch, SpeakerSpotlightProviderError, SpeakerSpotlightResult, SpeakerSpotlightStage, SpeakerSpotlightTemplateSnapshot } from "@/lib/types";
 import { agiSummitSiteDirectory, dataDirectory, isDemoMode, projectContextDirectory } from "@/server/config";
-import { createSpeakerSpotlightBatch, listSpeakerSpotlightBatches, speakerSpotlightResultStorage, updateSpeakerSpotlightBatch, updateSpeakerSpotlightResult } from "@/server/db/repository";
-import { ProviderFailure, speakerHeadshotQaWithOpenAI, speakerPostWithOpenAI, speakerSpotlightImageWithOpenAI } from "@/server/ai/openai-provider";
+import { createSpeakerSpotlightBatch, listSpeakerSpotlightBatches, speakerSpotlightBatchTemplateStoragePath, speakerSpotlightResultStorage, speakerSpotlightTemplateStorage, updateSpeakerSpotlightBatch, updateSpeakerSpotlightResult } from "@/server/db/repository";
+import { ProviderFailure, speakerHeadshotFaceCheckWithOpenAI, speakerPostWithOpenAI, speakerSpotlightImageWithOpenAI } from "@/server/ai/openai-provider";
 import { escapeXml, safeFileName } from "@/server/security/validation";
 import { OperationCanceledError, type OperationReporter } from "@/server/operations/types";
 import { stripC2paFromFile, writeC2paStrippedImage } from "@/server/images/strip-c2pa";
+import { readySpeakerSpotlightTemplate, speakerSpotlightTemplateSnapshot } from "@/server/services/speaker-spotlight-template-service";
 
 const DEFAULT_CONFIG = {
   eventName: "AGI Summit SF 2026",
@@ -30,12 +31,13 @@ interface SpeakerOrganizationBrand {
   verificationMethod: string;
 }
 
-export function headshotQaAllowsGeneration(qa: { faceVisible: boolean }) {
-  return qa.faceVisible;
+export function headshotFaceCheckAllowsGeneration(check: { faceVisible: boolean }) {
+  return check.faceVisible;
 }
 
 export const SpeakerSpotlightInputSchema = z.object({
   speakerNames: z.array(z.string().trim().min(1).max(160)).min(1).max(20),
+  templateId: z.string().uuid().optional(),
   config: z.object({
     eventName: z.string().min(2).max(160).default(DEFAULT_CONFIG.eventName),
     eventDates: z.string().min(2).max(160).default(DEFAULT_CONFIG.eventDates),
@@ -48,7 +50,6 @@ export const SpeakerSpotlightInputSchema = z.object({
 });
 
 export const SpeakerSpotlightRetrySchema = z.object({ resultId: z.string().uuid() });
-export const SpeakerSpotlightReviewSchema = z.object({ resultId: z.string().uuid(), decision: z.literal("approve") });
 
 export function speakerSpotlightDefaults() {
   return DEFAULT_CONFIG;
@@ -56,9 +57,13 @@ export function speakerSpotlightDefaults() {
 
 export async function createSpeakerSpotlights(input: z.input<typeof SpeakerSpotlightInputSchema>, apiKey: string | null, reporter?: OperationReporter) {
   const parsed = SpeakerSpotlightInputSchema.parse(input);
-  const names = Array.from(new Set(parsed.speakerNames.map((name) => name.trim()).filter(Boolean)));
+  const names = Array.from(new Map(parsed.speakerNames.map((name) => name.trim()).filter(Boolean).map((name) => [normalizeProfileKey(name), name])).values());
   if (!names.length) throw new Error("Enter at least one speaker name.");
   if (!isDemoMode() && !apiKey) throw new Error("Connect an OpenAI API key before generating live Speaker Spotlights.");
+  const template = await readySpeakerSpotlightTemplate(parsed.templateId);
+  const templateStorage = speakerSpotlightTemplateStorage(template.id);
+  if (!templateStorage || !fs.existsSync(templateStorage.storagePath)) throw new Error("The selected Speaker Spotlight template image is unavailable.");
+  const templateSnapshot = speakerSpotlightTemplateSnapshot(template);
   const config = { ...DEFAULT_CONFIG, ...parsed.config, siteDirectory: path.resolve(parsed.config.siteDirectory || DEFAULT_CONFIG.siteDirectory) };
   const references = verifyReferences(config.siteDirectory);
   const now = new Date().toISOString();
@@ -66,23 +71,27 @@ export async function createSpeakerSpotlights(input: z.input<typeof SpeakerSpotl
   const results: SpeakerSpotlightResult[] = names.map((name, index) => ({
     id: crypto.randomUUID(), batchId, inputName: name, profileKey: normalizeProfileKey(name), slug: speakerSlug(name), status: "queued",
     profile: null, post: null, headshotFileName: null, imageFileName: null, headshotAssetId: null, imageAssetId: null,
-    imagePrompt: null, qa: null, requestIds: [], retryCount: 0, providerError: null, error: null,
+    imagePrompt: null, requestIds: [], retryCount: 0, providerError: null, error: null,
     createdAt: new Date(Date.now() + index).toISOString(), updatedAt: now
   }));
+  const batchRoot = path.join(dataDirectory(), "speaker_spotlights", batchId);
+  fs.mkdirSync(batchRoot, { recursive: true });
+  const pinnedTemplatePath = path.join(batchRoot, "template-reference.png");
+  fs.copyFileSync(templateStorage.storagePath, pinnedTemplatePath);
   const batch: SpeakerSpotlightBatch = {
     id: batchId, speakerNames: names, status: "running", config, model: isDemoMode() ? "demo-image-v1" : "gpt-image-2",
+    templateId: template.id, templateSnapshot,
     promptVersion: PROMPT_VERSIONS.speakerSpotlight, provider: isDemoMode() ? "demo" : "openai", warnings: [], error: null,
     createdAt: now, completedAt: null, results
   };
   createSpeakerSpotlightBatch(batch);
-  const batchRoot = path.join(dataDirectory(), "speaker_spotlights", batchId);
-  fs.mkdirSync(batchRoot, { recursive: true });
+  updateSpeakerSpotlightBatch(batchId, { templateStoragePath: pinnedTemplatePath });
 
   reporter?.stage("processing", `0 of ${results.length} speaker packages complete.`);
   let processed = 0;
   try {
     await mapWithConcurrency(results, 2, async (result) => {
-      await processSpeaker({ result, config, references, batchRoot, apiKey, reporter });
+      await processSpeaker({ result, config, references, templateSnapshot, templatePath: pinnedTemplatePath, batchRoot, apiKey, reporter });
       processed += 1;
       reporter?.progress(processed, results.length, "speakers", `${processed} of ${results.length} speaker packages processed.`);
       writeManifest(batchId, batchRoot);
@@ -108,11 +117,13 @@ async function processSpeaker(input: {
   result: SpeakerSpotlightResult;
   config: SpeakerSpotlightBatch["config"];
   references: ReturnType<typeof verifyReferences>;
+  templateSnapshot: SpeakerSpotlightTemplateSnapshot;
+  templatePath: string;
   batchRoot: string;
   apiKey: string | null;
   reporter?: OperationReporter;
 }) {
-  const { result, config, references, batchRoot, apiKey, reporter } = input;
+  const { result, config, references, templateSnapshot, templatePath, batchRoot, apiKey, reporter } = input;
   const speakerDirectory = path.join(batchRoot, result.slug);
   fs.mkdirSync(speakerDirectory, { recursive: true });
   let stage: SpeakerSpotlightStage = "profile_extraction";
@@ -135,24 +146,18 @@ async function processSpeaker(input: {
     fs.copyFileSync(headshot.path, headshotPath);
     const headshotAssetId = crypto.randomUUID();
     const preRequestIds: string[] = [];
-    const headshotWarnings: string[] = [];
-    let headshotVerificationMethod = headshot.verificationMethod;
     if (!isDemoMode()) {
-      stage = "headshot_qa";
+      stage = "headshot_face_check";
       reporter?.stage("processing", `${result.inputName} · confirming that the matched headshot contains a visible face.`);
       updateSpeakerSpotlightResult(result.id, { status: "checking_headshot" });
       reporter?.checkpoint();
       try {
-        const visualQa = await speakerHeadshotQaWithOpenAI(apiKey!, { speakerName: result.inputName, headshotPath, mimeType: headshot.mimeType }, reporter?.signal);
-        if (visualQa.requestId) preRequestIds.push(visualQa.requestId);
-        if (!headshotQaAllowsGeneration(visualQa.bundle)) throw new Error(`The matched headshot for ${result.inputName} does not contain a discernible human face.`);
-        headshotWarnings.push(...visualQa.bundle.issues.map((issue) => `Headshot source warning (generation continued): ${issue}`));
-        headshotVerificationMethod = `${headshot.verificationMethod}; visual check confirmed a discernible human face and cosmetic findings were treated as warnings`;
+        const faceCheck = await speakerHeadshotFaceCheckWithOpenAI(apiKey!, { speakerName: result.inputName, headshotPath, mimeType: headshot.mimeType }, reporter?.signal);
+        if (faceCheck.requestId) preRequestIds.push(faceCheck.requestId);
+        if (!headshotFaceCheckAllowsGeneration(faceCheck.bundle)) throw new Error(`The matched headshot for ${result.inputName} does not contain a discernible human face.`);
       } catch (error) {
         if (!(error instanceof ProviderFailure)) throw error;
         if (error.details.requestId) preRequestIds.push(error.details.requestId);
-        headshotWarnings.push(`Headshot face check was unavailable, so generation continued with the locally matched site headshot: ${error.message}`);
-        headshotVerificationMethod = `${headshot.verificationMethod}; automated face check unavailable, continued with the locally matched site headshot`;
       }
     }
     updateSpeakerSpotlightResult(result.id, {
@@ -161,10 +166,10 @@ async function processSpeaker(input: {
     });
 
     const frozen = freezeCardCopy(profile, organizationName);
-    const imagePrompt = buildImagePrompt(profile, frozen, config);
+    const imagePrompt = buildImagePrompt(profile, frozen, config, templateSnapshot);
     fs.writeFileSync(path.join(speakerDirectory, `${result.slug}-image-prompt.md`), imagePrompt);
     updateSpeakerSpotlightResult(result.id, { status: "ready_for_image", imagePrompt });
-    await completeVerifiedSpeakerPackage({ result, profile, imagePrompt, headshotPath, headshotMimeType: headshot.mimeType, headshotVerificationMethod, headshotWarnings, styleReferencePath: references.styleReferencePath, organizationName, captionExample: references.captionExample, speakerDirectory, config, apiKey, requestIds: preRequestIds, existingPost: null, retryCount: 0, reporter });
+    await completeVerifiedSpeakerPackage({ result, profile, imagePrompt, headshotPath, headshotMimeType: headshot.mimeType, templatePath, templateSnapshot, organizationName, captionExample: references.captionExample, speakerDirectory, config, apiKey, requestIds: preRequestIds, existingPost: null, retryCount: 0, reporter });
   } catch (error) {
     recordSpeakerFailure(result.id, stage, error);
   }
@@ -176,17 +181,18 @@ export async function retrySpeakerSpotlight(resultId: string, apiKey: string | n
   const result = batch?.results.find((item) => item.id === resultId);
   if (!batch || !result) throw new Error("Speaker Spotlight result not found.");
   if (!result.profile || !result.imagePrompt || !result.headshotFileName) throw new Error("This result cannot be resumed because its verified profile, prompt, or headshot is missing.");
-  if (!['failed', 'image_review_required'].includes(result.status)) throw new Error("Only failed or review-required Speaker Spotlights can be retried.");
+  if (!["completed", "failed", "canceled"].includes(result.status)) throw new Error("This Speaker Spotlight is still processing. Wait for it to finish before manually retrying its image.");
   const storage = speakerSpotlightResultStorage(result.id);
   if (!storage?.headshotPath || !fs.existsSync(storage.headshotPath)) throw new Error("The preserved verified headshot is unavailable, so this package cannot be resumed.");
   const metadata = await sharp(storage.headshotPath).metadata();
   const headshotMimeType = metadata.format === "jpeg" ? "image/jpeg" : `image/${metadata.format || "png"}`;
   const references = verifyReferences(batch.config.siteDirectory);
   const batchRoot = path.join(dataDirectory(), "speaker_spotlights", batch.id);
+  const pinnedTemplate = await ensureBatchPinnedTemplate(batch, batchRoot);
   const speakerDirectory = path.dirname(storage.headshotPath);
   const organizationName = inferOrganizationName(result.profile) || "AGI Summit";
   const frozen = freezeCardCopy(result.profile, organizationName);
-  const imagePrompt = buildImagePrompt(result.profile, frozen, batch.config);
+  const imagePrompt = buildImagePrompt(result.profile, frozen, batch.config, pinnedTemplate.snapshot);
   updateSpeakerSpotlightBatch(batch.id, { status: "running", warnings: [], error: null, completedAt: null });
   updateSpeakerSpotlightResult(result.id, { status: "ready_for_image", imagePrompt, providerError: null, error: null, retryCount: result.retryCount + 1 });
   try {
@@ -194,8 +200,7 @@ export async function retrySpeakerSpotlight(resultId: string, apiKey: string | n
     reporter?.checkpoint();
     await completeVerifiedSpeakerPackage({
       result, profile: result.profile, imagePrompt, headshotPath: storage.headshotPath, headshotMimeType,
-      headshotVerificationMethod: result.qa?.headshotVerificationMethod || "preserved verified headshot from the original run",
-      styleReferencePath: references.styleReferencePath, organizationName, captionExample: references.captionExample, speakerDirectory,
+      templatePath: pinnedTemplate.path, templateSnapshot: pinnedTemplate.snapshot, organizationName, captionExample: references.captionExample, speakerDirectory,
       config: batch.config, apiKey, requestIds: result.requestIds, existingPost: result.post, retryCount: result.retryCount + 1, reporter
     });
   } catch (error) {
@@ -206,60 +211,38 @@ export async function retrySpeakerSpotlight(resultId: string, apiKey: string | n
   return listSpeakerSpotlightBatches().find((item) => item.id === batch.id)!;
 }
 
-export async function approveSpeakerSpotlightImage(resultId: string) {
-  const batch = listSpeakerSpotlightBatches().find((item) => item.results.some((result) => result.id === resultId));
-  const result = batch?.results.find((item) => item.id === resultId);
-  if (!batch || !result) throw new Error("Speaker Spotlight result not found.");
-  if (!["image_review_required", "failed", "canceled"].includes(result.status)) throw new Error("Only a saved incomplete Speaker Spotlight image can be promoted.");
-  const storage = speakerSpotlightResultStorage(result.id);
-  const speakerDirectory = storage?.headshotPath ? path.dirname(storage.headshotPath) : path.join(dataDirectory(), "speaker_spotlights", batch.id, result.slug);
-  const preservedAttemptPath = path.join(speakerDirectory, `${result.slug}-speaker-spotlight-attempt-1.png`);
-  const sourcePath = storage?.imagePath && fs.existsSync(storage.imagePath) ? storage.imagePath : preservedAttemptPath;
-  if (!fs.existsSync(sourcePath)) throw new Error("The saved first image is unavailable.");
-  await validateFirstImageOutput(sourcePath);
-
-  const approvedFileName = `${result.slug}-speaker-spotlight.png`;
-  const approvedPath = path.join(speakerDirectory, approvedFileName);
-  writeC2paStrippedImage(approvedPath, fs.readFileSync(sourcePath));
-  const reviewedAt = new Date().toISOString();
-  const qa = result.qa
-    ? { ...result.qa, humanReviewApprovedAt: reviewedAt }
-    : firstOutputValidationRecord({ headshotVerificationMethod: "preserved verified headshot from the original run", postFactsVerified: Boolean(result.post), imageRequestId: null, humanReviewApprovedAt: reviewedAt });
-  fs.writeFileSync(path.join(speakerDirectory, `${result.slug}-qa.json`), `${JSON.stringify({ speaker: result.profile?.displayName || result.inputName, ...snakeCaseQa(qa), status: "completed" }, null, 2)}\n`);
-  updateSpeakerSpotlightResult(result.id, {
-    status: "completed",
-    imageFileName: approvedFileName,
-    imageAssetId: result.imageAssetId || crypto.randomUUID(),
-    imageStoragePath: approvedPath,
-    qa,
-    providerError: null,
-    error: null
-  });
-  finalizeBatch(batch.id);
-  writeManifest(batch.id, path.join(dataDirectory(), "speaker_spotlights", batch.id));
-  return listSpeakerSpotlightBatches().find((item) => item.id === batch.id)!;
+async function ensureBatchPinnedTemplate(batch: SpeakerSpotlightBatch, batchRoot: string) {
+  const existingPath = speakerSpotlightBatchTemplateStoragePath(batch.id);
+  if (batch.templateSnapshot && existingPath && fs.existsSync(existingPath)) return { snapshot: batch.templateSnapshot, path: existingPath };
+  const template = await readySpeakerSpotlightTemplate(batch.templateId);
+  const storage = speakerSpotlightTemplateStorage(template.id);
+  if (!storage || !fs.existsSync(storage.storagePath)) throw new Error("The template needed to resume this Speaker Spotlight is unavailable.");
+  fs.mkdirSync(batchRoot, { recursive: true });
+  const pinnedPath = path.join(batchRoot, "template-reference.png");
+  fs.copyFileSync(storage.storagePath, pinnedPath);
+  const snapshot = speakerSpotlightTemplateSnapshot(template);
+  updateSpeakerSpotlightBatch(batch.id, { templateId: template.id, templateSnapshot: snapshot, templateStoragePath: pinnedPath });
+  return { snapshot, path: pinnedPath };
 }
 
 async function completeVerifiedSpeakerPackage(input: {
   result: SpeakerSpotlightResult; profile: SpeakerProfile; imagePrompt: string; headshotPath: string; headshotMimeType: string;
-  headshotVerificationMethod: string; headshotWarnings?: string[]; styleReferencePath: string; organizationName: string; captionExample: string; speakerDirectory: string;
+  templatePath: string; templateSnapshot: SpeakerSpotlightTemplateSnapshot; organizationName: string; captionExample: string; speakerDirectory: string;
   config: SpeakerSpotlightBatch["config"]; apiKey: string | null; requestIds: string[]; existingPost: string | null; retryCount: number;
   reporter?: OperationReporter;
 }) {
   const frozen = freezeCardCopy(input.profile, input.organizationName);
   let requestIds = uniqueRequestIds(input.requestIds);
   let post = input.existingPost;
-  let postWarnings: string[] = [];
   if (!post) {
     input.reporter?.stage("processing", `${input.profile.displayName} · writing and validating the cross-platform caption.`);
     input.reporter?.checkpoint();
     updateSpeakerSpotlightResult(input.result.id, { status: "writing_post", providerError: null, error: null });
     try {
-      const postPrompt = buildPostPrompt(input.profile, input.config, input.captionExample);
+      const postPrompt = buildPostPrompt(input.profile, input.config, input.captionExample, input.templateSnapshot.captionGuidance);
       const postResult = isDemoMode() ? { post: demoPost(input.profile, input.config), requestId: null, warnings: [] as string[], factualClaimsUsed: [] as string[] } : await generatePost(input.apiKey!, postPrompt, input.reporter?.signal);
       validatePost(postResult.post, input.profile, input.config, postResult.factualClaimsUsed);
       post = postResult.post.trim();
-      postWarnings = postResult.warnings;
       requestIds = uniqueRequestIds([...requestIds, ...(postResult.requestId ? [postResult.requestId] : [])]);
       fs.writeFileSync(path.join(input.speakerDirectory, `${input.result.slug}-post.md`), `${post}\n`);
       updateSpeakerSpotlightResult(input.result.id, { post, requestIds });
@@ -268,28 +251,21 @@ async function completeVerifiedSpeakerPackage(input: {
     }
   }
 
-  input.reporter?.stage("processing", `${input.profile.displayName} · generating the first and final 2:3 image.`);
+  input.reporter?.stage("processing", `${input.profile.displayName} · generating with ${input.templateSnapshot.name} v${input.templateSnapshot.version}.`);
   input.reporter?.checkpoint();
   updateSpeakerSpotlightResult(input.result.id, { status: "generating_image", providerError: null, error: null });
-  const imageResult = await generateFirstImage({ result: input.result, profile: input.profile, frozen, imagePrompt: input.imagePrompt, headshotPath: input.headshotPath, headshotMimeType: input.headshotMimeType, styleReferencePath: input.styleReferencePath, speakerDirectory: input.speakerDirectory, config: input.config, apiKey: input.apiKey, priorRequestIds: requestIds, reporter: input.reporter });
+  const imageResult = await generateSpotlightImage({ result: input.result, profile: input.profile, frozen, imagePrompt: input.imagePrompt, headshotPath: input.headshotPath, headshotMimeType: input.headshotMimeType, templatePath: input.templatePath, templateSnapshot: input.templateSnapshot, speakerDirectory: input.speakerDirectory, apiKey: input.apiKey, priorRequestIds: requestIds, reporter: input.reporter });
   requestIds = uniqueRequestIds([...requestIds, ...imageResult.requestIds]);
   updateSpeakerSpotlightResult(input.result.id, {
     imageFileName: imageResult.imageFileName, imageAssetId: imageResult.imageAssetId, imageStoragePath: imageResult.imagePath,
     requestIds, retryCount: input.retryCount
   });
 
-  const qa = firstOutputValidationRecord({
-    headshotVerificationMethod: input.headshotVerificationMethod,
-    postFactsVerified: Boolean(post),
-    imageRequestId: imageResult.imageRequestId,
-    issues: [...(input.headshotWarnings || []), ...postWarnings]
-  });
-  fs.writeFileSync(path.join(input.speakerDirectory, `${input.result.slug}-qa.json`), `${JSON.stringify({ speaker: input.profile.displayName, ...snakeCaseQa(qa), status: "completed" }, null, 2)}\n`);
-  input.reporter?.stage("processing", `${input.profile.displayName} · finalizing the first image, caption, and validation record.`);
+  input.reporter?.stage("processing", `${input.profile.displayName} · saving the first generated image and caption.`);
   input.reporter?.checkpoint();
   updateSpeakerSpotlightResult(input.result.id, { status: "finalizing" });
   updateSpeakerSpotlightResult(input.result.id, {
-    status: "completed", post, qa, requestIds, providerError: null, error: null
+    status: "completed", post, requestIds, providerError: null, error: null
   });
 }
 
@@ -318,7 +294,7 @@ function recordSpeakerFailure(resultId: string, fallbackStage: SpeakerSpotlightS
   } : null;
   const current = listSpeakerSpotlightBatches().flatMap((batch) => batch.results).find((result) => result.id === resultId);
   const requestIds = uniqueRequestIds([...(current?.requestIds || []), ...(providerError?.requestId ? [providerError.requestId] : [])]);
-  const extractionFailure = stage === "profile_extraction" || stage === "headshot_match" || stage === "headshot_qa";
+  const extractionFailure = stage === "profile_extraction" || stage === "headshot_match" || stage === "headshot_face_check";
   const canceled = error instanceof OperationCanceledError || (sourceError instanceof ProviderFailure && sourceError.code === "canceled") || /cancel|abort/i.test(message);
   updateSpeakerSpotlightResult(resultId, { status: canceled ? "canceled" : extractionFailure ? "extraction_failed" : "failed", requestIds, providerError, error: canceled ? "Canceled before this speaker package completed." : message });
 }
@@ -327,11 +303,9 @@ function finalizeBatch(batchId: string) {
   const batch = listSpeakerSpotlightBatches().find((item) => item.id === batchId);
   if (!batch) throw new Error("Speaker Spotlight batch not found.");
   const completed = batch.results.filter((result) => result.status === "completed").length;
-  const review = batch.results.filter((result) => result.status === "image_review_required").length;
   const partial = batch.results.filter((result) => result.post || result.imageAssetId).length;
-  const status: SpeakerSpotlightBatch["status"] = completed === batch.results.length ? "completed" : completed || review || partial ? "partially_completed" : "failed";
+  const status: SpeakerSpotlightBatch["status"] = completed === batch.results.length ? "completed" : completed || partial ? "partially_completed" : "failed";
   const warnings = [
-    ...(review ? [`${review} legacy speaker image${review === 1 ? " is" : "s are"} awaiting review.`] : []),
     ...(status === "partially_completed" && batch.results.some((result) => result.status === "failed") ? ["One or more verified partial packages were preserved and can be retried without repeating extraction."] : [])
   ];
   updateSpeakerSpotlightBatch(batchId, {
@@ -349,9 +323,7 @@ function uniqueRequestIds(values: string[]) {
 function verifyReferences(siteDirectory: string) {
   const contextDirectory = projectContextDirectory();
   const required = {
-    creationGuidePath: findNamedFile(contextDirectory, /speaker spotlight creation guide\.md$/i),
     extractionGuidePath: findNamedFile(contextDirectory, /speaker.*extraction.*guide\.md$/i),
-    styleReferencePath: findNamedFile(contextDirectory, /speaker spotlight social media image reference v3\.(?:png|jpe?g|webp)$/i),
     captionExamplePath: findNamedFile(contextDirectory, /example.*speaker.*spotlight.*\.md$/i),
     headshotManifestPath: walkFiles(contextDirectory).find((candidate) => /headshot.*manifest\.json$/i.test(path.basename(candidate))) || null
   };
@@ -569,119 +541,98 @@ function freezeCardCopy(profile: SpeakerProfile, organizationName: string) {
   return { name: profile.displayName, organizationName, highlightRows, about, rightRole, topicLine: topics.join(" • ") };
 }
 
-function exactCardText(frozen: ReturnType<typeof freezeCardCopy>, config: SpeakerSpotlightBatch["config"]) {
-  return [
-    "THE WORLD’S",
-    "LARGEST",
-    "AI SUMMIT",
-    "FEATURED SPEAKER",
-    ...frozen.highlightRows,
-    "ABOUT",
-    frozen.about,
-    "AGI SUMMIT SF 2026",
-    "SPEAKER SPOTLIGHT",
-    frozen.name,
-    frozen.rightRole,
-    frozen.topicLine,
-    config.eventDates,
-    config.eventVenue,
-    config.eventWebsite
-  ].filter(Boolean);
+function templateFieldValues(frozen: ReturnType<typeof freezeCardCopy>, config: SpeakerSpotlightBatch["config"]) {
+  return {
+    speaker_name: frozen.name,
+    organization_name: frozen.organizationName,
+    role_line: frozen.rightRole,
+    topic_line: frozen.topicLine,
+    about: frozen.about,
+    highlight_1: frozen.highlightRows[0] || "",
+    highlight_2: frozen.highlightRows[1] || "",
+    highlight_3: frozen.highlightRows[2] || "",
+    event_name: config.eventName,
+    event_dates: config.eventDates,
+    event_venue: config.eventVenue,
+    event_website: config.eventWebsite
+  };
 }
 
-function buildImagePrompt(profile: SpeakerProfile, frozen: ReturnType<typeof freezeCardCopy>, config: SpeakerSpotlightBatch["config"]) {
-  const visibleText = exactCardText(frozen, config).map((value) => JSON.stringify(value)).join("\n");
-  return `Use case: ads-marketing\nAsset type: final 2:3 portrait social-media speaker spotlight poster, exactly ${SPEAKER_SPOTLIGHT_IMAGE_SPEC.width} × ${SPEAKER_SPOTLIGHT_IMAGE_SPEC.height} pixels.\n\nPrimary request: personalize the supplied canonical Palace of Fine Arts speaker-spotlight poster for ${profile.displayName}. Treat Image 1 as the actual template/edit target, not merely loose inspiration. Preserve the fixed campaign design and replace only the example speaker portrait and speaker-specific copy.\n\nInput images:\n- Image 1 is the canonical Yuandong Tian Palace of Fine Arts template. Preserve its exact 2:3 composition: the white left panel and near-black right panel divided by the same diagonal; the Bay AI Circle logo; the AGI Summit logo and “WHERE AGI CONVERGES” tagline; the stacked “THE WORLD’S / LARGEST / AI SUMMIT” campaign headline; the top-right neon “AGI SUMMIT SF 2026 / SPEAKER SPOTLIGHT” badge; the blue-to-purple accents; the icon style; and, explicitly, the faded Palace of Fine Arts architecture behind the speaker. These fixed elements must remain in the same locations, scale, colors, and style.\n- Image 2 is the verified identity reference for ${profile.displayName}. Replace Yuandong Tian with only this person. Preserve the current speaker's recognizable identity, facial structure, skin tone, eyes, expression, hairstyle, wardrobe, and professional appearance faithfully. Use a clean chest-up or mid-torso cutout large on the right, matching the template crop.\n\nExact visible text, verbatim; every line below is required and authorized:\n${visibleText}\n\nPersonalized content mapping:\n- Keep FEATURED SPEAKER in its existing left-column position.\n- Replace the three example credential rows with these three personalized rows, in order: ${JSON.stringify(frozen.highlightRows)}. Use one purple line icon per row and thin gray separators exactly like Image 1.\n- Replace the ABOUT paragraph with: ${JSON.stringify(frozen.about)}.\n- Replace the large lower-right name with: ${JSON.stringify(frozen.name)}. Keep it uppercase, white, condensed, and on one line when possible; adapt size to prevent clipping.\n- Replace the first lower-right detail row with: ${JSON.stringify(frozen.rightRole)}.\n- Replace the second lower-right detail row with: ${JSON.stringify(frozen.topicLine)}.\n- Keep the configured date, venue, and website in the same footer positions: ${JSON.stringify(config.eventDates)}, ${JSON.stringify(config.eventVenue)}, ${JSON.stringify(config.eventWebsite)}.\n\nComposition and hierarchy: match Image 1 pixel-for-pixel in visual structure. The fixed logos and campaign headline dominate the upper-left. Personalized credentials and ABOUT copy occupy the lower-left. The faded Palace of Fine Arts remains clearly recognizable but subdued in purple/navy behind the portrait. The portrait occupies the center-right and overlaps the landmark without obscuring the neon badge. The speaker name and two icon-led detail rows sit across the lower-right over the dark panel. Maintain all safe margins and separator rules from the template.\n\nTypography and color: use the same tall condensed display typography, modern narrow sans-serif details, black/white contrast, cobalt-to-violet gradient, neon blue-violet border glow, purple line icons, deep navy-black background, and restrained architectural fade shown in Image 1.\n\nConstraints: exactly 2:3; preserve all fixed logos and fixed campaign copy from Image 1; Palace of Fine Arts must be visibly present behind the speaker; use only supplied speaker claims; accurate and legible text; current speaker identity only; no organization logo replacement; no Yuandong Tian face, name, plaid shirt, or speaker-specific facts; no invented affiliation, unsupported credential, extra slogan, ticket URL, social handle, watermark, QR code, duplicate copy, placeholder, or malformed text.`;
+function authorizedTemplateText(frozen: ReturnType<typeof freezeCardCopy>, config: SpeakerSpotlightBatch["config"], template: SpeakerSpotlightTemplateSnapshot) {
+  const values = templateFieldValues(frozen, config);
+  return Array.from(new Set([
+    ...template.blueprint.fixedText,
+    ...template.blueprint.contentFields.map((field) => values[field]).filter(Boolean)
+  ]));
 }
 
-async function generateFirstImage(input: {
+function buildImagePrompt(profile: SpeakerProfile, frozen: ReturnType<typeof freezeCardCopy>, config: SpeakerSpotlightBatch["config"], template: SpeakerSpotlightTemplateSnapshot) {
+  const values = templateFieldValues(frozen, config);
+  const mapping = Object.fromEntries(template.blueprint.contentFields.map((field) => [field, values[field]]));
+  const visibleText = authorizedTemplateText(frozen, config, template).map((value) => `- ${JSON.stringify(value)}`).join("\n");
+  return `Use case: ads-marketing
+Asset type: finished Speaker Spotlight poster, exactly ${template.width} × ${template.height} pixels (${template.aspectRatio}).
+
+Image 1 is the selected template “${template.name}” version ${template.version}. Treat it as the actual edit target, not loose inspiration. Image 2 is the verified identity reference for ${profile.displayName}. Replace the example person with only this speaker and preserve their recognizable identity, facial structure, skin tone, expression, hairstyle, and professional appearance.
+
+Template analysis:
+- Summary: ${template.blueprint.summary}
+- Layout: ${template.blueprint.layoutDescription}
+- Visual style: ${template.blueprint.visualStyle}
+- Portrait treatment: ${template.blueprint.portraitTreatment}
+- Fixed elements to preserve: ${JSON.stringify(template.blueprint.fixedElements)}
+- Variable elements to replace: ${JSON.stringify(template.blueprint.variableElements)}
+- Example-specific content that must disappear: ${JSON.stringify(template.blueprint.exampleContentToRemove)}
+
+Template-specific production instructions:
+${template.blueprint.generationInstructions}
+
+Verified variable-field mapping:
+${JSON.stringify(mapping, null, 2)}
+
+Authorized visible text, verbatim:
+${visibleText}
+
+Constraints: preserve the template's fixed branding, composition, hierarchy, palette, typography character, graphical motifs, and safe margins. Replace all example-speaker identity and copy. Use only the supplied verified values; omit a variable slot if its mapped value is empty. Keep all text accurate, legible, and unclipped. Do not invent an affiliation, credential, statistic, slogan, URL, social handle, watermark, QR code, duplicate copy, placeholder, or malformed text.`;
+}
+
+async function generateSpotlightImage(input: {
   result: SpeakerSpotlightResult; profile: SpeakerProfile; frozen: ReturnType<typeof freezeCardCopy>; imagePrompt: string;
-  headshotPath: string; headshotMimeType: string; styleReferencePath: string; speakerDirectory: string; config: SpeakerSpotlightBatch["config"]; apiKey: string | null; priorRequestIds: string[]; reporter?: OperationReporter;
+  headshotPath: string; headshotMimeType: string; templatePath: string; templateSnapshot: SpeakerSpotlightTemplateSnapshot; speakerDirectory: string; apiKey: string | null; priorRequestIds: string[]; reporter?: OperationReporter;
 }) {
   const requestIds: string[] = [];
   input.reporter?.checkpoint();
-  input.reporter?.stage("processing", `${input.profile.displayName} · generating image 1 of 1.`);
-  const attemptPath = path.join(input.speakerDirectory, `${input.result.slug}-speaker-spotlight-attempt-1.png`);
-  let imageRequestId: string | null = null;
-  if (isDemoMode()) {
-    await createDemoSpotlight(input.headshotPath, input.profile, input.frozen, input.styleReferencePath, input.config, attemptPath);
-  } else {
-    let generated: Awaited<ReturnType<typeof speakerSpotlightImageWithOpenAI>>;
-    try {
-      generated = await speakerSpotlightImageWithOpenAI(input.apiKey!, {
-        headshotPath: input.headshotPath,
-        headshotMimeType: input.headshotMimeType,
-        styleReferencePath: input.styleReferencePath,
-        prompt: input.imagePrompt
-      }, input.reporter?.signal);
-    } catch (error) {
-      throw new SpeakerSpotlightPipelineFailure("image_edit", error);
-    }
-    writeC2paStrippedImage(attemptPath, generated.bytes);
-    imageRequestId = generated.requestId;
-    if (imageRequestId) requestIds.push(imageRequestId);
-    updateSpeakerSpotlightResult(input.result.id, { requestIds: uniqueRequestIds([...input.priorRequestIds, ...requestIds]) });
-  }
-
-  stripC2paFromFile(attemptPath);
-
-  try {
-    await validateFirstImageOutput(attemptPath);
-    await restoreFixedTemplateRegions(attemptPath, input.styleReferencePath);
-    await validateFirstImageOutput(attemptPath);
-  } catch (error) {
-    throw new SpeakerSpotlightPipelineFailure("image_validation", error);
-  }
-
+  input.reporter?.stage("processing", `${input.profile.displayName} · generating the final image once.`);
   const imageFileName = `${input.result.slug}-speaker-spotlight.png`;
   const imagePath = path.join(input.speakerDirectory, imageFileName);
-  fs.copyFileSync(attemptPath, imagePath);
-  return { imagePath, imageFileName, imageAssetId: crypto.randomUUID(), requestIds, imageRequestId };
-}
-
-async function validateFirstImageOutput(imagePath: string) {
-  const metadata = await sharp(imagePath).metadata();
-  if (metadata.format !== "png" || metadata.width !== SPEAKER_SPOTLIGHT_IMAGE_SPEC.width || metadata.height !== SPEAKER_SPOTLIGHT_IMAGE_SPEC.height) {
-    throw new Error(`The first generated image was ${metadata.width || "?"}×${metadata.height || "?"} ${metadata.format || "unknown"}, not ${SPEAKER_SPOTLIGHT_IMAGE_SPEC.width}×${SPEAKER_SPOTLIGHT_IMAGE_SPEC.height} PNG. No automatic image retry was started.`);
+  const temporaryImagePath = path.join(input.speakerDirectory, `.${input.result.slug}-${crypto.randomUUID()}.png`);
+  try {
+    if (isDemoMode()) {
+      await createDemoSpotlight(input.headshotPath, input.frozen, input.templatePath, input.templateSnapshot, temporaryImagePath);
+      stripC2paFromFile(temporaryImagePath);
+    } else {
+      const generated = await speakerSpotlightImageWithOpenAI(input.apiKey!, {
+        headshotPath: input.headshotPath,
+        headshotMimeType: input.headshotMimeType,
+        styleReferencePath: input.templatePath,
+        prompt: input.imagePrompt,
+        outputSize: `${input.templateSnapshot.width}x${input.templateSnapshot.height}`
+      }, input.reporter?.signal);
+      if (generated.requestId) requestIds.push(generated.requestId);
+      updateSpeakerSpotlightResult(input.result.id, { requestIds: uniqueRequestIds([...input.priorRequestIds, ...requestIds]) });
+      writeC2paStrippedImage(temporaryImagePath, generated.bytes);
+    }
+    fs.renameSync(temporaryImagePath, imagePath);
+  } catch (error) {
+    throw new SpeakerSpotlightPipelineFailure("image_edit", error);
+  } finally {
+    if (fs.existsSync(temporaryImagePath)) fs.rmSync(temporaryImagePath, { force: true });
   }
+  return { imagePath, imageFileName, imageAssetId: crypto.randomUUID(), requestIds };
 }
 
-function firstOutputValidationRecord(input: {
-  headshotVerificationMethod: string;
-  postFactsVerified: boolean;
-  imageRequestId: string | null;
-  issues?: string[];
-  humanReviewApprovedAt?: string | null;
-}): SpeakerSpotlightQa {
-  const attemptResult: SpeakerSpotlightImageAttemptResult = {
-    attempt: 1,
-    imageRequestId: input.imageRequestId,
-    qaRequestId: null,
-    mechanicalChecksPassed: true,
-    checks: null,
-    approved: true,
-    issues: []
-  };
-  return {
-    profileVerified: true,
-    headshotVerified: true,
-    headshotVerificationMethod: input.headshotVerificationMethod,
-    imageModel: isDemoMode() ? "demo-image-v1" : "gpt-image-2",
-    imageSize: SPEAKER_SPOTLIGHT_IMAGE_SPEC.size,
-    imageAspectRatio: SPEAKER_SPOTLIGHT_IMAGE_SPEC.aspectRatio,
-    imageValidationMode: "mechanical_only",
-    imageAttempts: 1,
-    imageTextVerified: null,
-    identityVerified: null,
-    postFactsVerified: input.postFactsVerified,
-    issues: input.issues || [],
-    imageAttemptResults: [attemptResult],
-    humanReviewApprovedAt: input.humanReviewApprovedAt || null
-  };
-}
-
-function buildPostPrompt(profile: SpeakerProfile, config: SpeakerSpotlightBatch["config"], example: string) {
-  return `Write one cross-platform AGI Summit 2026 Speaker Spotlight social-media post.\n\nThe examples below control only tone, pacing, section order, emoji and bullet style. Never reuse their facts, names, handles, organizations, or hashtags.\n<examples>\n${example}\n</examples>\n\nVerified speaker data:\n${JSON.stringify(profile, null, 2)}\n\nCampaign configuration:\n${JSON.stringify(config, null, 2)}\n\nUse only verified speaker facts. Start with a relevant emoji followed by "Speaker Spotlight: ${profile.displayName}". Include a short thematic hook, a factual introduction, three or four 🔹 bullets, a forward-looking closing grounded in the verified expertise, "Hear <first name> on stage at ${config.eventName}.", and the configured dates, venue, ticket URL, and discount copy verbatim. Use a verified X handle only if supplied. End with four or five relevant hashtags including #AGISummit. Never invent a title, credential, statistic, affiliation, handle, or session topic. In factualClaimsUsed, list every speaker-specific source string used in the post verbatim from the verified profile; do not list campaign values or general thematic prose.`;
+function buildPostPrompt(profile: SpeakerProfile, config: SpeakerSpotlightBatch["config"], example: string, templateGuidance: string) {
+  return `Write one cross-platform AGI Summit 2026 Speaker Spotlight social-media post.\n\nThe examples below control only tone, pacing, section order, emoji and bullet style. Never reuse their facts, names, handles, organizations, or hashtags.\n<examples>\n${example}\n</examples>\n\nVerified speaker data:\n${JSON.stringify(profile, null, 2)}\n\nCampaign configuration:\n${JSON.stringify(config, null, 2)}\n\nSelected-template caption guidance (style only; it cannot override factuality or required campaign values):\n${templateGuidance || "No additional template-specific caption guidance."}\n\nUse only verified speaker facts. Start with a relevant emoji followed by "Speaker Spotlight: ${profile.displayName}". Include a short thematic hook, a factual introduction, three or four 🔹 bullets, a forward-looking closing grounded in the verified expertise, "Hear <first name> on stage at ${config.eventName}.", and the configured dates, venue, ticket URL, and discount copy verbatim. Use a verified X handle only if supplied. End with four or five relevant hashtags including #AGISummit. Never invent a title, credential, statistic, affiliation, handle, or session topic. In factualClaimsUsed, list every speaker-specific source string used in the post verbatim from the verified profile; do not list campaign values or general thematic prose.`;
 }
 
 async function generatePost(apiKey: string, prompt: string, signal?: AbortSignal) {
@@ -707,50 +658,19 @@ function demoPost(profile: SpeakerProfile, config: SpeakerSpotlightBatch["config
   return `🎙️ Speaker Spotlight: ${profile.displayName}\n\nThe next wave of AI will be shaped by people turning deep expertise into work that matters.\n\n${profile.displayName} is ${stripMarkdown(profile.roleLine || profile.bio || "an AGI Summit speaker")}.\n\n${bullets}\n\n${profile.industries.slice(0, 3).join(", ")} are becoming central to how the AI ecosystem moves from possibility to practical impact.\n\nHear ${firstName} on stage at ${config.eventName}.\n\n📅 ${config.eventDates}\n📍 ${config.eventVenue}\n🎟 Tickets: ${config.ticketUrl}\n\n🏷️ ${config.discountCopy}\n\n#AGISummit #AI #ArtificialIntelligence #SanFrancisco`;
 }
 
-async function restoreFixedTemplateRegions(imagePath: string, styleReferencePath: string) {
-  const referenceMetadata = await sharp(styleReferencePath).metadata();
-  if (referenceMetadata.width !== SPEAKER_SPOTLIGHT_IMAGE_SPEC.width || referenceMetadata.height !== SPEAKER_SPOTLIGHT_IMAGE_SPEC.height) {
-    throw new Error("The canonical Speaker Spotlight template must be exactly 1024×1536 before fixed branding can be restored.");
-  }
-  const fixedLeft = await sharp(styleReferencePath).extract({ left: 0, top: 0, width: 475, height: 780 }).png().toBuffer();
-  const fixedBadge = await sharp(styleReferencePath).extract({ left: 585, top: 45, width: 405, height: 170 }).png().toBuffer();
-  const temporaryPath = `${imagePath}.template.png`;
-  await sharp(imagePath).composite([
-    { input: fixedLeft, left: 0, top: 0 },
-    { input: fixedBadge, left: 585, top: 45 }
-  ]).png().toFile(temporaryPath);
-  fs.renameSync(temporaryPath, imagePath);
-}
-
-async function createDemoSpotlight(headshotPath: string, _profile: SpeakerProfile, frozen: ReturnType<typeof freezeCardCopy>, styleReferencePath: string, config: SpeakerSpotlightBatch["config"], outputPath: string) {
+async function createDemoSpotlight(headshotPath: string, frozen: ReturnType<typeof freezeCardCopy>, templatePath: string, template: SpeakerSpotlightTemplateSnapshot, outputPath: string) {
+  const portraitWidth = Math.round(template.width * 0.58);
+  const portraitHeight = Math.round(template.height * 0.72);
   const portrait = await sharp(headshotPath)
-    .resize(650, 1050, { fit: "contain", position: "bottom", background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .resize(portraitWidth, portraitHeight, { fit: "contain", position: "bottom", background: { r: 0, g: 0, b: 0, alpha: 0 } })
     .png()
     .toBuffer();
-  const palace = await sharp(styleReferencePath)
-    .extract({ left: 470, top: 220, width: 554, height: 330 })
-    .resize(650, 760, { fit: "cover" })
-    .modulate({ brightness: 0.44, saturation: 0.45 })
-    .tint("#211b4c")
-    .blur(0.8)
-    .png()
-    .toBuffer();
-  const nameSize = Math.max(58, Math.min(110, Math.floor(7600 / Math.max(frozen.name.length, 8))));
-  const highlightRows = frozen.highlightRows.map((value, index) => {
-    const y = 820 + index * 112;
-    const lines = wrapText(value, 30, 2);
-    return `<g><circle cx="78" cy="${y - 10}" r="22" fill="none" stroke="#5924df" stroke-width="3"/><circle cx="78" cy="${y - 10}" r="7" fill="none" stroke="#5924df" stroke-width="3"/><text x="132" y="${y - 12}" font-family="Arial,Helvetica,sans-serif" font-size="20" fill="#111">${escapeXml(lines[0] || "")}</text><text x="132" y="${y + 18}" font-family="Arial,Helvetica,sans-serif" font-size="20" fill="#111">${escapeXml(lines[1] || "")}</text><line x1="52" y1="${y + 52}" x2="344" y2="${y + 52}" stroke="#aaa" stroke-width="1"/></g>`;
-  }).join("");
-  const aboutLines = wrapText(frozen.about, 30, 3);
-  const roleLines = wrapText(frozen.rightRole, 48, 2);
-  const topicLines = wrapText(frozen.topicLine, 48, 2);
-  const venueLines = wrapText(config.eventVenue, 26, 2);
-  const baseSvg = `<svg width="${SPEAKER_SPOTLIGHT_IMAGE_SPEC.width}" height="${SPEAKER_SPOTLIGHT_IMAGE_SPEC.height}" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="shade" x1="0" y1="0" x2="0" y2="1"><stop offset=".64" stop-color="#030617" stop-opacity="0"/><stop offset="1" stop-color="#02040b" stop-opacity=".96"/></linearGradient></defs><rect width="1024" height="1536" fill="#020514"/><path d="M0 0H545L290 1536H0Z" fill="#fbfbfb"/><rect x="360" y="200" width="664" height="1050" fill="#08091b" opacity=".45"/><rect x="360" y="690" width="664" height="846" fill="url(#shade)"/></svg>`;
-  const textOverlay = `<svg width="${SPEAKER_SPOTLIGHT_IMAGE_SPEC.width}" height="${SPEAKER_SPOTLIGHT_IMAGE_SPEC.height}" xmlns="http://www.w3.org/2000/svg">${highlightRows}<text x="52" y="1185" font-family="Arial Narrow,Arial,sans-serif" font-size="31" font-weight="800" fill="#5120da">ABOUT</text><text x="52" y="1228" font-family="Arial,Helvetica,sans-serif" font-size="20" fill="#111">${escapeXml(aboutLines[0] || "")}</text><text x="52" y="1257" font-family="Arial,Helvetica,sans-serif" font-size="20" fill="#111">${escapeXml(aboutLines[1] || "")}</text><text x="52" y="1286" font-family="Arial,Helvetica,sans-serif" font-size="20" fill="#111">${escapeXml(aboutLines[2] || "")}</text><line x1="52" y1="1320" x2="292" y2="1320" stroke="#aaa"/><rect x="52" y="1350" width="34" height="34" rx="5" fill="none" stroke="#5924df" stroke-width="3"/><text x="106" y="1377" font-family="Arial,Helvetica,sans-serif" font-size="20" font-weight="700" fill="#111">${escapeXml(config.eventDates)}</text><circle cx="69" cy="1445" r="17" fill="none" stroke="#5924df" stroke-width="3"/><circle cx="69" cy="1445" r="5" fill="#5924df"/><text x="106" y="1438" font-family="Arial,Helvetica,sans-serif" font-size="19" fill="#111">${escapeXml(venueLines[0] || "")}</text><text x="106" y="1467" font-family="Arial,Helvetica,sans-serif" font-size="19" fill="#111">${escapeXml(venueLines[1] || "")}</text><text x="405" y="1242" font-family="Arial Narrow,Arial,sans-serif" font-size="${nameSize}" font-weight="900" letter-spacing="-3" fill="#fff">${escapeXml(frozen.name.toUpperCase())}</text><line x1="408" y1="1285" x2="476" y2="1285" stroke="#7821ff" stroke-width="3"/><circle cx="438" cy="1332" r="20" fill="none" stroke="#7821ff" stroke-width="3"/><text x="493" y="1327" font-family="Arial,Helvetica,sans-serif" font-size="22" fill="#fff">${escapeXml(roleLines[0] || "")}</text><text x="493" y="1358" font-family="Arial,Helvetica,sans-serif" font-size="22" fill="#fff">${escapeXml(roleLines[1] || "")}</text><line x1="404" y1="1380" x2="965" y2="1380" stroke="#777"/><rect x="418" y="1400" width="42" height="42" rx="7" fill="none" stroke="#7821ff" stroke-width="3"/><text x="493" y="1424" font-family="Arial,Helvetica,sans-serif" font-size="21" fill="#fff">${escapeXml(topicLines[0] || "")}</text><text x="493" y="1452" font-family="Arial,Helvetica,sans-serif" font-size="21" fill="#fff">${escapeXml(topicLines[1] || "")}</text><line x1="404" y1="1475" x2="965" y2="1475" stroke="#777"/><circle cx="438" cy="1505" r="20" fill="none" stroke="#7821ff" stroke-width="3"/><text x="493" y="1513" font-family="Arial,Helvetica,sans-serif" font-size="22" fill="#fff">${escapeXml(config.eventWebsite)}</text></svg>`;
-  await sharp(Buffer.from(baseSvg)).composite([
-    { input: palace, left: 374, top: 220, blend: "screen" },
-    { input: portrait, left: 374, top: 300 },
-    { input: Buffer.from(textOverlay), left: 0, top: 0 }
+  const nameSize = Math.max(36, Math.min(Math.round(template.width * 0.075), Math.floor(template.width * 1.1 / Math.max(frozen.name.length, 8))));
+  const roleSize = Math.max(20, Math.round(template.width * 0.025));
+  const overlay = `<svg width="${template.width}" height="${template.height}" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="shade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#050713" stop-opacity="0"/><stop offset="1" stop-color="#050713" stop-opacity=".96"/></linearGradient></defs><rect x="0" y="${Math.round(template.height * 0.68)}" width="${template.width}" height="${Math.round(template.height * 0.32)}" fill="url(#shade)"/><text x="${Math.round(template.width * 0.05)}" y="${Math.round(template.height * 0.86)}" font-family="Arial Narrow,Arial,sans-serif" font-size="${nameSize}" font-weight="900" fill="#fff">${escapeXml(frozen.name.toUpperCase())}</text><text x="${Math.round(template.width * 0.05)}" y="${Math.round(template.height * 0.91)}" font-family="Arial,Helvetica,sans-serif" font-size="${roleSize}" fill="#fff">${escapeXml(truncateAtWord(frozen.rightRole, 80))}</text></svg>`;
+  await sharp(templatePath).composite([
+    { input: portrait, left: template.width - portraitWidth, top: Math.round(template.height * 0.16) },
+    { input: Buffer.from(overlay), left: 0, top: 0 }
   ]).png().toFile(outputPath);
 }
 
@@ -758,8 +678,8 @@ function writeManifest(batchId: string, batchRoot: string) {
   const batch = listSpeakerSpotlightBatches().find((item) => item.id === batchId);
   if (!batch) return;
   const manifest = {
-    batch_id: batch.id, status: batch.status, requested_speakers: batch.speakerNames, created_at: batch.createdAt, completed_at: batch.completedAt,
-    speakers: batch.results.map((result) => ({ input_name: result.inputName, normalized_profile_key: result.profileKey, status: result.status, output_paths: { headshot: result.headshotFileName, profile: result.profile ? `${result.slug}-profile.json` : null, image_prompt: result.imagePrompt ? `${result.slug}-image-prompt.md` : null, image: result.imageFileName, post: result.post ? `${result.slug}-post.md` : null, qa: result.qa ? `${result.slug}-qa.json` : null }, verification_results: result.qa, api_request_ids: result.requestIds, retry_count: result.retryCount, provider_error: result.providerError, error: result.error }))
+    batch_id: batch.id, status: batch.status, requested_speakers: batch.speakerNames, template: batch.templateSnapshot, created_at: batch.createdAt, completed_at: batch.completedAt,
+    speakers: batch.results.map((result) => ({ input_name: result.inputName, normalized_profile_key: result.profileKey, status: result.status, output_paths: { headshot: result.headshotFileName, profile: result.profile ? `${result.slug}-profile.json` : null, image_prompt: result.imagePrompt ? `${result.slug}-image-prompt.md` : null, image: result.imageFileName, post: result.post ? `${result.slug}-post.md` : null }, api_request_ids: result.requestIds, manual_retry_count: result.retryCount, provider_error: result.providerError, error: result.error }))
   };
   fs.writeFileSync(path.join(batchRoot, "manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
 }
@@ -861,22 +781,8 @@ function truncateAtWord(value: string, limit: number) {
   const shortened = value.slice(0, Math.max(1, limit - 1)).replace(/\s+\S*$/, "").trimEnd();
   return `${shortened || value.slice(0, limit - 1)}…`;
 }
-function wrapText(value: string, lineLength: number, maxLines: number) {
-  const words = value.trim().split(/\s+/).filter(Boolean);
-  const lines: string[] = [];
-  while (words.length && lines.length < maxLines) {
-    let line = "";
-    while (words.length && `${line}${line ? " " : ""}${words[0]}`.length <= lineLength) line += `${line ? " " : ""}${words.shift()}`;
-    if (!line) line = words.shift() || "";
-    if (lines.length === maxLines - 1 && words.length) line = truncateAtWord(`${line} ${words.join(" ")}`, lineLength);
-    lines.push(line);
-  }
-  return lines;
-}
 function speakerSlug(value: string) { return safeFileName(value.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase()).replace(/\.[^.]+$/, "") || "speaker"; }
 function escapeRegExp(value: string) { return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
-function snakeCaseQa(qa: SpeakerSpotlightQa) { return { profile_verified: qa.profileVerified, headshot_verified: qa.headshotVerified, headshot_verification_method: qa.headshotVerificationMethod, image_model: qa.imageModel, image_size: qa.imageSize, image_aspect_ratio: qa.imageAspectRatio, image_validation_mode: qa.imageValidationMode, image_attempts: qa.imageAttempts, image_text_verified: qa.imageTextVerified, identity_verified: qa.identityVerified, post_facts_verified: qa.postFactsVerified, issues: qa.issues, image_attempt_results: qa.imageAttemptResults, human_review_approved_at: qa.humanReviewApprovedAt }; }
-
 async function mapWithConcurrency<T>(items: T[], limit: number, work: (item: T) => Promise<void>) {
   let index = 0;
   await Promise.all(Array.from({ length: Math.min(limit, items.length) }, async () => {

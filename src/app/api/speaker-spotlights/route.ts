@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { currentSessionId, errorResponse, requireSafeOrigin } from "@/server/security/request";
 import { deleteSpeakerSpotlightBatch, getSpeakerSpotlightBatch, listSpeakerSpotlightBatchSummaries } from "@/server/db/repository";
-import { approveSpeakerSpotlightImage, SpeakerSpotlightInputSchema, SpeakerSpotlightRetrySchema, SpeakerSpotlightReviewSchema, speakerSpotlightDefaults } from "@/server/services/speaker-spotlight-service";
+import { SpeakerSpotlightInputSchema, SpeakerSpotlightRetrySchema, speakerSpotlightDefaults } from "@/server/services/speaker-spotlight-service";
 import { startAiOperation } from "@/server/operations/manager";
 
 export const runtime = "nodejs";
@@ -19,8 +19,8 @@ export async function POST(request: Request) {
   try {
     await requireSafeOrigin();
     const input = SpeakerSpotlightInputSchema.parse(await request.json());
-    const names = Array.from(new Set(input.speakerNames.map((name) => name.trim()).filter(Boolean)));
-    const operation = startAiOperation({ kind: "spotlight_batch", label: names.length === 1 ? `Speaker Spotlight · ${names[0]}` : `Speaker Spotlights · ${names.length} speakers`, operationInput: input, originPath: "/speaker-spotlight", targetKey: `spotlight:batch:${names.map((name) => name.toLowerCase()).sort().join("|")}`, sessionId: await currentSessionId(), totalUnits: names.length, unitLabel: "speakers" });
+    const names = Array.from(new Map(input.speakerNames.map((name) => name.trim()).filter(Boolean).map((name) => [name.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, ""), name])).values());
+    const operation = startAiOperation({ kind: "spotlight_batch", label: names.length === 1 ? `Speaker Spotlight · ${names[0]}` : `Speaker Spotlights · ${names.length} speakers`, operationInput: input, originPath: "/speaker-spotlight", targetKey: `spotlight:batch:${input.templateId || "selected"}:${names.map((name) => name.toLowerCase()).sort().join("|")}`, sessionId: await currentSessionId(), totalUnits: names.length, unitLabel: "speakers" });
     return NextResponse.json({ operation }, { status: 202 });
   } catch (error) { return errorResponse(error); }
 }
@@ -31,15 +31,6 @@ export async function PATCH(request: Request) {
     const input = SpeakerSpotlightRetrySchema.parse(await request.json());
     const operation = startAiOperation({ kind: "spotlight_retry", label: "Retry Speaker Spotlight", operationInput: input, originPath: "/speaker-spotlight", targetKey: `spotlight:retry:${input.resultId}`, sessionId: await currentSessionId(), totalUnits: 1, unitLabel: "speaker" });
     return NextResponse.json({ operation }, { status: 202 });
-  } catch (error) { return errorResponse(error); }
-}
-
-export async function PUT(request: Request) {
-  try {
-    await requireSafeOrigin();
-    const input = SpeakerSpotlightReviewSchema.parse(await request.json());
-    const batch = await approveSpeakerSpotlightImage(input.resultId);
-    return NextResponse.json({ batch });
   } catch (error) { return errorResponse(error); }
 }
 

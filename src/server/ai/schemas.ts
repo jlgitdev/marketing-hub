@@ -128,14 +128,26 @@ export const SpeakerPostSchema = z.object({
   warnings: z.array(z.string())
 }).strict();
 
-export const SpeakerHeadshotQaSchema = z.object({
-  faceVisible: z.boolean(),
-  approved: z.boolean(),
-  singlePerson: z.boolean(),
-  usablePortrait: z.boolean(),
-  notLogoGraphicOrThumbnail: z.boolean(),
-  notVisiblyCorrupted: z.boolean(),
-  issues: z.array(z.string())
+export const SpeakerHeadshotFaceCheckSchema = z.object({ faceVisible: z.boolean() }).strict();
+
+export const SpeakerSpotlightTemplateFieldSchema = z.enum([
+  "speaker_name", "organization_name", "role_line", "topic_line", "about",
+  "highlight_1", "highlight_2", "highlight_3", "event_name", "event_dates",
+  "event_venue", "event_website"
+]);
+
+export const SpeakerSpotlightTemplateBlueprintSchema = z.object({
+  schemaVersion: z.literal(1),
+  summary: z.string().min(20).max(800),
+  layoutDescription: z.string().min(40).max(2400),
+  visualStyle: z.string().min(30).max(1800),
+  portraitTreatment: z.string().min(20).max(1200),
+  fixedElements: z.array(z.string().min(2).max(300)).max(30),
+  variableElements: z.array(z.string().min(2).max(300)).max(30),
+  fixedText: z.array(z.string().min(1).max(220)).max(40),
+  exampleContentToRemove: z.array(z.string().min(1).max(300)).max(40),
+  contentFields: z.array(SpeakerSpotlightTemplateFieldSchema).min(1).max(12),
+  generationInstructions: z.string().min(100).max(6000)
 }).strict();
 
 export type ResearchBundle = z.infer<typeof ResearchBundleSchema>;
@@ -143,3 +155,4 @@ export type DiscoveryBundle = z.infer<typeof DiscoveryBundleSchema>;
 export type OutreachBundle = z.infer<typeof OutreachBundleSchema>;
 export type SocialBundle = z.infer<typeof SocialBundleSchema>;
 export type SpeakerPost = z.infer<typeof SpeakerPostSchema>;
+export type SpeakerSpotlightTemplateBlueprint = z.infer<typeof SpeakerSpotlightTemplateBlueprintSchema>;

@@ -7,6 +7,7 @@ import { generateOutreach, OutreachInputSchema, regenerateOutreach } from "@/ser
 import { ContentInputSchema, generateContentCampaign, regeneratePlatforms } from "@/server/services/content-service";
 import { generateCampaignGraphic, type CampaignGraphicInput } from "@/server/storage/assets";
 import { createSpeakerSpotlights, retrySpeakerSpotlight, SpeakerSpotlightInputSchema } from "@/server/services/speaker-spotlight-service";
+import { analyzeSpeakerSpotlightTemplate, SpeakerSpotlightTemplateOperationSchema } from "@/server/services/speaker-spotlight-template-service";
 import { createSummitAgendaPosts, SummitAgendaGenerateSchema, SummitAgendaOperationSchema, SummitAgendaResumeSchema } from "@/server/services/summit-agenda-service";
 import { listSummitAgendaBatches } from "@/server/db/repository";
 import { OperationCanceledError, pendingSteps, type OperationReporter } from "./types";
@@ -28,6 +29,7 @@ const definitions: Record<AiOperationKind, Array<[string, string]>> = {
   content_create: [["selecting", "Select campaign context"], ["drafting", "Draft platform copy"], ["checking", "Check platform constraints"], ["saving", "Save campaign"]],
   content_regenerate: [["loading", "Load saved campaign"], ["drafting", "Regenerate platforms"], ["checking", "Check each draft"], ["saving", "Save updated drafts"]],
   content_image: [["validating", "Validate composition"], ["background", "Create background"], ["resizing", "Fit platform canvas"], ["composing", "Render exact copy"], ["saving", "Save PNG"]],
+  spotlight_template: [["analyzing", "Analyze reference"], ["writing", "Write prompt contract"], ["saving", "Save template"]],
   spotlight_batch: [["preparing", "Verify campaign references"], ["processing", "Build speaker packages"], ["finalizing", "Finalize batch"]],
   spotlight_retry: [["preparing", "Load verified package"], ["processing", "Generate saved package image"], ["finalizing", "Finalize package"]],
   summit_agenda_batch: [["preparing", "Validate agenda records"], ["processing", "Generate live post images"], ["finalizing", "Save stripped PNGs"]]
@@ -273,6 +275,11 @@ async function executeOperation(kind: AiOperationKind, input: unknown, apiKey: s
       const asset = await generateCampaignGraphic({ ...(input as Omit<CampaignGraphicInput, "apiKey">), apiKey }, reporter.signal, reporter);
       return { entityType: "asset", entityId: asset.id, href: `/content?campaign=${asset.campaignId}` };
     }
+    case "spotlight_template": {
+      const parsed = SpeakerSpotlightTemplateOperationSchema.parse(input);
+      const template = await analyzeSpeakerSpotlightTemplate(parsed.templateId, apiKey, reporter);
+      return { entityType: "spotlight_template", entityId: template.id, href: `/speaker-spotlight?template=${template.id}` };
+    }
     case "spotlight_batch": {
       reporter.stage("preparing", "Checking the local speaker source bundle and supplied design references.");
       const batch = await createSpeakerSpotlights(SpeakerSpotlightInputSchema.parse(input), apiKey, reporter);
@@ -285,9 +292,9 @@ async function executeOperation(kind: AiOperationKind, input: unknown, apiKey: s
     }
     case "spotlight_retry": {
       const parsed = input as { resultId: string };
-      reporter.stage("preparing", "Loading the preserved profile, headshot, prompt, and partial package.");
+      reporter.stage("preparing", "Loading the preserved profile, headshot, prompt, and existing package.");
       const batch = await retrySpeakerSpotlight(parsed.resultId, apiKey, reporter);
-      reporter.stage("finalizing", "Updating the saved batch and retry metadata.");
+      reporter.stage("finalizing", "Updating the saved batch and manual regeneration count.");
       const result = batch.results.find((item) => item.id === parsed.resultId);
       return {
         entityType: "spotlight", entityId: batch.id, href: `/speaker-spotlight?batch=${batch.id}`,

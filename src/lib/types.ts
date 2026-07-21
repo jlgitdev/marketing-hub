@@ -65,6 +65,7 @@ export type AiOperationKind =
   | "content_create"
   | "content_regenerate"
   | "content_image"
+  | "spotlight_template"
   | "spotlight_batch"
   | "spotlight_retry"
   | "summit_agenda_batch";
@@ -97,7 +98,7 @@ export interface AiOperation {
   completedUnits: number | null;
   totalUnits: number | null;
   unitLabel: string | null;
-  resultEntityType: "research" | "outreach" | "content" | "spotlight" | "summit_agenda" | "asset" | null;
+  resultEntityType: "research" | "outreach" | "content" | "spotlight_template" | "spotlight" | "summit_agenda" | "asset" | null;
   resultEntityId: string | null;
   resultHref: string | null;
   originPath: string;
@@ -269,9 +270,9 @@ export interface PlatformPost {
   version: number;
 }
 
-export type SpeakerSpotlightStatus = "queued" | "extracting" | "matching_headshot" | "checking_headshot" | "extraction_failed" | "ready_for_image" | "generating_image" | "checking_image" | "retrying_image" | "finalizing" | "image_review_required" | "writing_post" | "completed" | "canceled" | "failed";
+export type SpeakerSpotlightStatus = "queued" | "extracting" | "matching_headshot" | "checking_headshot" | "extraction_failed" | "ready_for_image" | "generating_image" | "finalizing" | "writing_post" | "completed" | "canceled" | "failed";
 
-export type SpeakerSpotlightStage = "profile_extraction" | "headshot_match" | "headshot_qa" | "caption_generation" | "image_edit" | "image_validation" | "image_qa" | "finalization";
+export type SpeakerSpotlightStage = "profile_extraction" | "headshot_match" | "headshot_face_check" | "caption_generation" | "image_edit" | "finalization";
 
 export interface SpeakerSpotlightProviderError {
   stage: SpeakerSpotlightStage;
@@ -304,47 +305,72 @@ export interface SpeakerProfile {
   source: { bundlePath: string; verified: boolean };
 }
 
-export interface SpeakerSpotlightImageQaChecks {
-  modelReportedApproved: boolean;
-  identityMatchesHeadshot: boolean;
-  exampleSpeakerAbsent: boolean;
-  nameSpelledExactly: boolean;
-  factsMatchFrozenCopy: boolean;
-  eventDetailsCorrect: boolean;
-  exactlyThreeTopicChips: boolean;
-  textLegibleAndUnclipped: boolean;
-  styleCloselyMatchesReference: boolean;
-  modelReportedNoUnsupportedContent: boolean;
-  reportedUnsupportedVisibleText: string[];
-  unsupportedVisibleText: string[];
-  noUnsupportedContent: boolean;
+export type SpeakerSpotlightTemplateStatus = "analyzing" | "ready" | "failed";
+
+export type SpeakerSpotlightTemplateField =
+  | "speaker_name"
+  | "organization_name"
+  | "role_line"
+  | "topic_line"
+  | "about"
+  | "highlight_1"
+  | "highlight_2"
+  | "highlight_3"
+  | "event_name"
+  | "event_dates"
+  | "event_venue"
+  | "event_website";
+
+export interface SpeakerSpotlightTemplateBlueprint {
+  schemaVersion: 1;
+  summary: string;
+  layoutDescription: string;
+  visualStyle: string;
+  portraitTreatment: string;
+  fixedElements: string[];
+  variableElements: string[];
+  fixedText: string[];
+  exampleContentToRemove: string[];
+  contentFields: SpeakerSpotlightTemplateField[];
+  generationInstructions: string;
 }
 
-export interface SpeakerSpotlightImageAttemptResult {
-  attempt: number;
-  imageRequestId: string | null;
-  qaRequestId: string | null;
-  mechanicalChecksPassed: boolean;
-  checks: SpeakerSpotlightImageQaChecks | null;
-  approved: boolean;
-  issues: string[];
+export interface SpeakerSpotlightTemplate {
+  id: string;
+  name: string;
+  status: SpeakerSpotlightTemplateStatus;
+  version: number;
+  selected: boolean;
+  sourceType: "builtin" | "user";
+  originalFileName: string;
+  mimeType: string;
+  width: number;
+  height: number;
+  aspectRatio: string;
+  sizeBytes: number;
+  exampleSpeakerName: string | null;
+  fixedGuidance: string;
+  variableGuidance: string;
+  captionGuidance: string;
+  additionalGuidance: string;
+  blueprint: SpeakerSpotlightTemplateBlueprint | null;
+  model: string | null;
+  requestId: string | null;
+  error: string | null;
+  createdAt: string;
+  updatedAt: string;
+  completedAt: string | null;
 }
 
-export interface SpeakerSpotlightQa {
-  profileVerified: boolean;
-  headshotVerified: boolean;
-  headshotVerificationMethod: string | null;
-  imageModel: string;
-  imageSize: string | null;
-  imageAspectRatio: string | null;
-  imageValidationMode: "mechanical_only" | "vision_qa";
-  imageAttempts: number;
-  imageTextVerified: boolean | null;
-  identityVerified: boolean | null;
-  postFactsVerified: boolean;
-  issues: string[];
-  imageAttemptResults: SpeakerSpotlightImageAttemptResult[];
-  humanReviewApprovedAt: string | null;
+export interface SpeakerSpotlightTemplateSnapshot {
+  templateId: string;
+  name: string;
+  version: number;
+  width: number;
+  height: number;
+  aspectRatio: string;
+  captionGuidance: string;
+  blueprint: SpeakerSpotlightTemplateBlueprint;
 }
 
 export interface SpeakerSpotlightResult {
@@ -361,7 +387,6 @@ export interface SpeakerSpotlightResult {
   headshotAssetId: string | null;
   imageAssetId: string | null;
   imagePrompt: string | null;
-  qa: SpeakerSpotlightQa | null;
   requestIds: string[];
   retryCount: number;
   providerError: SpeakerSpotlightProviderError | null;
@@ -374,6 +399,8 @@ export interface SpeakerSpotlightBatch {
   id: string;
   speakerNames: string[];
   status: "running" | "completed" | "partially_completed" | "failed";
+  templateId: string | null;
+  templateSnapshot: SpeakerSpotlightTemplateSnapshot | null;
   config: {
     eventName: string;
     eventDates: string;
@@ -571,6 +598,7 @@ export interface WorkspaceState {
   leads: LeadRecord[];
   outreachCampaigns: OutreachCampaign[];
   contentCampaigns: ContentCampaign[];
+  speakerSpotlightTemplates: SpeakerSpotlightTemplate[];
   speakerSpotlightBatches: SpeakerSpotlightBatchSummary[];
   summitAgendaBatches: SummitAgendaBatchSummary[];
   counts: {
@@ -578,6 +606,7 @@ export interface WorkspaceState {
     leads: number;
     awaitingReview: number;
     campaigns: number;
+    speakerSpotlightTemplates: number;
     speakerSpotlights: number;
     summitAgendaPosts: number;
   };

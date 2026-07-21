@@ -294,12 +294,80 @@ const migrations = [
     sql: `
       ALTER TABLE summit_agenda_results ADD COLUMN caption TEXT;
     `
+  },
+  {
+    version: 16,
+    sql: `
+      CREATE TABLE IF NOT EXISTS workspace_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS speaker_spotlight_templates (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        status TEXT NOT NULL,
+        version INTEGER NOT NULL DEFAULT 1,
+        selected INTEGER NOT NULL DEFAULT 0,
+        source_type TEXT NOT NULL,
+        original_file_name TEXT NOT NULL,
+        storage_path TEXT NOT NULL,
+        thumbnail_storage_path TEXT NOT NULL,
+        mime_type TEXT NOT NULL,
+        width INTEGER NOT NULL,
+        height INTEGER NOT NULL,
+        aspect_ratio TEXT NOT NULL,
+        size_bytes INTEGER NOT NULL,
+        example_speaker_name TEXT,
+        fixed_guidance TEXT NOT NULL,
+        variable_guidance TEXT NOT NULL,
+        caption_guidance TEXT NOT NULL DEFAULT '',
+        additional_guidance TEXT NOT NULL DEFAULT '',
+        exact_pixel_regions INTEGER NOT NULL DEFAULT 0,
+        blueprint TEXT,
+        model TEXT,
+        request_id TEXT,
+        error TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        completed_at TEXT
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS speaker_spotlight_templates_selected_idx
+        ON speaker_spotlight_templates(selected) WHERE selected=1;
+      CREATE INDEX IF NOT EXISTS speaker_spotlight_templates_created_idx
+        ON speaker_spotlight_templates(created_at DESC);
+      ALTER TABLE speaker_spotlight_batches ADD COLUMN template_id TEXT;
+      ALTER TABLE speaker_spotlight_batches ADD COLUMN template_snapshot TEXT;
+      ALTER TABLE speaker_spotlight_batches ADD COLUMN template_storage_path TEXT;
+    `
+  },
+  {
+    version: 17,
+    sql: `
+      UPDATE speaker_spotlight_results
+      SET status=CASE WHEN image_asset_id IS NOT NULL THEN 'completed' ELSE 'failed' END,
+          error=CASE WHEN image_asset_id IS NOT NULL THEN NULL ELSE COALESCE(error, 'No generated image was saved.') END,
+          qa=NULL
+      WHERE status='image_review_required';
+      UPDATE speaker_spotlight_results SET qa=NULL WHERE qa IS NOT NULL;
+      UPDATE speaker_spotlight_templates SET exact_pixel_regions=0 WHERE exact_pixel_regions<>0;
+    `
+  },
+  {
+    version: 18,
+    sql: `
+      UPDATE speaker_spotlight_templates
+      SET blueprint=json_remove(blueprint, '$.protectedRegions')
+      WHERE blueprint IS NOT NULL;
+      ALTER TABLE speaker_spotlight_results DROP COLUMN qa;
+      ALTER TABLE speaker_spotlight_templates DROP COLUMN exact_pixel_regions;
+    `
   }
 ];
 
 export function ensureDataDirectories() {
   const root = dataDirectory();
-  for (const name of ["", "uploads", "generated", "exports", "tmp", "speaker_spotlights", "summit_agenda", "summit_agenda/custom_portraits", "summit_agenda/batches"]) {
+  for (const name of ["", "uploads", "generated", "exports", "tmp", "speaker_spotlights", "speaker_spotlight_templates", "summit_agenda", "summit_agenda/custom_portraits", "summit_agenda/batches"]) {
     fs.mkdirSync(path.join(root, name), { recursive: true });
   }
   return root;
@@ -328,18 +396,18 @@ export function getDatabase() {
           error=COALESCE(error, 'The local process stopped during this speaker package. Verified partial work was preserved and can be retried.'),
           updated_at=?
       WHERE batch_id IN (SELECT id FROM speaker_spotlight_batches WHERE status='running')
-        AND status NOT IN ('completed','image_review_required','failed','extraction_failed','canceled')
+        AND status NOT IN ('completed','failed','extraction_failed','canceled')
     `).run(interruptedAt);
     db.prepare(`
       UPDATE speaker_spotlight_batches
       SET status=CASE
             WHEN NOT EXISTS (SELECT 1 FROM speaker_spotlight_results r WHERE r.batch_id=speaker_spotlight_batches.id AND r.status<>'completed') THEN 'completed'
-            WHEN EXISTS (SELECT 1 FROM speaker_spotlight_results r WHERE r.batch_id=speaker_spotlight_batches.id AND (r.status IN ('completed','image_review_required') OR r.post IS NOT NULL OR r.image_asset_id IS NOT NULL)) THEN 'partially_completed'
+            WHEN EXISTS (SELECT 1 FROM speaker_spotlight_results r WHERE r.batch_id=speaker_spotlight_batches.id AND (r.status='completed' OR r.post IS NOT NULL OR r.image_asset_id IS NOT NULL)) THEN 'partially_completed'
             ELSE 'failed'
           END,
           error=CASE
             WHEN NOT EXISTS (SELECT 1 FROM speaker_spotlight_results r WHERE r.batch_id=speaker_spotlight_batches.id AND r.status<>'completed') THEN NULL
-            WHEN EXISTS (SELECT 1 FROM speaker_spotlight_results r WHERE r.batch_id=speaker_spotlight_batches.id AND (r.status IN ('completed','image_review_required') OR r.post IS NOT NULL OR r.image_asset_id IS NOT NULL)) THEN 'The local process stopped before this batch completed. Verified partial packages were preserved and can be retried.'
+            WHEN EXISTS (SELECT 1 FROM speaker_spotlight_results r WHERE r.batch_id=speaker_spotlight_batches.id AND (r.status='completed' OR r.post IS NOT NULL OR r.image_asset_id IS NOT NULL)) THEN 'The local process stopped before this batch completed. Verified partial packages were preserved and can be retried.'
             ELSE 'The local process stopped before any speaker package completed.'
           END,
           completed_at=COALESCE(completed_at, ?)

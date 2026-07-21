@@ -16,7 +16,7 @@ import { DiscoveryBundleSchema, type DiscoveryBundle } from "@/server/ai/schemas
 
 describe("OpenAI provider diagnostics and GPT Image 2 request", () => {
   it("builds a model-correct 2:3 GPT Image 2 edit without input_fidelity", () => {
-    const image = [{} as never, {} as never, {} as never];
+    const image = [{} as never, {} as never];
     const request = buildSpeakerSpotlightImageEditRequest(image, "Create the verified speaker card");
 
     expect(request).toMatchObject({
@@ -28,8 +28,14 @@ describe("OpenAI provider diagnostics and GPT Image 2 request", () => {
       output_format: "png"
     });
     expect(request).not.toHaveProperty("input_fidelity");
-    expect(request.image).toHaveLength(3);
+    expect(request.image).toHaveLength(2);
     expect(OPENAI_IMAGE_TIMEOUT_MS).toBeGreaterThanOrEqual(180_000);
+  });
+
+  it("uses the selected template orientation for GPT Image 2 edits", () => {
+    const image = [{} as never, {} as never];
+    expect(buildSpeakerSpotlightImageEditRequest(image, "Landscape spotlight", "1536x1024").size).toBe("1536x1024");
+    expect(buildSpeakerSpotlightImageEditRequest(image, "Square spotlight", "1024x1024").size).toBe("1024x1024");
   });
 
   it("builds a high-quality agenda edit with the reference and all supplied portraits", () => {
