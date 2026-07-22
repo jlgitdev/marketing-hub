@@ -1,197 +1,226 @@
 # Marketing Hub
 
-Marketing Hub is a single-user, local-only browser application for AI-event marketing teams. It keeps flexible event context, source-backed opportunity research, review-ready outreach, social copy, campaign graphics, and verified Speaker Spotlight packages in one workspace.
+Marketing Hub is a local AI workspace for running an event-marketing program from source material to finished campaign assets. It brings event context, lead research, outreach drafts, social content, speaker posters, and live agenda graphics into one reviewable workflow.
 
-The application does **not** send email, publish social posts, expose a public server, or use cloud persistence. Live AI operations require internet access and use the API credits of the supplied OpenAI key.
+It is intentionally local-first:
 
-## Primary routes
+- the app binds to `127.0.0.1`;
+- work is stored in local SQLite databases and folders;
+- the browser never talks to OpenAI directly;
+- no email is sent and no social post is published; and
+- deterministic demo mode works without a key or network access.
 
-- `/` — state-derived next actions and recent work
-- `/context` — Markdown/text context and brand assets
-- `/leads` — bounded opportunity research, source review, outreach, CSV export
-- `/content` — X, LinkedIn, and Instagram copy plus campaign graphics
-- `/speaker-spotlight` — multi-speaker profile/headshot verification, Palace of Fine Arts 2:3 editorial posters, and cross-platform captions
-- `/runs` — saved research and content work
-- `/settings` — temporary OpenAI connection, local data path, reset
+## Quick start
 
-Long AI actions acknowledge immediately and continue in a serialized local background queue. Inline stage cards and the global activity dock show real stages, elapsed time, queue state, cancellation, retry, and result links across navigation or reload. Percentages are never simulated; numeric progress appears only for countable platform or speaker work.
-
-## Prerequisites
+Requirements:
 
 - Node.js 22 or newer
 - npm 10 or newer
-- A modern browser
-- Optional OpenAI API key for live mode
+- a current Chrome, Safari, Firefox, or Edge browser
 
-## Clean installation
-
-```bash
-npm install
-cp .env.example .env.local
-npm run db:init
-```
-
-No Docker, external database, account, or cloud service is required. SQLite initializes automatically as well, so `db:init` is safe to repeat.
-
-## Local development
+Install dependencies and start the app in demo mode:
 
 ```bash
-npm run dev
-```
-
-Open [http://127.0.0.1:3000](http://127.0.0.1:3000). The command binds to `127.0.0.1`, never `0.0.0.0`.
-
-## Deterministic demo mode
-
-Demo mode makes no external requests and requires no API key:
-
-```bash
+npm ci
 MARKETING_HUB_DEMO_MODE=true npm run dev
 ```
 
-The UI displays a persistent Demo mode banner. Research/outreach organizations, contacts, and `.example` sources are fictional. Speaker Spotlight may still read the configured downloaded AGI Summit site locally, but it creates deterministic graphics and makes no network or OpenAI request. Seed only the example context into a non-demo local workspace with:
+Open [http://127.0.0.1:3000](http://127.0.0.1:3000).
+
+Demo mode is the best way to explore the product. It uses deterministic fixtures, makes no external requests, and does not require an OpenAI API key. Its organizations, contacts, and `.example` sources are fictional.
+
+To keep demo mode enabled between launches, copy the example environment file and edit `.env.local`:
 
 ```bash
-npm run db:seed:demo
+cp .env.example .env.local
 ```
 
-For deterministic progress-state testing, add a delay before each demo operation begins:
-
-```bash
-MARKETING_HUB_DEMO_MODE=true MARKETING_HUB_DEMO_DELAY_MS=1500 npm run dev
+```dotenv
+MARKETING_HUB_DEMO_MODE=true
 ```
 
-## Live lead quality benchmark
+The database and required asset directories are created automatically on first launch. `npm run db:init` is available when you want to initialize them explicitly.
 
-After configuring `OPENAI_API_KEY` and setting `MARKETING_HUB_DEMO_MODE=false` in `.env.local`, run:
+## Run with OpenAI
 
-```bash
-npm run benchmark:leads
+Set `MARKETING_HUB_DEMO_MODE=false`, start the app, and connect a key in **Settings**. The connection test makes a small billable Responses API request. A key entered in the UI is held only in server-process memory and is lost when it is disconnected, expires, or the server stops.
+
+Alternatively, provide the key to the server at launch:
+
+```dotenv
+OPENAI_API_KEY=sk-...
+MARKETING_HUB_DEMO_MODE=false
 ```
 
-The bounded five-lead benchmark uses the real staged research pipeline in an isolated `.marketing-hub-benchmark` database with no workspace context or prior leads. It fails unless the result meets explicit qualified-yield, evidence, uniqueness, contactability, customer-segment diversity, sales-motion diversity, and sales-readiness thresholds. It never prints the API key, raw provider output, or saved workspace material.
+The default models are `gpt-5.6` for text and `gpt-image-2` for images. Both can be changed with environment variables.
 
-After validator or scoring changes, rerun the saved provider response without another API request:
+Live research uses OpenAI web search and live creative workflows use the Images API, so usage is billed to the supplied key. Uploaded or imported context is not sent anywhere merely because it was added to the library; it is sent only after you explicitly start a relevant AI action.
 
-```bash
-npm run benchmark:leads:revalidate
+## What is included
+
+| Area | What it does |
+| --- | --- |
+| **Overview** (`/`) | Shows the active workspace, next actions, recent output, and operation status. |
+| **Assistant** (`/assistant`) | Answers questions from saved event context, creates a post and matching graphic, or turns pasted/uploaded material into reusable context. |
+| **Context** (`/context`) | Imports, classifies, edits, and activates Markdown/text references and visual brand assets. Documents can be marked as a source of truth. |
+| **Leads** (`/leads`) | Finds source-backed ticket, group-sales, distribution, partnership, and sponsorship opportunities; scores them; preserves evidence; and prepares outreach. |
+| **Content** (`/content`) | Turns a plain-language campaign brief into editable platform copy and a finished one-shot campaign graphic. |
+| **Speaker Spotlight** (`/speaker-spotlight`) | Analyzes reusable poster templates and creates a verified poster-and-caption package for each speaker. |
+| **Live Agenda** (`/summit-agenda`) | Presents the event schedule as a timeline, lets operators correct session data and portraits, and generates a live social graphic and caption for selected sessions. |
+| **Runs** (`/runs`) | Reopens saved research and content work. |
+| **Settings** (`/settings`) | Manages the temporary OpenAI connection, shows the active data path, and resets the active workspace. |
+
+### A typical workflow
+
+1. Create or select a workspace.
+2. Add the event brief, approved facts, audience, voice, platform guidance, logos, and visual references in **Context**.
+3. Use **Assistant** for quick grounded questions and one-off creative work.
+4. Use **Leads** for evidence-backed prospecting, review, outreach drafting, and CSV export.
+5. Use **Content**, **Speaker Spotlight**, and **Live Agenda** for campaign and event-day creative production.
+6. Review every draft in the app, then copy or download it for use in an external sending or publishing tool.
+
+The application treats generation as a draft-production step, not approval. Copy, contact data, source claims, names, portraits, and generated artwork should all receive human review.
+
+## Workspaces and local data
+
+Each workspace isolates its context, assets, leads, campaigns, assistant history, poster templates, agenda state, and activity. New workspaces start with an empty agenda and their own data directory. The original AGI Summit workspace uses the root data directory for backward compatibility.
+
+By default, data lives under `.marketing-hub/`:
+
+```text
+.marketing-hub/
+├── marketing-hub.sqlite        # original workspace database
+├── workspaces.json             # local workspace registry
+├── generated/                  # campaign graphics
+├── speaker_spotlights/         # speaker packages and manifests
+├── speaker_spotlight_templates/
+├── summit_agenda/              # agenda state, portraits, and batches
+└── workspaces/<workspace-id>/  # data for additional workspaces
 ```
 
-## OpenAI configuration
-
-Defaults are centralized and can be overridden:
-
-```bash
-OPENAI_TEXT_MODEL=gpt-5.6
-OPENAI_IMAGE_MODEL=gpt-image-2
-OPENAI_API_KEY=
-MARKETING_HUB_CONTEXT_DIR="/absolute/path/to/context assets"
-AGI_SUMMIT_SITE_DIR="/absolute/path/to/downloaded AGI Summit site"
-```
-
-Two key paths are supported:
-
-1. Enter a temporary key in Settings. An explicit connection test makes a small Responses request. The raw key then lives only in backend process memory behind an opaque HttpOnly, SameSite=Strict cookie and disappears on disconnect, expiration, or server exit.
-2. Launch the app with `OPENAI_API_KEY` already in the environment. The browser receives only the connection source and masked suffix.
-
-The browser never calls OpenAI. The application never writes a UI-entered key to SQLite, files, browser storage, HTML, URLs, logs, or exports. Selected context is sent only after a user starts an AI operation.
-
-## Local data
-
-The default data directory is `.marketing-hub/`. Override it before launch:
+Change the root before starting the app:
 
 ```bash
 MARKETING_HUB_DATA_DIR=/absolute/path/to/marketing-hub-data npm run dev
 ```
 
-The directory contains SQLite, uploaded visual assets, generated graphics, exports, and temporary image files. Its active path is visible in Settings and is ignored by Git. All PNG, JPEG, and WebP image responses pass through the local C2PA stripper. Newly generated campaign and Speaker Spotlight files are also stripped before they are saved; the UI labels stripped image outputs and responses include `X-Content-Credentials: removed`.
+Back up that directory if you need retention. **Settings → Reset this workspace** and `npm run data:reset` remove the active workspace's records and assets; there is no undo. Deleting a workspace removes only that workspace.
 
-Delete individual records from their workflow pages. Reset all application records and assets inside the configured directory with:
+All saved or served PNG, JPEG, and WebP outputs pass through the local C2PA metadata stripper.
+
+## Context and event source files
+
+In live mode, the original AGI Summit workspace imports Markdown and text files from `MARKETING_HUB_CONTEXT_DIR` by content hash. The default is `./assets for context`. Additional workspaces stay isolated and do not automatically inherit those project files. In any workspace, you can paste material or upload `.md` and `.txt` files in the UI.
+
+Context selection is automatic by default and considers the workflow, prompt, platform, active state, and source-of-truth status. Manual selection remains available when a campaign must use specific references. Rendered Markdown is sanitized, and imported material is treated as untrusted reference text rather than executable instruction.
+
+Speaker Spotlight can extract verified profiles and headshots from a separately downloaded AGI Summit site package. Put the merged package at `./agi-summit-site` or set `AGI_SUMMIT_SITE_DIR` to its absolute path. That package is intentionally not committed. See [Sharing the Speaker Spotlight project](docs/sharing-speaker-spotlight-project.md) for the handoff format.
+
+The default workspace's Live Agenda source data, portraits, and layout references are committed under `src/data/` and `public/summit-agenda/`. Newly created workspaces begin without sessions and must be populated with their own program data and portraits.
+
+## Background operations and failure recovery
+
+Long-running research, outreach, content, Speaker Spotlight, and agenda jobs return immediately and run through a process-local queue. The activity dock and inline operation cards show real stages, cancellation, retry state, and result links across navigation and browser reloads. Numeric progress is shown only when the work has countable units.
+
+Operation history is durable, but the worker is not: stopping the Node process interrupts active work. On restart, unfinished operations are marked `interrupted` and can be retried. Completed platform drafts, speaker results, and other durable partial output are preserved when possible.
+
+## Configuration
+
+All supported environment variables are documented in `.env.example`.
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `OPENAI_API_KEY` | unset | Server-side key. The temporary Settings connection can be used instead. |
+| `OPENAI_TEXT_MODEL` | `gpt-5.6` | Text and structured-output model. |
+| `OPENAI_IMAGE_MODEL` | `gpt-image-2` | General image model. Specialized poster flows currently target GPT Image 2. |
+| `MARKETING_HUB_DEMO_MODE` | `false` | Enables deterministic, network-free providers. |
+| `MARKETING_HUB_DEMO_DELAY_MS` | `0` | Adds a delay before demo operations for progress-state testing. |
+| `MARKETING_HUB_DATA_DIR` | `./.marketing-hub` | Root for databases, uploads, generated files, and exports. |
+| `MARKETING_HUB_CONTEXT_DIR` | `./assets for context` | Directory automatically imported as project context in live mode. |
+| `AGI_SUMMIT_SITE_DIR` | `./agi-summit-site` | Downloaded site package used for Speaker Spotlight profile and headshot extraction. |
+
+Do not commit `.env.local`; environment files other than `.env.example` are ignored by Git.
+
+## Privacy and product boundaries
+
+- The Next.js server listens on loopback, not `0.0.0.0`.
+- The raw API key is never returned to the browser or written to SQLite, exports, logs, URLs, or browser storage.
+- Responses API calls use `store: false`.
+- Marketing Hub contains no analytics, telemetry, cloud database, hosted queue, or deployment configuration.
+- Research retains public source URLs and retrieval metadata. It does not use private attendee lists, leaked data, data brokers, or guessed email patterns.
+- An email is considered source-backed only when an accepted public source contains that exact address. User edits remain visibly distinct from verified evidence.
+- Outreach is draft-and-export only. There is no sending provider, scheduler, or follow-up automation.
+- Social output is copy-and-download only. There is no publishing integration.
+
+Users remain responsible for factual review, consent, opt-out handling, platform policy, and applicable marketing law.
+
+## Development
+
+Useful commands:
 
 ```bash
-npm run data:reset
+npm run dev                 # development server on 127.0.0.1:3000
+npm run lint                # ESLint
+npm run typecheck           # TypeScript without emitting files
+npm run test                # deterministic Vitest suite
+npm run test:watch          # Vitest watch mode
+npm run test:e2e            # Playwright against an isolated demo server on :3100
+npm run agenda:verify       # validate committed agenda data and assets
+npm run build               # production build
+npm run verify              # agenda, lint, types, unit/integration tests, and build
 ```
 
-Settings also has a two-step reset confirmation. Neither reset path deletes outside `MARKETING_HUB_DATA_DIR`.
+Automated tests use deterministic providers and do not spend API credits. Playwright uses isolated `.marketing-hub-e2e` and `.next-e2e` directories and will not reuse a development server on port 3000.
 
-## Context workflow
-
-1. Open Context Library. In non-demo mode, Markdown/text files in `MARKETING_HUB_CONTEXT_DIR` (default: `assets for context`) are imported and kept in sync by content hash.
-2. Paste or upload any `.md`/`.txt` resource. There is no fixed context-type enum: use automatic classification or enter any custom category.
-3. Review inferred summaries, tags, platforms, workflow purposes, active state, and source-of-truth status. `agi summit information (1).md` is recognized as the primary AGI Summit source.
-4. AI forms default to automatic relevance selection. A manual override remains available for deliberately pinned context.
-5. Content generation prefers relevant local platform guidance. When a requested platform lacks local guidance, live mode uses web search only for current platform writing/image practices; local event facts remain authoritative.
-6. Add optional PNG, JPEG, or WebP brand assets for general campaign graphics.
-
-Rendered Markdown is sanitized. Uploaded content is untrusted reference material and cannot override system, evidence, schema, or approval rules.
-
-## Lead research and outreach
-
-1. Open Summit sales leads and configure the region, customer segments, sales paths, qualification floor, categories, roles, date range, result cap, and selected event context.
-2. Start a bounded research run. Live mode performs a broad segmented discovery pass, enriches an oversized candidate pool from official sources, computes a deterministic 100-point sales score, removes prior canonical prospects, and runs a targeted backfill pass when the qualified list is short.
-3. Work the priority-ranked queue. Each lead separates evidence confidence from sales value and shows its audience, sales motion, score breakdown, contact path, outreach angle, and next best action.
-4. Record review or rejection reasons. Aggregate prior decisions steer later research without becoming factual evidence.
-5. Select leads and create adaptive outreach that changes its request for direct tickets, group attendance, employer learning budgets, education distribution, audience sharing, cross-promotion, or sponsorship.
-6. Export selected, priority-ranked sales intelligence to CSV. Emails without exact source-backed evidence are withheld from the export while contact pages, score details, sales angles, and source URLs remain available.
-7. Edit each preview and mark eligible recipients reviewed.
-8. Copy addresses or download the reviewed UTF-8 mail-merge CSV.
-
-Marketing Hub never guesses an email. A model-suggested address without an exact accepted supporting URL is removed. Contact-page-only opportunities remain useful. No sending provider exists in this MVP.
-
-## Content workflow
-
-1. Open Content and enter the campaign brief, objective, audience, CTA, phrases, visual direction, platforms, and selected context.
-2. Generate distinct X, LinkedIn, and Instagram drafts.
-3. Edit the hook, post, call to action, hashtags, image text, and alt text; then save, review, copy, or regenerate one platform independently.
-4. Generate a text-free campaign background or reuse a prior background.
-5. Edit exact headline, subheadline, CTA, optional logo, and logo placement.
-6. Download the application-composited PNG.
-
-OpenAI image generation never owns important typography. Sharp renders exact text and branding after the background is generated. Saved text survives an image failure.
-
-## Speaker Spotlight workflow
-
-1. Open Speaker Spotlight and enter one or more names, one per line or comma-separated.
-2. The backend dynamically locates the downloaded `index-*.js` bundle, parses matched profile records without evaluating downloaded JavaScript, and preserves verified wording.
-3. It locates a downloaded headshot by name or an explicit extraction-guide/live-page `alt` mapping. Images are decoded and dimension-checked. Live visual checking blocks only when no human face is discernible; masking, cutout, framing, resolution, and other cosmetic concerns are preserved as non-blocking warnings.
-4. It derives any organization wording from the verified profile so personalized role and credential copy stays grounded, while the Bay AI Circle and AGI Summit logos remain fixed template elements.
-5. Each speaker gets an isolated local package with profile JSON, original headshot, image prompt, first 1024×1536 PNG, post Markdown, and a validation record. A batch manifest records every status and error.
-6. Live mode makes one Image API edits request per speaker using `gpt-image-2`, high quality, exact `1024x1536` sizing, and two ordered inputs: the canonical Yuandong Tian Palace of Fine Arts poster as the edit target, followed by the verified speaker headshot as the identity reference. The prompt preserves the diagonal split, fixed summit logos and headline, neon event badge, and faded Palace backdrop while replacing the portrait and speaker-specific copy. The service restores the fixed branding regions from the canonical template after generation. The first successfully decoded 1024×1536 PNG is final; there is no generated-card vision-QA call or automatic image retry loop.
-7. If the provider fails, times out, is canceled, or returns a malformed file, the verified partial package is preserved for an explicit manual retry. One factual cross-platform caption is generated from the supplied examples and campaign configuration. One speaker failure never cancels the rest of the batch.
-
-Outputs live under `MARKETING_HUB_DATA_DIR/speaker_spotlights/<batch-id>/<speaker-slug>/`. The downloaded-site path and campaign values are configurable in the page; `AGI_SUMMIT_SITE_DIR` supplies the default path.
-
-The downloaded speaker site is a separate local package and is not stored in this Git repository. For a portable handoff, place the merged package at `./agi-summit-site` or set `AGI_SUMMIT_SITE_DIR` to its absolute path. See [sharing the Speaker Spotlight project](docs/sharing-speaker-spotlight-project.md) for exactly what to send and how the recipient should set it up.
-
-## Production build and local start
+For a local production build:
 
 ```bash
 npm run build
 npm run start
 ```
 
-Open [http://127.0.0.1:3000](http://127.0.0.1:3000). Production start is also loopback-only.
+Open [http://127.0.0.1:3000](http://127.0.0.1:3000). Production start remains loopback-only.
 
-## Validation
+### Live lead-quality benchmark
+
+The benchmark exercises the real five-lead research pipeline in an isolated `.marketing-hub-benchmark` database. It requires a live key and consumes API credits:
 
 ```bash
-npm run lint
-npm run typecheck
-npm run test
-npm run test:e2e
-npm run build
-npm run verify
+npm run benchmark:leads
 ```
 
-The Playwright configuration starts an isolated deterministic demo server on `127.0.0.1:3100`, so it cannot accidentally reuse a non-demo development process on port 3000. Automated tests use only deterministic mocks. See [manual OpenAI verification](docs/manual-openai-verification.md) for the separate, explicitly billable live-provider check.
+It fails when results miss the configured thresholds for qualified yield, evidence, uniqueness, contactability, customer-segment diversity, sales-motion diversity, or sales readiness. After changing validation or scoring logic, re-check the saved provider response without another request:
 
-Tests that parse the separately downloaded AGI Summit site are skipped when `AGI_SUMMIT_SITE_DIR` is unavailable. Set that variable to run the full Speaker Spotlight integration and browser coverage; no downloaded speaker bundle or headshot is committed to this repository.
+```bash
+npm run benchmark:leads:revalidate
+```
+
+## Architecture
+
+```text
+Browser
+  └─ Next.js route handlers on 127.0.0.1
+       ├─ domain services and process-local operation queue
+       ├─ workspace-scoped SQLite and local asset storage
+       └─ deterministic demo provider or server-side OpenAI client
+```
+
+The app uses Next.js, React, TypeScript, Node's built-in SQLite driver, Zod, Sharp, Vitest, and Playwright. The main code boundaries are:
+
+- `src/app/` — pages and same-origin API route handlers
+- `src/components/` — client workflows and shared application UI
+- `src/server/services/` — domain workflows
+- `src/server/ai/` — prompts, schemas, provider calls, retries, and timeouts
+- `src/server/db/` — SQLite migrations and repositories
+- `src/server/storage/` — local asset validation and persistence
+- `tests/` and `e2e/` — deterministic service, integration, and browser coverage
 
 ## Known limitations
 
-- One local user and workspace; there is no authentication or remote access.
-- Background work is process-local, globally serialized, and cannot survive Node process exit; unfinished rows become retryable `interrupted` records at restart.
-- Active cancellation uses provider abort signals and stage checkpoints, but a provider may finish its current response before stopping. Completed composite sub-results are preserved.
-- Search evidence can become stale; source links and retrieval timestamps remain visible for review.
-- Live model availability, quota, and image-organization verification depend on the key owner’s OpenAI account.
-- No mail sending, follow-up automation, social publishing, scheduling, analytics, or deployment configuration is included.
+- This is a local operator tool, not a hosted multi-user product. It has no authentication or remote-access controls.
+- The operation queue is process-local and globally serialized; in-flight work cannot survive a Node process exit.
+- Provider availability, model access, quotas, latency, and image-generation permissions depend on the key owner's OpenAI account.
+- Public-web evidence can become stale. Review the stored sources and timestamps before acting.
+- Generated typography, faces, logos, and factual details can be imperfect. The app deliberately preserves first-pass results instead of silently spending credits on automatic aesthetic retries.
+- The separately downloaded Speaker Spotlight site package is required for live profile extraction and is not part of this repository.
+- Email sending, social publishing, scheduling, analytics, and deployment are outside the current scope.
