@@ -71,3 +71,22 @@ export function formatDate(value: string | null | undefined) {
   if (!value) return "—";
   return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(new Date(value));
 }
+
+export function formatDateTime(value: string | null | undefined) {
+  if (!value) return "—";
+  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(value));
+}
+
+export function cleanDisplayText(value: string | null | undefined) {
+  return (value || "").replace(/^\s*>+\s*/gm, "").replace(/[ \t]{2,}/g, " ").trim();
+}
+
+export function cleanDocumentTitle(value: string) {
+  const cleaned = value.replace(/\s*\(\d+\)\s*$/, "").replaceAll("_", " ").replace(/\s+/g, " ").trim();
+  return cleaned ? `${cleaned[0].toUpperCase()}${cleaned.slice(1)}` : value;
+}
+
+export function cleanCampaignName(value: string) {
+  const cleaned = cleanDisplayText(value);
+  return cleaned.length >= 88 && !/[.!?…]$/.test(cleaned) ? `${cleaned}…` : cleaned;
+}

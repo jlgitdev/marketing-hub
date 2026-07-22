@@ -142,7 +142,7 @@ export function InlineOperation({ operation, compact = false }: { operation: AiO
   return <section className={`operation-card ${compact ? "compact" : ""} status-${operation.status}`} aria-busy={active} aria-label={`${operation.label} progress`}>
     <div className="operation-signal" aria-hidden="true"><OperationSignalIcon operation={operation}/></div>
     <div className="operation-main">
-      <div className="operation-title-row"><div><span className="operation-kicker">{statusLabel(operation.status)}</span><h3>{operation.label}</h3></div><Elapsed operation={operation}/></div>
+      <div className="operation-title-row"><div><span className="operation-kicker">{statusLabel(operation.status)}</span><h3>{operation.label}</h3>{!active && <time className="operation-created" dateTime={operation.createdAt}>{formatOperationTime(operation.createdAt)}</time>}</div><Elapsed operation={operation}/></div>
       <div className="operation-live" role="status" aria-live="polite"><strong>{operation.status === "queued" ? "Waiting for the current task" : active ? activeStep?.label || statusLabel(operation.status) : terminalHeadline(operation.status)}</strong>{active && activeStep?.detail ? <span>{activeStep.detail}</span> : !active && <span>{terminalDetail(operation.status)}</span>}</div>
       {active && <div className="operation-rail" aria-hidden="true"><span/></div>}
       {operation.totalUnits !== null && <p className="operation-count"><strong>{operation.completedUnits || 0} of {operation.totalUnits}</strong> {operation.unitLabel || "items"} {active ? "processed" : operation.status === "completed" ? "complete" : "succeeded"}</p>}
@@ -246,6 +246,10 @@ function terminalDetail(status: AiOperation["status"]) {
   if (status === "failed") return "This operation is no longer running. Open the result for the exact failure and available recovery options.";
   if (status === "interrupted") return "The local process stopped. Reconnect OpenAI and retry when ready.";
   return "No more background work will run for this operation.";
+}
+
+function formatOperationTime(value: string) {
+  return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(value));
 }
 
 function statusLabel(status: AiOperation["status"]) {

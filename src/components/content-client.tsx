@@ -5,7 +5,7 @@ import Image from "next/image";
 import { Check, CircleHelp, Clipboard, Download, ImageIcon, PenLine, RefreshCw, Save, Sparkles, Trash2, TriangleAlert } from "lucide-react";
 import { PLATFORM_CONFIG } from "@/lib/config";
 import type { AiOperation, ContentCampaign, PlatformPost } from "@/lib/types";
-import { apiRequest, ConnectionBadge, PageState, formatDate, useWorkspace } from "./workspace";
+import { apiRequest, cleanCampaignName, cleanDocumentTitle, ConnectionBadge, PageState, formatDate, formatDateTime, useWorkspace } from "./workspace";
 import { InlineOperation, useOperations } from "./operations";
 
 export function ContentClient({ initialCampaignId = null }: { initialCampaignId?: string | null }) {
@@ -77,7 +77,7 @@ export function ContentClient({ initialCampaignId = null }: { initialCampaignId?
       <InlineOperation operation={createOperation}/>
     </section>
 
-    <section className="section-block"><div className="section-heading split"><div><span className="type-label">Campaign workspace</span><h2>{campaign ? campaign.name : "No saved campaign"}</h2></div><div className="row-actions">{campaign && campaign.posts.length > 0 && <button className="button secondary small" disabled={isActive(regenOperation)} onClick={() => void regenerateAll(campaign)}><RefreshCw size={14}/>{isActive(regenOperation) ? "Regenerating…" : "Regenerate post copy"}</button>}{state.contentCampaigns.length > 1 && <select aria-label="Open saved campaign" value={campaign?.id || ""} onChange={(event) => setCampaignId(event.target.value)}>{state.contentCampaigns.map((item) => <option value={item.id} key={item.id}>{item.name} · {formatDate(item.updatedAt)}</option>)}</select>}</div></div>
+    <section className="section-block"><div className="section-heading split"><div><span className="type-label">Campaign workspace</span><h2>{campaign ? cleanCampaignName(campaign.name) : "No saved campaign"}</h2></div><div className="row-actions">{campaign && campaign.posts.length > 0 && <button className="button secondary small" disabled={isActive(regenOperation)} onClick={() => void regenerateAll(campaign)}><RefreshCw size={14}/>{isActive(regenOperation) ? "Regenerating…" : "Regenerate post copy"}</button>}{state.contentCampaigns.length > 1 && <select aria-label="Open saved campaign" value={campaign?.id || ""} onChange={(event) => setCampaignId(event.target.value)}>{state.contentCampaigns.map((item) => <option value={item.id} key={item.id}>{cleanCampaignName(item.name)} · {formatDateTime(item.updatedAt)} · {item.status.replaceAll("_", " ")}</option>)}</select>}</div></div>
       <InlineOperation operation={regenOperation} compact/>
       {campaign && <SavedContextSummary campaign={campaign} documents={state.contextDocuments}/>}
       {campaign?.warnings.length ? <div className="campaign-notes"><TriangleAlert size={15}/><div>{campaign.warnings.map((warning) => <p key={warning}>{warning}</p>)}</div></div> : null}
@@ -140,5 +140,5 @@ function ImageResult({ campaign, operation, onRetry, onRefresh, onMessage }: { c
 function SavedContextSummary({ campaign, documents }: { campaign: ContentCampaign; documents: Array<{ id: string; title: string; body: string; active: boolean }> }) {
   const selected = campaign.contextDocumentIds.map((id) => documents.find((document) => document.id === id));
   const activeSize = selected.reduce((sum, document) => sum + (document?.active ? document.body.length : 0), 0);
-  return <details className="saved-context-summary"><summary>Context selected automatically · {selected.filter((document) => document?.active).length} active · approximately {activeSize.toLocaleString()} characters</summary><ul>{selected.map((document, index) => <li key={campaign.contextDocumentIds[index]}>{document ? `${document.title}${document.active ? "" : " (inactive — excluded from regeneration)"}` : "Deleted context — excluded from regeneration"}</li>)}</ul></details>;
+  return <details className="saved-context-summary"><summary>Context selected automatically · {selected.filter((document) => document?.active).length} active documents</summary><ul>{selected.map((document, index) => <li key={campaign.contextDocumentIds[index]}>{document ? `${cleanDocumentTitle(document.title)}${document.active ? "" : " (inactive — excluded from regeneration)"}` : "Deleted context — excluded from regeneration"}</li>)}{activeSize > 0 && <li className="technical-detail">Combined context size: approximately {activeSize.toLocaleString()} characters</li>}</ul></details>;
 }

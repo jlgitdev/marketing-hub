@@ -13,8 +13,8 @@ const nav = [
   { href: "/context", label: "Context", icon: BookOpenText },
   { href: "/leads", label: "Leads", icon: ContactRound },
   { href: "/content", label: "Content", icon: PenLine },
-  { href: "/speaker-spotlight", label: "Spotlight", icon: MicVocal },
-  { href: "/summit-agenda", label: "Live Agenda", icon: CalendarDays },
+  { href: "/speaker-spotlight", label: "Speaker Spotlight", shortLabel: "Spotlight", icon: MicVocal },
+  { href: "/summit-agenda", label: "Summit Agenda", shortLabel: "Agenda", icon: CalendarDays },
   { href: "/runs", label: "Runs", icon: FileClock },
   { href: "/settings", label: "Settings", icon: Settings }
 ];
@@ -42,7 +42,7 @@ function AppFrame({ children }: { children: React.ReactNode }) {
           {nav.map((item) => {
             const Icon = item.icon;
             const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
-            return <Link key={item.href} href={item.href} aria-label={item.label} aria-current={active ? "page" : undefined} className={active ? "nav-link active" : "nav-link"}><Icon size={18} aria-hidden="true"/><span>{item.label}</span></Link>;
+            return <Link key={item.href} href={item.href} aria-label={item.label} title={item.label} aria-current={active ? "page" : undefined} className={active ? "nav-link active" : "nav-link"}><Icon size={18} aria-hidden="true"/><span>{"shortLabel" in item ? item.shortLabel : item.label}</span></Link>;
           })}
         </nav>
         <div className="sidebar-footer">

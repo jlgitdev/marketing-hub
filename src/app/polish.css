@@ -317,6 +317,68 @@ body::before {
   .activity-chevron { transition: none !important; }
 }
 
+/* Focused cleanup: preserve the existing visual language while removing
+   layout traps that appear with one result or on narrow screens. */
+.content-workspace.single-post .platform-grid { grid-template-columns: minmax(0, 1fr); }
+.technical-detail { color: var(--faint); }
+.connection-note { display: block; padding: 11px 13px; border: 1px solid var(--line); border-radius: 13px; color: var(--muted); background: var(--surface-soft); line-height: 1.5; }
+.runs-heading { align-items: center; }
+.runs-filters { display: flex; align-items: center; justify-content: flex-end; gap: 8px; min-width: 0; }
+.runs-filters .search-field { width: min(260px, 32vw); }
+.runs-filters select { width: auto; min-width: 132px; }
+.load-more { display: flex; justify-content: center; padding-top: 18px; }
+.operation-created { display: block; margin-top: 4px; color: var(--faint); font-size: 11px; line-height: 1.3; }
+
+@media (max-width: 860px) {
+  .runs-heading { align-items: stretch; flex-direction: column; }
+  .runs-filters { justify-content: flex-start; flex-wrap: wrap; }
+  .runs-filters .search-field { flex: 1 1 100%; width: 100%; }
+  .runs-filters select { flex: 1 1 180px; }
+}
+
+@media (max-width: 560px) {
+  .sidebar { grid-template-columns: 40px minmax(0, 1fr); gap: 4px; }
+  .workspace-switcher { display: block; width: 40px; min-width: 40px; }
+  .sidebar .workspace-brand { display: flex; width: 40px; padding: 2px; }
+  .workspace-brand .brand-mark { width: 36px; height: 36px; }
+  .sidebar nav { gap: 1px; justify-content: space-between; }
+  .nav-link { flex: 1 1 0; min-width: 30px; padding: 7px 4px; }
+
+  .context-layout,
+  .context-layout > *,
+  .context-layout .panel,
+  .context-layout form,
+  .document-list,
+  .document-card,
+  .document-top,
+  .document-top > div:first-child,
+  .asset-upload,
+  .asset-grid,
+  .asset-card { width: 100%; min-width: 0; max-width: 100%; }
+  .context-layout input,
+  .context-layout textarea,
+  .context-layout select { width: 100%; min-width: 0; max-width: 100%; }
+  .document-top { gap: 8px; }
+  .document-top > .row-actions { flex: 0 0 auto; }
+  .asset-grid { grid-template-columns: 1fr; }
+  .asset-card { grid-template-columns: 52px minmax(0, 1fr) auto; }
+  .asset-card img { width: 52px; }
+
+  .activity-dock:not(.open) { right: 12px; bottom: 12px; width: 50px; }
+  .activity-dock:not(.open) .activity-trigger { display: grid; grid-template-columns: 1fr; width: 50px; min-height: 50px; height: 50px; padding: 5px; border-radius: 17px; }
+  .activity-dock:not(.open) .activity-trigger > span:nth-child(2),
+  .activity-dock:not(.open) .activity-chevron { display: none; }
+  .activity-dock:not(.open) .activity-orb { width: 38px; height: 38px; }
+  .activity-dock.open { right: 10px; bottom: 10px; width: calc(100vw - 20px); }
+
+  .runs-filters { display: grid; grid-template-columns: 1fr; }
+  .runs-filters select { width: 100%; }
+  .run-card { grid-template-columns: auto minmax(0, 1fr); gap: 12px; }
+  .run-actions { grid-column: 2; justify-content: flex-start; }
+  .run-card-title { gap: 8px; }
+  .run-card-title h2 { overflow-wrap: anywhere; }
+}
+
 /* Workspace switcher and first-run guide */
 .sidebar { overflow: visible; }
 .workspace-switcher { position: relative; z-index: 42; }

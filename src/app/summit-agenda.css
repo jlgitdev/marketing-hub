@@ -99,6 +99,7 @@
 .agenda-result-card { min-width: 0; display: flex; flex-direction: column; gap: 13px; padding: 16px; border: 1px solid var(--line); border-radius: 20px; background: rgba(255, 255, 255, .78); box-shadow: var(--shadow-rest); }
 .agenda-result-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
 .agenda-result-heading > div { min-width: 0; display: flex; align-items: center; gap: 10px; }
+.agenda-result-heading > div > div { min-width: 0; }
 .agenda-result-heading h3 { overflow: hidden; margin: 0; text-overflow: ellipsis; white-space: nowrap; }
 .agenda-result-heading small { display: block; overflow: hidden; margin-top: 2px; font-size: 9.5px; text-overflow: ellipsis; white-space: nowrap; }
 .agenda-result-heading .status-icon { flex: 0 0 auto; width: 34px; height: 34px; border-radius: 11px; }
@@ -148,15 +149,23 @@
 }
 
 @media (max-width: 700px) {
-  .summit-agenda-page { padding-left: 18px; padding-right: 18px; }
+  .summit-agenda-page { width: 100%; min-width: 0; padding-left: 12px; padding-right: 12px; }
   .agenda-empty-title { align-items: flex-start; }
   .agenda-guide-popover { position: fixed; left: 50%; bottom: 84px; width: calc(100vw - 32px); max-height: calc(100dvh - 168px); overflow: auto; transform: translate(-50%, 5px); }
   .agenda-agent-guide:hover .agenda-guide-popover, .agenda-agent-guide:focus-within .agenda-guide-popover, .agenda-agent-guide.open .agenda-guide-popover { transform: translate(-50%, 0); }
   .agenda-command { grid-template-columns: 1fr; }
+  .agenda-command,
+  .agenda-command > *,
+  .agenda-board-section,
+  .agenda-board-heading,
+  .agenda-calendar-shell { width: 100%; min-width: 0; max-width: 100%; }
   .agenda-day-tabs { width: 100%; }
   .agenda-day-tabs button { flex: 1; min-width: 0; }
   .agenda-command-actions { grid-column: auto; }
   .agenda-command-actions .agenda-generate { flex: 1 1 100%; justify-content: center; }
+  .agenda-board-heading { align-items: flex-start; flex-direction: column; }
+  .source-lock { align-self: flex-start; }
+  .agenda-calendar-shell { overscroll-behavior-inline: contain; }
   .agenda-result-grid { grid-template-columns: 1fr; }
   .agenda-modal { padding: 8px; }
   .agenda-modal-panel { max-height: calc(100vh - 16px); border-radius: 20px; }

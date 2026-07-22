@@ -1046,13 +1046,17 @@
     height: auto;
     min-height: calc(100dvh - 76px);
     overflow: visible;
-    padding: 18px 7px 12px;
+    width: 100%;
+    min-width: 0;
+    padding: 18px 7px 72px;
   }
   .assistant-page-header { display: grid; gap: 13px; padding-inline: 6px; }
   .assistant-page-header h1 { margin-top: 4px; font-size: 36px; }
   .assistant-header-actions { justify-content: space-between; }
   .assistant-shell { min-height: calc(100dvh - 225px); border-radius: 22px; }
   .assistant-shell { overflow: visible; }
+  .assistant-shell::before { left: 0; width: min(300px, 82vw); }
+  .assistant-shell::after { right: 0; width: min(280px, 78vw); }
   .assistant-transcript { min-height: 420px; max-height: none; overflow: visible; padding: 26px 12px 22px; border-radius: 22px 22px 0 0; }
   .assistant-welcome { min-height: auto; justify-content: flex-start; padding: 25px 2px 32px; }
   .assistant-welcome-orbit { top: 18px; }
@@ -1076,7 +1080,7 @@
   .assistant-context-result strong { white-space: normal; }
   .assistant-message-actions button,
   .assistant-message-actions a { flex: 1 1 auto; justify-content: center; }
-  .assistant-composer { position: sticky; bottom: 0; padding: 4px 10px 78px; border-radius: 0 0 22px 22px; }
+  .assistant-composer { position: sticky; bottom: 0; padding: 4px 10px 12px; border-radius: 0 0 22px 22px; }
   .assistant-composer-inner { padding: 8px 0 10px; }
   .assistant-composer-card { padding: 13px 13px 11px; border-radius: 23px; }
   .assistant-mode-button { min-height: 36px; gap: 4px; padding-inline: 5px; font-size: 8.5px; }

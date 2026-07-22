@@ -27,7 +27,7 @@ import ReactMarkdown from "react-markdown";
 import rehypeSanitize from "rehype-sanitize";
 import remarkGfm from "remark-gfm";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
-import { apiRequest, ConnectionBadge, PageState, useWorkspace } from "./workspace";
+import { apiRequest, cleanDocumentTitle, ConnectionBadge, PageState, useWorkspace } from "./workspace";
 
 type AssistantMode = "ask" | "create" | "context";
 type AssistantMessageStatus = "completed" | "partial" | "failed";
@@ -242,7 +242,13 @@ function AssistantWorkspaceClient() {
     scrollFrameRef.current = window.requestAnimationFrame(() => {
       scrollFrameRef.current = null;
       const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      threadEndRef.current?.scrollIntoView({ behavior: smooth && !reduceMotion ? "smooth" : "auto", block: "end" });
+      const transcript = transcriptRef.current;
+      const behavior = smooth && !reduceMotion ? "smooth" : "auto";
+      if (transcript && window.getComputedStyle(transcript).overflowY !== "visible" && transcript.scrollHeight > transcript.clientHeight) {
+        transcript.scrollTo({ top: transcript.scrollHeight, behavior });
+      } else if (force) {
+        threadEndRef.current?.scrollIntoView({ behavior, block: "nearest" });
+      }
     });
   }, []);
 
@@ -503,7 +509,7 @@ function AssistantWorkspaceClient() {
           setStreamingContext(streamEvent.document);
           setContextDetails((current) => ({ ...current, [streamEvent.document.id]: streamEvent.document }));
           setStages((current) => completeLane(current, "save"));
-          setLiveStatus(`${streamEvent.document.title} was saved to Context.`);
+          setLiveStatus(`${cleanDocumentTitle(streamEvent.document.title)} was saved to Context.`);
           return;
         }
         if (streamEvent.type === "complete") {
@@ -775,7 +781,7 @@ function MessageCard({ message, contextDocument, sourceDocuments, copied, onCopy
     <div className="assistant-response">
       <header><span><strong>Summit Assistant</strong><small><ModeIcon size={12}/>{mode.label}</small></span><span>{message.status !== "completed" && <span className={`badge ${message.status === "failed" ? "danger" : "warning"}`}>{message.status}</span>}<time dateTime={message.createdAt}>{formatMessageTime(message.createdAt)}</time></span></header>
       <MarkdownContent content={message.content}/>
-      {sourceDocuments.length > 0 && <div className="assistant-sources"><span>{message.mode === "create" ? "Creative context" : "Sources"}</span>{sourceDocuments.map((document) => <Link key={document.id} href={`/context?document=${encodeURIComponent(document.id)}`}><BookOpenText size={12}/>{document.title}</Link>)}</div>}
+      {sourceDocuments.length > 0 && <div className="assistant-sources"><span>{message.mode === "create" ? "Creative context" : "Sources"}</span>{sourceDocuments.map((document) => <Link key={document.id} href={`/context?document=${encodeURIComponent(document.id)}`}><BookOpenText size={12}/>{cleanDocumentTitle(document.title)}</Link>)}</div>}
       {message.generatedAssetId && <GeneratedAsset assetId={message.generatedAssetId} width={message.generatedAssetWidth} height={message.generatedAssetHeight} altText={imageAltText(message.content)}/>} 
       {message.savedContextDocumentId && <ContextResult document={contextDocument} documentId={message.savedContextDocumentId}/>} 
       {message.warnings.length > 0 && <div className="assistant-warnings"><TriangleAlert size={15}/><div><strong>{message.status === "failed" ? "This request stopped" : "Result notes"}</strong>{message.warnings.map((warning) => <p key={warning}>{warning}</p>)}</div></div>}

@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, BookOpenText, CalendarDays, Check, CircleHelp, Clipboard, Clock3, Download, ImageIcon, Pencil, Plus, RotateCcw, Sparkles, Trash2, Users, X } from "lucide-react";
 import type { SummitAgendaBatch, SummitAgendaBatchSummary, SummitAgendaData, SummitAgendaPerson, SummitAgendaSession } from "@/lib/types";
 import { InlineOperation, useOperations } from "./operations";
-import { apiRequest, ConnectionBadge, formatDate, PageState, useWorkspace } from "./workspace";
+import { apiRequest, ConnectionBadge, formatDateTime, PageState, useWorkspace } from "./workspace";
 
 interface AgendaResponse { agenda: SummitAgendaData; batches: SummitAgendaBatchSummary[]; batch: SummitAgendaBatch | null }
 const PIXELS_PER_MINUTE = 2.7;
@@ -186,7 +186,7 @@ export function SummitAgendaClient({ initialBatchId = null }: { initialBatchId?:
     <section className="agenda-board-section">
       <div className="section-heading agenda-board-heading"><div><h2>{day.label} schedule</h2><p className="muted">{day.sessions.length} source sessions · {readyOnDay.length} ready to generate · click Edit to fill any source gaps</p></div><span className="source-lock"><Check size={14}/>Verified against saved HTML</span></div>
       <div className="agenda-calendar-shell">
-        <div className="agenda-calendar-head"><div className="agenda-time-corner"><Clock3 size={15}/>Local</div>{data.agenda.stages.map((stage) => <div key={stage.key} className="agenda-stage-head"><strong>{stage.name}</strong><small>{day.sessions.filter((session) => session.stage === stage.key).length} sessions</small></div>)}</div>
+        <div className="agenda-calendar-head"><div className="agenda-time-corner"><Clock3 size={15}/>Local</div>{data.agenda.stages.map((stage) => { const count = day.sessions.filter((session) => session.stage === stage.key).length; return <div key={stage.key} className="agenda-stage-head"><strong>{stage.name}</strong><small>{count} session{count === 1 ? "" : "s"}</small></div>; })}</div>
         <div className="agenda-calendar-body" style={{ height: timelineHeight }}>
           <div className="agenda-time-rail">{ticks.map((tick) => <span key={tick} style={{ top: (tick - dayStart) * PIXELS_PER_MINUTE }}>{formatClock(tick)}</span>)}</div>
           {data.agenda.stages.map((stage) => {
@@ -200,9 +200,9 @@ export function SummitAgendaClient({ initialBatchId = null }: { initialBatchId?:
                 left: `calc(${layout.lane * (100 / layout.lanes)}% + 4px)`,
                 width: `calc(${100 / layout.lanes}% - 8px)`
               };
-              return <article key={session.id} className={`agenda-session-card format-${session.format.toLowerCase()} ${checked ? "selected" : ""} ${issue ? "not-ready" : ""}`} style={cardStyle} onClick={() => toggleSession(session)} title={issue || `${session.title} · ${session.people.map((person) => person.name).join(", ")}`}>
-                <div className="agenda-card-top"><span className="agenda-card-check" aria-label={checked ? "Selected" : issue || "Ready to select"}>{checked ? <Check size={13}/> : issue ? <AlertTriangle size={12}/> : null}</span><time>{session.startLabel}–{session.endLabel}</time><span className="agenda-format">{session.format}</span><button className="agenda-edit-button" aria-label={`Edit ${session.title || "session"}`} onClick={(event) => { event.stopPropagation(); setEditing(structuredClone(session)); setPendingFiles({}); }}><Pencil size={12}/></button></div>
-                <h3>{session.title || "Title not supplied"}</h3>
+              return <article key={session.id} className={`agenda-session-card format-${session.format.toLowerCase()} ${checked ? "selected" : ""} ${issue ? "not-ready" : ""}`} style={cardStyle} onClick={() => toggleSession(session)} title={issue || `${cleanAgendaTitle(session.title)} · ${session.people.map((person) => person.name).join(", ")}`}>
+                <div className="agenda-card-top"><span className="agenda-card-check" aria-label={checked ? "Selected" : issue || "Ready to select"}>{checked ? <Check size={13}/> : issue ? <AlertTriangle size={12}/> : null}</span><time>{session.startLabel}–{session.endLabel}</time><span className="agenda-format">{session.format}</span><button className="agenda-edit-button" aria-label={`Edit ${cleanAgendaTitle(session.title) || "session"}`} onClick={(event) => { event.stopPropagation(); setEditing({ ...structuredClone(session), title: cleanAgendaTitle(session.title) }); setPendingFiles({}); }}><Pencil size={12}/></button></div>
+                <h3>{cleanAgendaTitle(session.title) || "Title not supplied"}</h3>
                 <div className="agenda-card-people"><div className="agenda-mini-portraits">{session.people.slice(0, 5).map((person) => person.photo ? <Image key={person.id} src={portraitUrl(person.photo, 56)} alt="" width={28} height={28} unoptimized/> : <span key={person.id}><Users size={12}/></span>)}{session.people.length > 5 && <b>+{session.people.length - 5}</b>}</div><small>{session.people.length ? session.people.map((person) => person.name).join(" · ") : "No speakers attached"}</small></div>
                 {issue && <span className="agenda-card-issue">{issue}</span>}
               </article>;
@@ -212,11 +212,11 @@ export function SummitAgendaClient({ initialBatchId = null }: { initialBatchId?:
       </div>
     </section>
 
-    {batches.length > 0 && <section className="section-block agenda-results-section"><div className="section-heading split spotlight-batch-heading"><div><h2>Generated live posts</h2><p className="muted">First-pass provider canvases are saved locally without cropping or resizing.</p></div><div className="toolbar spotlight-batch-controls"><select className="spotlight-batch-select" value={activeBatch?.id || ""} onChange={(event) => { const id = event.target.value; setOperationId(null); setFollowLatestBatch(false); setActiveBatchId(id); void load(id); }}>{batches.map((batch) => <option key={batch.id} value={batch.id}>{formatDate(batch.createdAt)} · {batch.resultCount} post{batch.resultCount === 1 ? "" : "s"}</option>)}</select>{activeBatch && <button className="button secondary small danger-text" onClick={() => void removeBatch(activeBatch.id)}><Trash2 size={14}/>Delete</button>}</div></div>
+    {batches.length > 0 && <section className="section-block agenda-results-section"><div className="section-heading split spotlight-batch-heading"><div><h2>Generated live posts</h2><p className="muted">First-pass provider canvases are saved locally without cropping or resizing.</p></div><div className="toolbar spotlight-batch-controls"><select className="spotlight-batch-select" aria-label="Open generated live-post batch" value={activeBatch?.id || ""} onChange={(event) => { const id = event.target.value; setOperationId(null); setFollowLatestBatch(false); setActiveBatchId(id); void load(id); }}>{batches.map((batch) => <option key={batch.id} value={batch.id}>{formatDateTime(batch.createdAt)} · {batch.status.replaceAll("_", " ")} · {batch.resultCount} post{batch.resultCount === 1 ? "" : "s"}</option>)}</select>{activeBatch && <button className="button secondary small danger-text" onClick={() => void removeBatch(activeBatch.id)}><Trash2 size={14}/>Delete</button>}</div></div>
       {activeBatch && activeBatchCounts && <>
         <div className="spotlight-batch-summary"><span><strong>{activeBatchCounts.completed}</strong> completed</span><span><strong>{activeBatchCounts.failed}</strong> failed</span>{activeBatchCounts.canceled > 0 && <span><strong>{activeBatchCounts.canceled}</strong> canceled</span>}{activeBatchCounts.active > 0 && <span><strong>{activeBatchCounts.active}</strong> in progress</span>}<span><strong>{activeBatch.model}</strong> image model</span><span><strong>3:4</strong> requested composition</span></div>
         <div className="agenda-result-grid">{activeBatch.results.map((result, resultIndex) => <article className="agenda-result-card" key={result.id}>
-          <div className="agenda-result-heading"><div><span className={`status-icon ${result.status === "completed" ? "completed" : result.status === "failed" ? "failed" : "running"}`}>{result.status === "completed" ? <Check size={17}/> : result.status === "failed" ? <AlertTriangle size={17}/> : <Sparkles size={17}/>}</span><div><h3>{result.session.title}</h3><small>{result.session.startLabel}–{result.session.endLabel} · {result.session.stageName}</small></div></div>{result.imageAssetId && <span className="badge success">C2PA stripped</span>}</div>
+          <div className="agenda-result-heading"><div><span className={`status-icon ${result.status === "completed" ? "completed" : result.status === "failed" ? "failed" : "running"}`}>{result.status === "completed" ? <Check size={17}/> : result.status === "failed" ? <AlertTriangle size={17}/> : <Sparkles size={17}/>}</span><div><h3>{cleanAgendaTitle(result.session.title)}</h3><small>{result.session.startLabel}–{result.session.endLabel} · {result.session.stageName}</small></div></div>{result.imageAssetId && <span className="badge success">C2PA stripped</span>}</div>
           {result.error && <div className="warnings"><AlertTriangle/><span>{result.error}</span></div>}
           {result.imageAssetId ? <><div className="agenda-result-image"><Image src={`/api/summit-agenda/asset?id=${result.imageAssetId}&preview=1`} alt={`${result.session.title} live agenda post`} width={1080} height={1440} loading={resultIndex === 0 ? "eager" : "lazy"} unoptimized/></div><a className="button secondary" href={`/api/summit-agenda/asset?id=${result.imageAssetId}&download=1`}><Download size={15}/>Download provider PNG</a></> : <div className="agenda-result-placeholder"><ImageIcon/><span>{result.status.replaceAll("_", " ")}</span></div>}
           <div className="agenda-caption"><div className="copy-heading"><strong>Social media caption</strong><button className="icon-button" aria-label={`Copy ${result.session.title} caption`} onClick={() => void copyCaption(result.id, result.caption)}>{copiedCaptionId === result.id ? <Check size={15}/> : <Clipboard size={15}/>}</button></div><pre>{result.caption}</pre></div>
@@ -237,6 +237,19 @@ function generationIssue(session: SummitAgendaSession) {
   if (!session.people.length) return "Add speaker";
   const missing = session.people.find((person) => !person.photo);
   return missing ? `Photo needed: ${missing.name}` : null;
+}
+
+function cleanAgendaTitle(title: string) {
+  const corrections: Record<string, string> = {
+    "AGI the IntelligentMachineGuild.org and the Real Three Laws": "AGI, the Intelligent Machine Guild, and the Real Three Laws",
+    "Winning when Code is Free: How to b Build Defensible AI Startups that Scale": "Winning When Code Is Free: How to Build Defensible AI Startups That Scale",
+    "World Positive Al: Building for Human Flourishing": "World Positive AI: Building for Human Flourishing",
+    "The Future of AI Interferce": "The Future of AI Interfaces",
+    "how agents can lead to abundance for all by accelerating scientific discovery": "How Agents Can Lead to Abundance for All by Accelerating Scientific Discovery",
+    "Investing in the Future of Physicial AI": "Investing in the Future of Physical AI",
+    "Al Infrastructure for an Accelerating World: From Data Centers to Enterprise Edge": "AI Infrastructure for an Accelerating World: From Data Centers to Enterprise Edge"
+  };
+  return corrections[title] || title;
 }
 
 function portraitUrl(token: string, size?: number) { return `/api/summit-agenda/portrait?token=${encodeURIComponent(token)}${size ? `&size=${size}` : ""}`; }
