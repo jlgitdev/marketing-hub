@@ -13,10 +13,12 @@ describe("prompt trust boundaries", () => {
     expect(prompt).toContain("Never infer or guess an email address");
     expect(prompt).toContain(hostile.body);
   });
-  it("requires missing facts to remain missing and image backgrounds to be text-free", () => {
+  it("requires missing facts to remain missing and delegates the complete artwork to GPT Image 2", () => {
     const prompt = buildSocialPrompt({ name: "Campaign", brief: "Create practical campaign copy", objective: "Registrations", audience: "Builders", callToAction: "Learn more", requiredPhrases: "", prohibitedPhrases: "", headline: "", imageDirection: "", platforms: ["x"], context: [hostile] });
     expect(prompt).toContain("Unsupported facts must remain missing");
-    expect(prompt).toContain("no words, logos, watermark");
+    expect(prompt).toContain("one complete GPT Image 2 artwork");
+    expect(prompt).toContain("including all visible words and the supplied official logo");
+    expect(prompt).toContain("Never request a background-only image");
   });
   it("searches summit customer lanes and separates discovery from enrichment", () => {
     const input = { name: "Test", objective: "Sell summit tickets", region: "San Francisco Bay Area", count: 12, opportunityTypes: ["organization"], organizationCategories: ["technology employers", "education"], eventCategories: ["AI events"], targetRoles: ["learning and development"], audienceRoles: ["engineers", "students"], targetSegments: ["technology_employees", "college_prep_education"], salesMotions: ["group_ticket_sales", "education_distribution"], positiveKeywords: "AI", exclusionKeywords: "inactive", dateRange: "", notes: "", context: [hostile] };

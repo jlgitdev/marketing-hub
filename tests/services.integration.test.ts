@@ -6,7 +6,7 @@ import { DEMO_CONTEXT } from "@/server/ai/demo-provider";
 import { runResearch } from "@/server/services/research-service";
 import { generateOutreach } from "@/server/services/outreach-service";
 import { leadsCsv, outreachCsv, substituteMergeFields, unresolvedPlaceholders } from "@/server/services/export-service";
-import { generateContentCampaign, regeneratePlatform } from "@/server/services/content-service";
+import { generateContentCampaign, inferCampaignPlatforms, regeneratePlatform } from "@/server/services/content-service";
 import { generateCampaignGraphic } from "@/server/storage/assets";
 import { closeDatabase, getDatabase } from "@/server/db/database";
 import { dataDirectory } from "@/server/config";
@@ -103,9 +103,31 @@ describe("deterministic persisted workflows", () => {
     expect(listContentCampaigns()[0].posts.find((post) => post.id === campaign.posts[1].id)).toMatchObject({ hook: "Edited campaign hook", callToAction: "Edited call to action" });
     const regenerated = await regeneratePlatform(campaign.id, "x", null);
     expect(regenerated.version).toBe(2);
-    const asset = await generateCampaignGraphic({ campaignId: campaign.id, platform: "instagram", prompt: campaign.posts[2].imagePrompt, headline: "Applied Intelligence Forum", subheadline: "October 14 · San Francisco", footer: "forum.example/tickets", apiKey: null });
+    const asset = await generateCampaignGraphic({ campaignId: campaign.id, platform: "instagram", prompt: campaign.posts[2].imagePrompt, apiKey: null });
     expect(asset.mimeType).toBe("image/png");
     expect(listContentCampaigns()[0].assets.some((item) => item.id === asset.id)).toBe(true);
+  });
+
+  it("creates a prompt-only campaign and stores one complete one-shot artwork without a background asset", async () => {
+    seedContext();
+    expect(inferCampaignPlatforms("Create a LinkedIn post with no logo")).toEqual(["linkedin"]);
+    expect(inferCampaignPlatforms("Launch the summit campaign everywhere")).toEqual(["x", "linkedin", "instagram"]);
+
+    const campaign = await generateContentCampaign({
+      prompt: "Create a LinkedIn registration post for AI builders with no logo. Use a premium cobalt editorial style and a 16:9 graphic."
+    }, null);
+
+    expect(campaign.platforms).toEqual(["linkedin"]);
+    expect(campaign.posts).toHaveLength(1);
+    expect(campaign.assets).toEqual([
+      expect.objectContaining({
+        kind: "composite",
+        model: "demo-image-v1",
+        overlay: expect.objectContaining({ generationMode: "gpt-image-2-full-artwork", oneShot: true })
+      })
+    ]);
+    expect(campaign.assets[0].overlay.references).not.toEqual(expect.arrayContaining([expect.objectContaining({ mode: "logo" })]));
+    expect(campaign.assets.some((asset) => asset.kind === "background")).toBe(false);
   });
 
   it("deterministically labels fallback style when no platform guide is selected", async () => {
@@ -119,9 +141,10 @@ describe("deterministic persisted workflows", () => {
     await expect(runResearch({ name: "Failed fixture", objective: "Find opportunities [demo-provider-error]", region: "San Francisco Bay Area", count: 5, contextDocumentIds: context.map((item) => item.id) }, null)).rejects.toThrow(/demo provider error/);
     expect(listResearchRuns()[0].status).toBe("failed");
     const campaign = await generateContentCampaign({ name: "Preserved text", brief: "Create a complete fictional campaign that survives an image provider error", objective: "Registrations", audience: "Builders", callToAction: "Learn more", contextDocumentIds: context.map((item) => item.id), platforms: ["instagram"] }, null);
-    await expect(generateCampaignGraphic({ campaignId: campaign.id, platform: "instagram", prompt: "[demo-image-error]", headline: "Headline", subheadline: "Subheadline", footer: "CTA", apiKey: null })).rejects.toThrow(/image-generation error/);
+    const savedAssetCount = campaign.assets.length;
+    await expect(generateCampaignGraphic({ campaignId: campaign.id, platform: "instagram", prompt: "[demo-image-error]", apiKey: null })).rejects.toThrow(/image-generation error/);
     expect(listContentCampaigns()[0].posts).toHaveLength(1);
-    expect(listContentCampaigns()[0].assets).toHaveLength(0);
+    expect(listContentCampaigns()[0].assets).toHaveLength(savedAssetCount);
   });
 
   it("persists a failed content text run without replacing a prior successful campaign", async () => {

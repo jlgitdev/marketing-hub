@@ -11,8 +11,9 @@ export const KEY_SESSION_TTL_MS = 8 * 60 * 60 * 1000;
 export const PROMPT_VERSIONS = {
   research: "summit-sales-research-v3-qualified-funnel",
   outreach: "outreach-v2-auto-context",
-  content: "social-content-v2-auto-context",
-  image: "campaign-image-v1",
+  content: "social-content-v3-prompt-first-full-artwork",
+  assistantCreative: "assistant-creative-v2-full-artwork",
+  image: "campaign-image-v3-gpt-image-2-one-shot",
   speakerSpotlight: "speaker-spotlight-v7-palace-template",
   summitAgenda: "summit-agenda-live-v3-3x4"
 } as const;
@@ -32,6 +33,7 @@ export const SUMMIT_AGENDA_IMAGE_SPEC = {
 } as const;
 
 export const PLATFORM_CONFIG = {
+  general: { label: "Any platform", characterLimit: 12_000, image: { width: 1024, height: 1024 } },
   x: { label: "X", characterLimit: 280, image: { width: 1200, height: 675 } },
   linkedin: { label: "LinkedIn", characterLimit: 3000, image: { width: 1200, height: 627 } },
   instagram: { label: "Instagram", characterLimit: 2200, image: { width: 1080, height: 1080 } }

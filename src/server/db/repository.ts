@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import type {
+  AssistantMessage,
   BrandAsset,
   ContentCampaign,
   ContextDocument,
@@ -28,6 +29,7 @@ import type {
 import { buildSummitAgendaCaption } from "@/lib/summit-agenda-caption";
 import { MAX_FILES } from "@/lib/config";
 import { dataDirectory, isDemoMode, isPathInsideDataDirectory } from "@/server/config";
+import { redactSecrets } from "@/server/security/validation";
 import { ensureDataDirectories, getDatabase, withTransaction } from "./database";
 import { canonicalLeadKey, qualifyLead } from "@/server/services/lead-qualification";
 import { getActiveWorkspace, getWorkspaceRecord, listWorkspaces } from "@/server/workspaces/registry";
@@ -178,6 +180,84 @@ function generatedFromRow(row: Record<string, unknown>): GeneratedAsset {
   };
 }
 
+function assistantMessageFromRow(row: Record<string, unknown>): AssistantMessage {
+  return {
+    id: String(row.id),
+    role: row.role as AssistantMessage["role"],
+    mode: row.mode as AssistantMessage["mode"],
+    content: String(row.content),
+    status: row.status as AssistantMessage["status"],
+    attachmentIds: json(String(row.attachment_ids || "[]"), []),
+    textAttachments: json(String(row.text_attachments || "[]"), []),
+    contextDocumentIds: json(String(row.context_document_ids || "[]"), []),
+    generatedAssetId: row.generated_asset_id ? String(row.generated_asset_id) : null,
+    generatedAssetWidth: row.generated_asset_width == null ? null : Number(row.generated_asset_width),
+    generatedAssetHeight: row.generated_asset_height == null ? null : Number(row.generated_asset_height),
+    contentCampaignId: row.content_campaign_id ? String(row.content_campaign_id) : null,
+    savedContextDocumentId: row.saved_context_document_id ? String(row.saved_context_document_id) : null,
+    warnings: json(String(row.warnings || "[]"), []),
+    createdAt: String(row.created_at)
+  };
+}
+
+export function listAssistantMessages(limit = 100) {
+  const bounded = Math.max(1, Math.min(200, Math.floor(limit)));
+  const rows = getDatabase().prepare(`
+    SELECT recent.*, generated.width AS generated_asset_width, generated.height AS generated_asset_height
+    FROM (
+      SELECT rowid AS sequence, * FROM assistant_messages
+      ORDER BY created_at DESC, rowid DESC LIMIT ?
+    ) AS recent
+    LEFT JOIN generated_assets AS generated ON generated.id=recent.generated_asset_id
+    ORDER BY recent.created_at ASC, recent.sequence ASC
+  `).all(bounded) as Array<Record<string, unknown>>;
+  return rows.map(assistantMessageFromRow);
+}
+
+type NewAssistantMessage = Omit<AssistantMessage, "id" | "createdAt" | "textAttachments" | "generatedAssetWidth" | "generatedAssetHeight"> & {
+  textAttachments?: AssistantMessage["textAttachments"];
+};
+
+export function createAssistantMessage(input: NewAssistantMessage) {
+  const textAttachments = (input.textAttachments || []).map((attachment) => ({
+    name: redactSecrets(attachment.name),
+    content: redactSecrets(attachment.content)
+  }));
+  const message: AssistantMessage = {
+    ...input,
+    textAttachments,
+    content: redactSecrets(input.content),
+    warnings: input.warnings.map((warning) => redactSecrets(warning)),
+    generatedAssetWidth: null,
+    generatedAssetHeight: null,
+    id: id(),
+    createdAt: new Date().toISOString()
+  };
+  getDatabase().prepare(`
+    INSERT INTO assistant_messages(
+      id,role,mode,content,status,attachment_ids,text_attachments,context_document_ids,
+      generated_asset_id,content_campaign_id,saved_context_document_id,warnings,created_at
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+  `).run(
+    message.id, message.role, message.mode, message.content, message.status,
+    JSON.stringify(message.attachmentIds), JSON.stringify(message.textAttachments), JSON.stringify(message.contextDocumentIds),
+    message.generatedAssetId, message.contentCampaignId, message.savedContextDocumentId,
+    JSON.stringify(message.warnings), message.createdAt
+  );
+  if (message.generatedAssetId) {
+    const generated = getDatabase().prepare("SELECT width,height FROM generated_assets WHERE id=?").get(message.generatedAssetId) as { width: number; height: number } | undefined;
+    if (generated) {
+      message.generatedAssetWidth = Number(generated.width);
+      message.generatedAssetHeight = Number(generated.height);
+    }
+  }
+  return message;
+}
+
+export function clearAssistantMessages() {
+  getDatabase().prepare("DELETE FROM assistant_messages").run();
+}
+
 export function listContextDocuments() {
   return (getDatabase().prepare("SELECT * FROM context_documents ORDER BY source_of_truth DESC, updated_at DESC").all() as Array<Record<string, unknown>>).map(contextFromRow);
 }
@@ -187,9 +267,11 @@ export function createContextDocument(input: Omit<ContextDocument, "id" | "creat
   if (listContextDocuments().length + listBrandAssets().length >= MAX_FILES) throw new Error(`Marketing Hub allows at most ${MAX_FILES} combined context documents and brand assets.`);
   const now = new Date().toISOString();
   const document: ContextDocument = { ...input, id: id(), createdAt: now, updatedAt: now };
-  if (document.sourceOfTruth) db.prepare("UPDATE context_documents SET source_of_truth = 0 WHERE type = ?").run(document.type);
-  db.prepare(`INSERT INTO context_documents(id,title,type,body,active,source_of_truth,notes,summary,tags,platforms,purposes,origin,source_path,content_hash,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
-    .run(document.id, document.title, document.type, document.body, Number(document.active), Number(document.sourceOfTruth), document.notes, document.summary, JSON.stringify(document.tags), JSON.stringify(document.platforms), JSON.stringify(document.purposes), document.origin, document.sourcePath, document.contentHash, now, now);
+  withTransaction(db, () => {
+    if (document.sourceOfTruth) db.prepare("UPDATE context_documents SET source_of_truth = 0").run();
+    db.prepare(`INSERT INTO context_documents(id,title,type,body,active,source_of_truth,notes,summary,tags,platforms,purposes,origin,source_path,content_hash,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+      .run(document.id, document.title, document.type, document.body, Number(document.active), Number(document.sourceOfTruth), document.notes, document.summary, JSON.stringify(document.tags), JSON.stringify(document.platforms), JSON.stringify(document.purposes), document.origin, document.sourcePath, document.contentHash, now, now);
+  });
   addActivity("context_created", `Added ${document.title}`, "Context Library", document.id);
   return document;
 }
@@ -199,9 +281,11 @@ export function updateContextDocument(documentId: string, patch: Partial<Pick<Co
   if (!current) throw new Error("Context document not found.");
   const next = { ...current, ...patch, updatedAt: new Date().toISOString() };
   const db = getDatabase();
-  if (next.sourceOfTruth) db.prepare("UPDATE context_documents SET source_of_truth = 0 WHERE type = ? AND id <> ?").run(next.type, next.id);
-  db.prepare(`UPDATE context_documents SET title=?,type=?,body=?,active=?,source_of_truth=?,notes=?,summary=?,tags=?,platforms=?,purposes=?,content_hash=?,updated_at=? WHERE id=?`)
-    .run(next.title, next.type, next.body, Number(next.active), Number(next.sourceOfTruth), next.notes, next.summary, JSON.stringify(next.tags), JSON.stringify(next.platforms), JSON.stringify(next.purposes), next.contentHash, next.updatedAt, next.id);
+  withTransaction(db, () => {
+    if (next.sourceOfTruth) db.prepare("UPDATE context_documents SET source_of_truth = 0 WHERE id <> ?").run(next.id);
+    db.prepare(`UPDATE context_documents SET title=?,type=?,body=?,active=?,source_of_truth=?,notes=?,summary=?,tags=?,platforms=?,purposes=?,content_hash=?,updated_at=? WHERE id=?`)
+      .run(next.title, next.type, next.body, Number(next.active), Number(next.sourceOfTruth), next.notes, next.summary, JSON.stringify(next.tags), JSON.stringify(next.platforms), JSON.stringify(next.purposes), next.contentHash, next.updatedAt, next.id);
+  });
   return next;
 }
 
@@ -240,7 +324,7 @@ export function createBrandAsset(input: Omit<BrandAsset, "id" | "createdAt"> & {
   const asset = { ...input, id: id(), createdAt: now };
   getDatabase().prepare(`INSERT INTO brand_assets(id,title,type,file_name,storage_path,mime_type,width,height,size_bytes,active,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)`)
     .run(asset.id, asset.title, asset.type, asset.fileName, asset.storagePath, asset.mimeType, asset.width, asset.height, asset.sizeBytes, Number(asset.active), now);
-  addActivity("asset_created", `Added ${asset.title}`, "Brand asset", asset.id);
+  if (asset.type !== "assistant_attachment") addActivity("asset_created", `Added ${asset.title}`, "Brand asset", asset.id);
   const { storagePath: _storagePath, ...publicAsset } = asset;
   void _storagePath;
   return publicAsset;
@@ -429,6 +513,15 @@ export function listContentCampaigns() {
     posts: (db.prepare("SELECT * FROM platform_posts WHERE campaign_id=? ORDER BY platform").all(String(row.id)) as Array<Record<string, unknown>>).map(postFromRow),
     assets: (db.prepare("SELECT * FROM generated_assets WHERE campaign_id=? ORDER BY created_at DESC").all(String(row.id)) as Array<Record<string, unknown>>).map(generatedFromRow)
   }));
+}
+
+export function updateContentCampaign(campaignId: string, patch: Partial<Pick<ContentCampaign, "warnings" | "error" | "status">>) {
+  const campaign = listContentCampaigns().find((item) => item.id === campaignId);
+  if (!campaign) throw new Error("Content campaign not found.");
+  const next = { ...campaign, ...patch, updatedAt: new Date().toISOString() };
+  getDatabase().prepare("UPDATE content_campaigns SET warnings=?,error=?,status=?,updated_at=? WHERE id=?")
+    .run(JSON.stringify(next.warnings), next.error, next.status, next.updatedAt, campaignId);
+  return next;
 }
 
 export function updatePlatformPost(postId: string, patch: Partial<Pick<PlatformPost, "text" | "hook" | "callToAction" | "hashtags" | "imageHeadline" | "imageSubheadline" | "imageAltText" | "reviewStatus">>) {
@@ -851,7 +944,7 @@ export function getWorkspaceState(connection: WorkspaceState["connection"]): Wor
 export function resetAllData() {
   const db = getDatabase();
   withTransaction(db, () => {
-    for (const table of ["ai_operations", "activity_events", "summit_agenda_results", "summit_agenda_batches", "summit_agenda_state", "speaker_spotlight_results", "speaker_spotlight_batches", "speaker_spotlight_templates", "workspace_settings", "generated_assets", "platform_posts", "content_campaigns", "outreach_recipients", "outreach_campaigns", "lead_sources", "leads", "research_sources", "research_runs", "brand_assets", "context_documents", "context_asset_imports"]) db.prepare(`DELETE FROM ${table}`).run();
+    for (const table of ["assistant_messages", "ai_operations", "activity_events", "summit_agenda_results", "summit_agenda_batches", "summit_agenda_state", "speaker_spotlight_results", "speaker_spotlight_batches", "speaker_spotlight_templates", "workspace_settings", "generated_assets", "platform_posts", "content_campaigns", "outreach_recipients", "outreach_campaigns", "lead_sources", "leads", "research_sources", "research_runs", "brand_assets", "context_documents", "context_asset_imports"]) db.prepare(`DELETE FROM ${table}`).run();
   });
   for (const name of ["uploads", "generated", "exports", "tmp", "speaker_spotlights", "speaker_spotlight_templates", "summit_agenda"]) fs.rmSync(path.join(dataDirectory(), name), { recursive: true, force: true });
   ensureDataDirectories();

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -11,12 +11,25 @@ import { apiRequest, ConnectionBadge, PageState, formatDate, useWorkspace } from
 
 const label = (value: string) => value.replaceAll("_", " ").replace(/\b\w/g, (character) => character.toUpperCase());
 
-export function ContextClient() {
+export function ContextClient({ requestedDocumentId = null }: { requestedDocumentId?: string | null }) {
   const workspace = useWorkspace();
   const [editing, setEditing] = useState<ContextDocument | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const documentRefs = useRef(new Map<string, HTMLElement>());
+
+  useEffect(() => {
+    if (!requestedDocumentId) return;
+    const element = documentRefs.current.get(requestedDocumentId);
+    if (!element) return;
+    const frame = window.requestAnimationFrame(() => {
+      element.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "center" });
+      element.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [requestedDocumentId, workspace.state?.activeWorkspace.id, workspace.state?.contextDocuments.length]);
+
   if (!workspace.state) return <PageState loading={workspace.loading} error={workspace.error} retry={workspace.refresh}/>;
   const state = workspace.state;
   const conflictingEventBriefs = state.contextDocuments.filter((document) => document.active && (document.sourceOfTruth || document.type === "event_information" || /event/i.test(document.type)));
@@ -44,18 +57,18 @@ export function ContextClient() {
 
   async function remove(id: string, kind: "document" | "asset") {
     if (!confirm(`Delete this ${kind}? This cannot be undone.`)) return;
-    try { await apiRequest(kind === "document" ? `/api/context?id=${id}` : `/api/assets?id=${id}`, { method: "DELETE" }); await workspace.refresh(); }
+    try { await apiRequest(kind === "document" ? `/api/context?id=${id}` : `/api/assets?workspaceId=${encodeURIComponent(state.activeWorkspace.id)}&id=${encodeURIComponent(id)}`, { method: "DELETE" }); await workspace.refresh(); }
     catch (error) { setMessage(error instanceof Error ? error.message : "Delete failed."); }
   }
 
   async function uploadAsset(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault(); setBusy(true); setMessage(null); const formElement = event.currentTarget;
-    try { await apiRequest("/api/assets", { method: "POST", body: new FormData(formElement) }); formElement.reset(); setMessage("Visual asset saved locally."); await workspace.refresh(); }
+    try { const form = new FormData(formElement); form.set("workspaceId", state.activeWorkspace.id); await apiRequest("/api/assets", { method: "POST", body: form }); formElement.reset(); setMessage("Visual asset saved locally."); await workspace.refresh(); }
     catch (error) { setMessage(error instanceof Error ? error.message : "Asset upload failed."); } finally { setBusy(false); }
   }
 
   async function toggleAsset(id: string, active: boolean) {
-    try { await apiRequest("/api/assets", { method: "PATCH", body: JSON.stringify({ id, active }) }); setMessage(active ? "Asset enabled." : "Asset disabled."); await workspace.refresh(); }
+    try { await apiRequest("/api/assets", { method: "PATCH", body: JSON.stringify({ workspaceId: state.activeWorkspace.id, id, active }) }); setMessage(active ? "Asset enabled." : "Asset disabled."); await workspace.refresh(); }
     catch (error) { setMessage(error instanceof Error ? error.message : "Could not update the asset."); }
   }
 
@@ -79,10 +92,10 @@ export function ContextClient() {
         <button className="button secondary full" type="button" disabled={busy} onClick={() => fileRef.current?.click()}><Upload size={16}/>Upload .md or .txt</button>
       </section>
       <section><div className="section-heading"><h2>Documents</h2><span className="muted">{state.contextDocuments.length} saved · {state.counts.activeContext} active</span></div>
-        {state.contextDocuments.length ? <div className="document-list">{state.contextDocuments.map((document) => <article className="document-card" key={document.id}><div className="document-top"><div><span className="type-label">{label(document.type)}</span>{document.sourceOfTruth && <span className="badge success">Primary source of truth</span>} {!document.active && <span className="badge">Inactive</span>} {document.origin === "project_asset" && <span className="badge">Project asset</span>}<h3>{document.title}</h3><small>Updated {formatDate(document.updatedAt)}</small><p className="context-summary">{document.summary}</p><div className="metadata-chips">{document.platforms.map((platform) => <span key={platform}>{platform}</span>)}{document.purposes.map((purpose) => <span key={purpose}>{purpose.replaceAll("_", " ")}</span>)}</div></div><div className="row-actions"><button className="icon-button" onClick={() => setEditing(document)} aria-label={`Edit ${document.title}`}><PencilLine size={16}/></button><button className="icon-button danger-text" onClick={() => void remove(document.id, "document")} aria-label={`Delete ${document.title}`}><Trash2 size={16}/></button></div></div><DocumentPreview body={document.body}/></article>)}</div> : <div className="empty-state"><BookOpenText/><h3>No context yet</h3><p>Add or upload any resource; filenames and contents are used to classify and retrieve it automatically.</p></div>}
+        {state.contextDocuments.length ? <div className="document-list">{state.contextDocuments.map((document) => <article ref={(node) => { if (node) documentRefs.current.set(document.id, node); else documentRefs.current.delete(document.id); }} className={`document-card ${requestedDocumentId === document.id ? "context-targeted" : ""}`} tabIndex={requestedDocumentId === document.id ? -1 : undefined} key={document.id}><div className="document-top"><div><span className="type-label">{label(document.type)}</span>{document.sourceOfTruth && <span className="badge success">Primary source of truth</span>} {!document.active && <span className="badge">Inactive</span>} {document.origin === "project_asset" && <span className="badge">Project asset</span>}<h3>{document.title}</h3><small>Updated {formatDate(document.updatedAt)}</small><p className="context-summary">{document.summary}</p><div className="metadata-chips">{document.platforms.map((platform) => <span key={platform}>{platform}</span>)}{document.purposes.map((purpose) => <span key={purpose}>{purpose.replaceAll("_", " ")}</span>)}</div></div><div className="row-actions"><button className="icon-button" onClick={() => setEditing(document)} aria-label={`Edit ${document.title}`}><PencilLine size={16}/></button><button className="icon-button danger-text" onClick={() => void remove(document.id, "document")} aria-label={`Delete ${document.title}`}><Trash2 size={16}/></button></div></div><DocumentPreview body={document.body}/></article>)}</div> : <div className="empty-state"><BookOpenText/><h3>No context yet</h3><p>Add or upload any resource; filenames and contents are used to classify and retrieve it automatically.</p></div>}
         <div className="section-heading asset-heading"><h2>Brand assets</h2></div>
         <form className="asset-upload" onSubmit={uploadAsset}><label>Title<input name="title" required placeholder="Primary event logo"/></label><label>Asset type<select name="type" defaultValue="logo"><option value="logo">Logo</option><option value="event_art">Event artwork</option><option value="visual_reference">Visual reference</option><option value="partner_mark">Partner mark</option></select></label><label>Image<input name="file" type="file" required accept="image/png,image/jpeg,image/webp"/></label><button className="button secondary" disabled={busy}><ImagePlus size={16}/>Add asset</button></form>
-        {state.brandAssets.length ? <div className="asset-grid">{state.brandAssets.map((asset) => <article className="asset-card" key={asset.id}><Image unoptimized width={58} height={48} src={`/api/assets?id=${asset.id}&preview=1`} alt={asset.title}/><div><strong>{asset.title}</strong><small>{asset.width}×{asset.height} · {(asset.sizeBytes/1024).toFixed(0)} KB</small><span className="badge success">C2PA stripped</span><button className="subtle-link inline-button" onClick={() => void toggleAsset(asset.id, !asset.active)}>{asset.active ? "Disable" : "Enable"}</button></div><button className="icon-button danger-text" onClick={() => void remove(asset.id, "asset")} aria-label={`Delete ${asset.title}`}><Trash2 size={16}/></button></article>)}</div> : <div className="compact-empty"><FilePlus2/><p>Add an approved logo or visual reference for campaign composition.</p></div>}
+        {state.brandAssets.filter((asset) => asset.type !== "assistant_attachment").length ? <div className="asset-grid">{state.brandAssets.filter((asset) => asset.type !== "assistant_attachment").map((asset) => <article className="asset-card" key={asset.id}><Image unoptimized width={58} height={48} src={`/api/assets?workspaceId=${encodeURIComponent(state.activeWorkspace.id)}&id=${encodeURIComponent(asset.id)}&preview=1`} alt={asset.title}/><div><strong>{asset.title}</strong><small>{asset.width}×{asset.height} · {(asset.sizeBytes/1024).toFixed(0)} KB</small><span className="badge success">C2PA stripped</span><button className="subtle-link inline-button" onClick={() => void toggleAsset(asset.id, !asset.active)}>{asset.active ? "Disable" : "Enable"}</button></div><button className="icon-button danger-text" onClick={() => void remove(asset.id, "asset")} aria-label={`Delete ${asset.title}`}><Trash2 size={16}/></button></article>)}</div> : <div className="compact-empty"><FilePlus2/><p>Add an approved logo or visual reference for campaign composition.</p></div>}
       </section>
     </div>
   </div>;

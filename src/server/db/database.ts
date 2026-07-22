@@ -364,6 +364,70 @@ const migrations = [
       ALTER TABLE speaker_spotlight_results DROP COLUMN qa;
       ALTER TABLE speaker_spotlight_templates DROP COLUMN exact_pixel_regions;
     `
+  },
+  {
+    version: 19,
+    sql: `
+      CREATE TABLE IF NOT EXISTS assistant_messages (
+        id TEXT PRIMARY KEY,
+        role TEXT NOT NULL CHECK(role IN ('user','assistant')),
+        mode TEXT NOT NULL CHECK(mode IN ('ask','create','context')),
+        content TEXT NOT NULL,
+        status TEXT NOT NULL CHECK(status IN ('completed','partial','failed')),
+        attachment_ids TEXT NOT NULL DEFAULT '[]',
+        context_document_ids TEXT NOT NULL DEFAULT '[]',
+        generated_asset_id TEXT,
+        content_campaign_id TEXT,
+        saved_context_document_id TEXT,
+        warnings TEXT NOT NULL DEFAULT '[]',
+        created_at TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS assistant_messages_created_idx
+        ON assistant_messages(created_at ASC);
+    `
+  },
+  {
+    version: 20,
+    sql: `
+      CREATE TRIGGER IF NOT EXISTS assistant_generated_asset_deleted
+      AFTER DELETE ON generated_assets
+      BEGIN
+        UPDATE assistant_messages SET generated_asset_id=NULL WHERE generated_asset_id=OLD.id;
+      END;
+      CREATE TRIGGER IF NOT EXISTS assistant_content_campaign_deleted
+      AFTER DELETE ON content_campaigns
+      BEGIN
+        UPDATE assistant_messages SET content_campaign_id=NULL, generated_asset_id=NULL WHERE content_campaign_id=OLD.id;
+      END;
+      CREATE TRIGGER IF NOT EXISTS assistant_context_document_deleted
+      AFTER DELETE ON context_documents
+      BEGIN
+        UPDATE assistant_messages SET saved_context_document_id=NULL WHERE saved_context_document_id=OLD.id;
+      END;
+    `
+  },
+  {
+    version: 21,
+    sql: `
+      UPDATE context_documents
+      SET source_of_truth=0
+      WHERE source_of_truth=1
+        AND id <> (
+          SELECT id FROM context_documents
+          WHERE source_of_truth=1
+          ORDER BY updated_at DESC, rowid DESC
+          LIMIT 1
+        );
+      CREATE UNIQUE INDEX IF NOT EXISTS context_single_source_of_truth_idx
+        ON context_documents(source_of_truth)
+        WHERE source_of_truth=1;
+    `
+  },
+  {
+    version: 22,
+    sql: `
+      ALTER TABLE assistant_messages ADD COLUMN text_attachments TEXT NOT NULL DEFAULT '[]';
+    `
   }
 ];
 

@@ -14,7 +14,28 @@ export type ContextType = string;
 export type RunStatus = "draft" | "queued" | "running" | "completed" | "partially_completed" | "failed" | "canceled";
 export type Confidence = "high" | "medium" | "low";
 export type ReviewStatus = "unreviewed" | "reviewed" | "rejected" | "needs_review";
-export type Platform = "x" | "linkedin" | "instagram";
+export type Platform = "general" | "x" | "linkedin" | "instagram";
+
+export type AssistantMode = "ask" | "create" | "context";
+export type AssistantMessageStatus = "completed" | "partial" | "failed";
+
+export interface AssistantMessage {
+  id: string;
+  role: "user" | "assistant";
+  mode: AssistantMode;
+  content: string;
+  status: AssistantMessageStatus;
+  attachmentIds: string[];
+  textAttachments: Array<{ name: string; content: string }>;
+  contextDocumentIds: string[];
+  generatedAssetId: string | null;
+  generatedAssetWidth: number | null;
+  generatedAssetHeight: number | null;
+  contentCampaignId: string | null;
+  savedContextDocumentId: string | null;
+  warnings: string[];
+  createdAt: string;
+}
 
 export type LeadTargetSegment =
   | "ai_professionals"
@@ -133,7 +154,7 @@ export interface ContextDocument {
 export interface BrandAsset {
   id: string;
   title: string;
-  type: "logo" | "event_art" | "visual_reference" | "partner_mark";
+  type: "logo" | "event_art" | "visual_reference" | "partner_mark" | "assistant_attachment";
   fileName: string;
   mimeType: string;
   width: number;

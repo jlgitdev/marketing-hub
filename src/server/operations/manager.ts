@@ -4,8 +4,7 @@ import { resolveApiKey } from "@/server/security/key-store";
 import { isDemoMode } from "@/server/config";
 import { runResearch, ResearchInputSchema } from "@/server/services/research-service";
 import { generateOutreach, OutreachInputSchema, regenerateOutreach } from "@/server/services/outreach-service";
-import { ContentInputSchema, generateContentCampaign, regeneratePlatforms } from "@/server/services/content-service";
-import { generateCampaignGraphic, type CampaignGraphicInput } from "@/server/storage/assets";
+import { ContentInputSchema, generateContentCampaign, generateContentCampaignImage, regeneratePlatforms } from "@/server/services/content-service";
 import { createSpeakerSpotlights, retrySpeakerSpotlight, SpeakerSpotlightInputSchema } from "@/server/services/speaker-spotlight-service";
 import { analyzeSpeakerSpotlightTemplate, SpeakerSpotlightTemplateOperationSchema } from "@/server/services/speaker-spotlight-template-service";
 import { createSummitAgendaPosts, SummitAgendaGenerateSchema, SummitAgendaOperationSchema, SummitAgendaResumeSchema } from "@/server/services/summit-agenda-service";
@@ -27,9 +26,9 @@ const definitions: Record<AiOperationKind, Array<[string, string]>> = {
   research: [["preparing", "Prepare request"], ["researching", "Research public sources"], ["verifying", "Verify evidence"], ["deduplicating", "Consolidate results"], ["saving", "Save opportunities"]],
   outreach_create: [["loading", "Load selected facts"], ["drafting", "Draft outreach"], ["checking", "Check merge fields"], ["saving", "Save campaign"]],
   outreach_regenerate: [["loading", "Load saved campaign"], ["drafting", "Regenerate drafts"], ["checking", "Check messages"], ["saving", "Save drafts"]],
-  content_create: [["selecting", "Select campaign context"], ["drafting", "Draft platform copy"], ["checking", "Check platform constraints"], ["saving", "Save campaign"]],
+  content_create: [["selecting", "Select campaign context"], ["drafting", "Plan campaign"], ["checking", "Check platform constraints"], ["saving", "Save content plan"], ["image_validating", "Prepare full artwork"], ["image_generating", "Render with GPT Image 2"], ["image_saving", "Save graphic"]],
   content_regenerate: [["loading", "Load saved campaign"], ["drafting", "Regenerate platforms"], ["checking", "Check each draft"], ["saving", "Save updated drafts"]],
-  content_image: [["validating", "Validate composition"], ["background", "Create background"], ["resizing", "Fit platform canvas"], ["composing", "Render exact copy"], ["saving", "Save PNG"]],
+  content_image: [["image_validating", "Prepare full artwork"], ["image_generating", "Render with GPT Image 2"], ["image_saving", "Save graphic"]],
   spotlight_template: [["analyzing", "Analyze reference"], ["writing", "Write prompt contract"], ["saving", "Save template"]],
   spotlight_batch: [["preparing", "Verify campaign references"], ["processing", "Build speaker packages"], ["finalizing", "Finalize batch"]],
   spotlight_retry: [["preparing", "Load verified package"], ["processing", "Generate saved package image"], ["finalizing", "Finalize package"]],
@@ -284,7 +283,7 @@ async function executeOperation(kind: AiOperationKind, input: unknown, apiKey: s
       };
     }
     case "content_image": {
-      const asset = await generateCampaignGraphic({ ...(input as Omit<CampaignGraphicInput, "apiKey">), apiKey }, reporter.signal, reporter);
+      const asset = await generateContentCampaignImage((input as { campaignId: string }).campaignId, apiKey, reporter.signal, reporter);
       return { entityType: "asset", entityId: asset.id, href: `/content?campaign=${asset.campaignId}` };
     }
     case "spotlight_template": {

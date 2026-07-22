@@ -13,6 +13,7 @@ import {
   speakerSpotlightTemplateStorage
 } from "@/server/db/repository";
 import { DEFAULT_TEMPLATE_SEED_KEY, ensureDefaultSpeakerSpotlightTemplate } from "@/server/services/speaker-spotlight-template-service";
+import { hasActiveAssistantJobs } from "@/server/services/assistant-runtime";
 import {
   createWorkspaceRecord,
   deleteWorkspaceRecord,
@@ -143,6 +144,7 @@ export function deleteWorkspace(workspaceId: string, confirmationName: string) {
     return Number(row?.count || 0) > 0;
   });
   if (hasActiveOperations) throw new Error("Cancel or finish this workspace’s active work before deleting it.");
+  if (hasActiveAssistantJobs(workspaceId)) throw new Error("Finish the active Summit Assistant response before deleting this workspace.");
 
   closeDatabase(workspaceId);
   const result = deleteWorkspaceRecord(workspaceId);

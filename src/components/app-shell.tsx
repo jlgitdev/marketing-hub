@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpenText, CalendarDays, ContactRound, FileClock, Home, MicVocal, PenLine, Settings } from "lucide-react";
+import { BookOpenText, CalendarDays, ContactRound, FileClock, Home, MessageCircleMore, MicVocal, PenLine, Settings } from "lucide-react";
 import { WorkspaceProvider, useWorkspace } from "./workspace";
 import { OperationsProvider } from "./operations";
 import { WorkspaceGuide, WorkspaceSwitcher } from "./workspace-switcher";
 
 const nav = [
   { href: "/", label: "Overview", icon: Home },
+  { href: "/assistant", label: "Assistant", icon: MessageCircleMore },
   { href: "/context", label: "Context", icon: BookOpenText },
   { href: "/leads", label: "Leads", icon: ContactRound },
   { href: "/content", label: "Content", icon: PenLine },
@@ -41,7 +42,7 @@ function AppFrame({ children }: { children: React.ReactNode }) {
           {nav.map((item) => {
             const Icon = item.icon;
             const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
-            return <Link key={item.href} href={item.href} aria-label={item.label} className={active ? "nav-link active" : "nav-link"}><Icon size={18} aria-hidden="true"/><span>{item.label}</span></Link>;
+            return <Link key={item.href} href={item.href} aria-label={item.label} aria-current={active ? "page" : undefined} className={active ? "nav-link active" : "nav-link"}><Icon size={18} aria-hidden="true"/><span>{item.label}</span></Link>;
           })}
         </nav>
         <div className="sidebar-footer">

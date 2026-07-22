@@ -5,17 +5,21 @@ import { isDemoMode, MODELS } from "@/server/config";
 import type { ContentCampaign, Platform, PlatformPost } from "@/lib/types";
 import { DEMO_FAILURE_TRIGGERS, demoSocialBundle } from "@/server/ai/demo-provider";
 import { socialWithOpenAI } from "@/server/ai/openai-provider";
-import { createContentCampaign, listBrandAssets, listContentCampaigns, listContextDocuments, replacePlatformPost } from "@/server/db/repository";
+import { createContentCampaign, listBrandAssets, listContentCampaigns, listContextDocuments, replacePlatformPost, updateContentCampaign } from "@/server/db/repository";
 import { assertContextSize, contextConflictWarnings } from "@/server/security/validation";
 import { selectRelevantContext } from "./context-service";
 import type { OperationReporter } from "@/server/operations/types";
+import { generateCampaignGraphic } from "@/server/storage/assets";
+import { resolveAssistantImageSpec } from "./assistant-image-spec";
+import { ensureCreativeBrandAssets, selectCreativeBrandAssets } from "./creative-brand-service";
 
 export const ContentInputSchema = z.object({
-  name: z.string().min(2).max(120),
-  brief: z.string().min(10).max(3000),
-  objective: z.string().min(2).max(500),
-  audience: z.string().min(2).max(500),
-  callToAction: z.string().min(2).max(500),
+  prompt: z.string().max(6000).default(""),
+  name: z.string().min(2).max(120).optional(),
+  brief: z.string().min(10).max(6000).optional(),
+  objective: z.string().min(2).max(500).optional(),
+  audience: z.string().min(2).max(500).optional(),
+  callToAction: z.string().min(2).max(500).optional(),
   requiredPhrases: z.string().max(500).default(""),
   prohibitedPhrases: z.string().max(500).default(""),
   headline: z.string().max(160).default(""),
@@ -24,24 +28,32 @@ export const ContentInputSchema = z.object({
   selectedBrandAssetId: z.string().uuid().nullable().default(null),
   contextDocumentIds: z.array(z.string().uuid()).default([]),
   contextMode: z.enum(["auto", "manual"]).default("auto"),
-  platforms: z.array(z.enum(["x", "linkedin", "instagram"])).min(1)
+  platforms: z.array(z.enum(["general", "x", "linkedin", "instagram"])).min(1).optional()
+}).strict().superRefine((input, context) => {
+  if (!input.prompt.trim() && !input.brief?.trim()) context.addIssue({ code: z.ZodIssueCode.custom, message: "Describe the campaign you want to create." });
 });
 
 export async function generateContentCampaign(input: z.input<typeof ContentInputSchema>, apiKey: string | null, signal?: AbortSignal, reporter?: OperationReporter) {
   reporter?.stage("selecting", "Selecting approved event facts, brand voice, and platform guidance.");
   reporter?.checkpoint();
   const parsed = ContentInputSchema.parse(input);
-  const selection = selectRelevantContext({ workflow: "content", query: `${parsed.name} ${parsed.brief} ${parsed.objective} ${parsed.audience} ${parsed.imageDirection}`, platforms: parsed.platforms, manualIds: parsed.contextDocumentIds, automatic: parsed.contextMode === "auto" });
+  const userPrompt = parsed.prompt.trim() || parsed.brief!.trim();
+  const platforms = parsed.platforms?.length ? Array.from(new Set(parsed.platforms)) : inferCampaignPlatforms(userPrompt);
+  const campaignName = parsed.name || promptCampaignName(userPrompt);
+  const objective = parsed.objective || "Infer the campaign objective from the user prompt and selected context.";
+  const audience = parsed.audience || "Infer the intended audience from the user prompt and selected context.";
+  const callToAction = parsed.callToAction || "Infer the most useful call to action without inventing event facts.";
+  const selection = selectRelevantContext({ workflow: "content", query: userPrompt, platforms, manualIds: parsed.contextDocumentIds, automatic: parsed.contextMode === "auto" });
   const context = selection.documents;
   assertContextSize(context);
   if (parsed.selectedBrandAssetId && !listBrandAssets().some((asset) => asset.id === parsed.selectedBrandAssetId && asset.active)) throw new Error("The selected brand asset is unavailable or inactive.");
   const now = new Date().toISOString();
   const campaignId = crypto.randomUUID();
   const campaignBase = {
-    id: campaignId, name: parsed.name, brief: parsed.brief, objective: parsed.objective, targetAudience: parsed.audience,
-    callToAction: parsed.callToAction, requiredPhrases: parsed.requiredPhrases, prohibitedPhrases: parsed.prohibitedPhrases,
+    id: campaignId, name: campaignName, brief: userPrompt, objective, targetAudience: audience,
+    callToAction, requiredPhrases: parsed.requiredPhrases, prohibitedPhrases: parsed.prohibitedPhrases,
     headline: parsed.headline, imageDirection: parsed.imageDirection, imageGenerationEnabled: parsed.imageGenerationEnabled,
-    selectedBrandAssetId: parsed.selectedBrandAssetId, contextDocumentIds: selection.documentIds, platforms: parsed.platforms as Platform[],
+    selectedBrandAssetId: parsed.selectedBrandAssetId, contextDocumentIds: selection.documentIds, platforms: platforms as Platform[],
     model: isDemoMode() ? "demo-provider-v1" : MODELS.text, promptVersion: PROMPT_VERSIONS.content,
     provider: isDemoMode() ? "demo" as const : "openai" as const, createdAt: now, updatedAt: now
   };
@@ -49,16 +61,22 @@ export async function generateContentCampaign(input: z.input<typeof ContentInput
   try {
     reporter?.stage("drafting", selection.missingPlatformGuidance.length ? `OpenAI is researching current guidance for ${selection.missingPlatformGuidance.map((platform) => PLATFORM_CONFIG[platform].label).join(", ")} and drafting the campaign.` : "OpenAI is drafting distinct platform copy from the selected local guidance.");
     reporter?.checkpoint();
-    if (isDemoMode() && parsed.brief.includes(DEMO_FAILURE_TRIGGERS.provider)) throw new Error("Deterministic demo provider error: content generation could not be completed.");
-    providerResult = isDemoMode() ? { bundle: demoSocialBundle(parsed.platforms), usage: null } : await socialWithOpenAI(requireKey(apiKey), { ...parsed, context, webGuidancePlatforms: selection.missingPlatformGuidance }, signal);
+    if (isDemoMode() && userPrompt.includes(DEMO_FAILURE_TRIGGERS.provider)) throw new Error("Deterministic demo provider error: content generation could not be completed.");
+    providerResult = isDemoMode() ? { bundle: demoSocialBundle(platforms), usage: null } : await socialWithOpenAI(requireKey(apiKey), {
+      name: campaignName, brief: userPrompt, objective, audience, callToAction,
+      requiredPhrases: parsed.requiredPhrases, prohibitedPhrases: parsed.prohibitedPhrases,
+      headline: parsed.headline, imageDirection: parsed.imageDirection, platforms, context,
+      webGuidancePlatforms: selection.missingPlatformGuidance
+    }, signal);
   } catch (error) {
+    if (signal?.aborted) throw error;
     createContentCampaign({ ...campaignBase, status: "failed", usage: null, warnings: [], error: error instanceof Error ? error.message : "Content generation failed.", posts: [], assets: [] });
     throw error;
   }
   const bundle = providerResult.bundle;
   reporter?.stage("checking", "Checking platform limits, approved phrases, image copy, and style-guide coverage.");
   reporter?.checkpoint();
-  const posts: PlatformPost[] = parsed.platforms.map((platform) => {
+  const posts: PlatformPost[] = platforms.map((platform) => {
     const generated = bundle.posts.find((post) => post.platform === platform);
     if (!generated) throw new Error(`The provider did not return a ${platform} post.`);
     const warnings = [...generated.warnings];
@@ -72,9 +90,41 @@ export async function generateContentCampaign(input: z.input<typeof ContentInput
   const campaign: ContentCampaign = {
     ...campaignBase, status: "completed", usage: providerResult.usage, warnings: Array.from(new Set([...bundle.warnings, ...contextConflictWarnings(context)])), error: null, posts, assets: []
   };
-  reporter?.stage("saving", "Saving editable platform drafts and campaign metadata locally.");
+  reporter?.stage("saving", "Saving the inferred campaign plan and editable platform drafts locally.");
   reporter?.checkpoint();
-  return createContentCampaign(campaign);
+  createContentCampaign(campaign);
+  try {
+    await generateContentCampaignImage(campaignId, apiKey, signal, reporter);
+  } catch (error) {
+    if (signal?.aborted) throw error;
+    updateContentCampaign(campaignId, { warnings: Array.from(new Set([...campaign.warnings, `Graphic not created: ${error instanceof Error ? error.message : "Image generation failed."}`])) });
+  }
+  return listContentCampaigns().find((item) => item.id === campaignId)!;
+}
+
+export async function generateContentCampaignImage(campaignId: string, apiKey: string | null, signal?: AbortSignal, reporter?: OperationReporter) {
+  const campaign = listContentCampaigns().find((item) => item.id === campaignId);
+  if (!campaign) throw new Error("Content campaign not found.");
+  if (!campaign.posts.length) throw new Error("This campaign has no completed content plan to turn into a graphic.");
+  await ensureCreativeBrandAssets();
+  const { logo, styleReference } = selectCreativeBrandAssets();
+  const imagePlatform = campaign.platforms.includes("instagram") ? "instagram" : campaign.platforms[0] || "general";
+  const post = campaign.posts.find((item) => item.platform === imagePlatform) || campaign.posts[0];
+  const plannedRatio = imagePlatform === "instagram" ? "4:5" : imagePlatform === "x" || imagePlatform === "linkedin" ? "16:9" : "1:1";
+  const outputSpec = resolveAssistantImageSpec(campaign.brief, plannedRatio, imagePlatform);
+  const references = [
+    ...(styleReference ? [{ assetId: styleReference.id, mode: "style" as const }] : []),
+    ...(logo && logo.id !== styleReference?.id && !/\b(?:no|without|omit|remove)\s+(?:the\s+|any\s+)?(?:logo|branding)\b/i.test(campaign.brief) ? [{ assetId: logo.id, mode: "logo" as const }] : [])
+  ];
+  return generateCampaignGraphic({
+    campaignId,
+    platform: imagePlatform,
+    prompt: post.imagePrompt || campaign.imageDirection || campaign.brief,
+    references,
+    outputSpec,
+    quality: "high",
+    apiKey
+  }, signal, reporter);
 }
 
 export async function regeneratePlatform(campaignId: string, platform: Platform, apiKey: string | null) {
@@ -131,4 +181,18 @@ export async function regeneratePlatforms(campaignId: string, platforms: Platfor
 function requireKey(key: string | null) {
   if (!key) throw new Error("Connect an OpenAI API key before generating live social content.");
   return key;
+}
+
+export function inferCampaignPlatforms(prompt: string): Platform[] {
+  const platforms: Platform[] = [];
+  if (/\blinked\s*in\b/i.test(prompt)) platforms.push("linkedin");
+  if (/\binstagram\b|\binsta\b/i.test(prompt)) platforms.push("instagram");
+  if (/\b(?:x|twitter)\b/i.test(prompt) && /\b(?:post|caption|thread|social|campaign)\b/i.test(prompt)) platforms.push("x");
+  if (/\bany platform\b|\bplatform[- ]agnostic\b|\bgeneral post\b/i.test(prompt)) platforms.push("general");
+  return platforms.length ? Array.from(new Set(platforms)) : ["x", "linkedin", "instagram"];
+}
+
+function promptCampaignName(prompt: string) {
+  const firstSentence = prompt.replace(/\s+/g, " ").trim().split(/[.!?](?:\s|$)/, 1)[0];
+  return (firstSentence || "New campaign").slice(0, 120);
 }

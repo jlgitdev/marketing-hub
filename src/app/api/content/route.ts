@@ -9,7 +9,7 @@ export const runtime = "nodejs";
 export const maxDuration = 210;
 
 export async function POST(request: Request) {
-  try { await requireSafeOrigin(); const parsed = ContentInputSchema.parse(await request.json()); const input = { ...parsed, platforms: Array.from(new Set(parsed.platforms)) }; const operation = startAiOperation({ kind: "content_create", label: input.name, operationInput: input, originPath: "/content", targetKey: `content:create:${input.name.toLowerCase()}`, sessionId: await currentSessionId(), totalUnits: input.platforms.length, unitLabel: "platforms" }); return NextResponse.json({ operation }, { status: 202 }); }
+  try { await requireSafeOrigin(); const input = ContentInputSchema.parse(await request.json()); const label = (input.name || input.prompt || input.brief || "New campaign").replace(/\s+/g, " ").trim().slice(0, 72); const operation = startAiOperation({ kind: "content_create", label, operationInput: input, originPath: "/content", targetKey: `content:create:${label.toLowerCase()}`, sessionId: await currentSessionId() }); return NextResponse.json({ operation }, { status: 202 }); }
   catch (error) { return errorResponse(error); }
 }
 

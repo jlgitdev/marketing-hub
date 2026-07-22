@@ -5,12 +5,28 @@ import { resolveApiKey } from "./key-store";
 
 export const KEY_COOKIE = "marketing_hub_key_session";
 
-export async function requireSafeOrigin() {
+export async function requireSafeOrigin(request?: Request) {
   const incoming = await headers();
   const origin = incoming.get("origin");
   if (!origin) return;
-  const url = new URL(origin);
-  if (!["127.0.0.1", "localhost", "[::1]", "::1"].includes(url.hostname)) throw new Error("State-changing requests are accepted only from the loopback application origin.");
+  const host = incoming.get("host");
+  const expectedOrigin = request ? new URL(request.url).origin : null;
+  if (!isSafeApplicationOrigin(origin, host, expectedOrigin)) throw new Error("State-changing requests are accepted only from the exact loopback application origin.");
+}
+
+export function isSafeApplicationOrigin(origin: string, host: string | null, expectedOrigin: string | null = null) {
+  if (!host) return false;
+  try {
+    const url = new URL(origin);
+    const normalizedHost = host.split(",")[0].trim().toLowerCase();
+    const loopback = ["127.0.0.1", "localhost", "[::1]", "::1"].includes(url.hostname.toLowerCase());
+    const supportedProtocol = url.protocol === "http:" || url.protocol === "https:";
+    const expected = expectedOrigin ? new URL(expectedOrigin) : null;
+    const exactRequestOrigin = !expected || expected.host.toLowerCase() !== normalizedHost || url.origin === expected.origin;
+    return loopback && supportedProtocol && exactRequestOrigin && url.host.toLowerCase() === normalizedHost;
+  } catch {
+    return false;
+  }
 }
 
 export async function currentSessionId() {

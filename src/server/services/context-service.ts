@@ -131,7 +131,7 @@ export function selectRelevantContext(input: {
 }
 
 function selectionResult(documents: ContextDocument[], platforms: Platform[], automatic: boolean, ranking: Array<{ id: string; title: string; score: number }>) {
-  const missingPlatformGuidance = platforms.filter((platform) => !documents.some((document) => document.platforms.includes(platform) && document.type === "platform_guidance"));
+  const missingPlatformGuidance = platforms.filter((platform) => platform !== "general" && !documents.some((document) => document.platforms.includes(platform) && document.type === "platform_guidance"));
   return {
     documents,
     documentIds: documents.map((document) => document.id),

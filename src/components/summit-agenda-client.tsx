@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { AlertTriangle, BookOpenText, CalendarDays, Check, Clipboard, Clock3, Download, ImageIcon, Pencil, Plus, RotateCcw, Sparkles, Trash2, Users, X } from "lucide-react";
+import { AlertTriangle, BookOpenText, CalendarDays, Check, CircleHelp, Clipboard, Clock3, Download, ImageIcon, Pencil, Plus, RotateCcw, Sparkles, Trash2, Users, X } from "lucide-react";
 import type { SummitAgendaBatch, SummitAgendaBatchSummary, SummitAgendaData, SummitAgendaPerson, SummitAgendaSession } from "@/lib/types";
 import { InlineOperation, useOperations } from "./operations";
 import { apiRequest, ConnectionBadge, formatDate, PageState, useWorkspace } from "./workspace";
@@ -11,6 +11,13 @@ import { apiRequest, ConnectionBadge, formatDate, PageState, useWorkspace } from
 interface AgendaResponse { agenda: SummitAgendaData; batches: SummitAgendaBatchSummary[]; batch: SummitAgendaBatch | null }
 const PIXELS_PER_MINUTE = 2.7;
 const formats = ["Keynote", "Fireside", "Panel", "Workshop", "Talk", "Break"];
+const AGENDA_AGENT_PROMPT = `Create the Live Agenda for this summit in the active Marketing Hub workspace.
+
+Use every source file I attach or point you to, including downloaded event webpages, agenda documents, speaker directories, and image folders. Treat those sources as authoritative. Extract every agenda day, stage or track, session title, session type, start and end time, speaker, moderator, role, company, and matching speaker portrait.
+
+Populate the active workspace's Live Agenda directly; do not ask me to enter sessions manually. Keep new-workspace data isolated from other workspaces and do not alter existing campaigns, context, or generated assets. Preserve exact source wording where available, match each portrait to the correct person, avoid duplicates, and leave unknown fields blank rather than inventing facts.
+
+Before finishing, verify that all source sessions are represented, times and day boundaries are valid, overlapping sessions remain on their correct stages, every person is attached to the right session, and portrait files render. Then summarize what you imported and clearly list any missing or ambiguous source information that still needs my help.`;
 
 export function SummitAgendaClient({ initialBatchId = null }: { initialBatchId?: string | null }) {
   const workspace = useWorkspace();
@@ -24,6 +31,8 @@ export function SummitAgendaClient({ initialBatchId = null }: { initialBatchId?:
   const [pendingFiles, setPendingFiles] = useState<Record<string, File>>({});
   const [saving, setSaving] = useState(false);
   const [copiedCaptionId, setCopiedCaptionId] = useState<string | null>(null);
+  const [agendaGuidePinned, setAgendaGuidePinned] = useState(false);
+  const [agendaPromptCopied, setAgendaPromptCopied] = useState(false);
   const [activeBatchId, setActiveBatchId] = useState<string | null>(initialBatchId);
   const [followLatestBatch, setFollowLatestBatch] = useState(false);
   const [operationId, setOperationId] = useState<string | null>(null);
@@ -139,11 +148,21 @@ export function SummitAgendaClient({ initialBatchId = null }: { initialBatchId?:
     }
   }
 
+  async function copyAgendaPrompt() {
+    try {
+      await navigator.clipboard.writeText(AGENDA_AGENT_PROMPT);
+      setAgendaPromptCopied(true);
+      window.setTimeout(() => setAgendaPromptCopied(false), 1800);
+    } catch {
+      setMessage("Could not copy the agenda prompt. Select the prompt and copy it manually.");
+    }
+  }
+
   const hasAgendaSessions = data.agenda.days.some((item) => item.sessions.length > 0);
   if (!hasAgendaSessions) return <div className="page summit-agenda-page">
     <header className="page-header split"><div><span className="eyebrow"><span className="live-pulse"/>Live media studio</span><h1>Summit Agenda</h1><p className="lede">Build live session graphics for {workspace.state.activeWorkspace.name} once the program and speaker assets are ready.</p></div><ConnectionBadge state={workspace.state}/></header>
     {message && <div className="notice danger" role="status">{message}</div>}
-    <div className="empty-state agenda-workspace-empty"><CalendarDays/><h2>No agenda in this workspace</h2><p>New workspaces start clean, without sessions or generated posts from another summit. Add the event program and speaker details to Context when they are ready.</p><Link className="button" href="/context"><BookOpenText size={15}/>Open Context</Link></div>
+    <div className="empty-state agenda-workspace-empty"><CalendarDays/><div className="agenda-empty-title"><h2>No agenda in this workspace</h2><div className={`agenda-agent-guide ${agendaGuidePinned ? "open" : ""}`} onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setAgendaGuidePinned(false); }} onKeyDown={(event) => { if (event.key === "Escape") { setAgendaGuidePinned(false); (event.currentTarget.querySelector(".agenda-guide-trigger") as HTMLButtonElement | null)?.focus(); } }}><button className="agenda-guide-trigger" type="button" aria-label="How to create the agenda with your AI agent" aria-expanded={agendaGuidePinned} aria-controls="agenda-agent-guide" onClick={() => setAgendaGuidePinned((open) => !open)}><CircleHelp size={17}/></button><section id="agenda-agent-guide" className="agenda-guide-popover"><strong>Build this with your agent</strong><p>Attach or point your agent to the downloaded event website, agenda, speaker list, and portrait files. Then copy and send this prompt:</p><textarea aria-label="Prompt for your AI agent" readOnly value={AGENDA_AGENT_PROMPT} rows={9} onFocus={(event) => event.currentTarget.select()}/><button className="button small" type="button" onClick={() => void copyAgendaPrompt()}>{agendaPromptCopied ? <Check size={14}/> : <Clipboard size={14}/>} {agendaPromptCopied ? "Copied" : "Copy agent prompt"}</button></section></div></div><p>New workspaces start clean. Give your AI agent the event program, speaker details, and portraits so it can build the agenda for you.</p><Link className="button secondary" href="/context"><BookOpenText size={15}/>Open Context</Link></div>
   </div>;
 
   const dayStart = Math.floor(Math.min(...day.sessions.map((session) => session.start)) / 20) * 20;

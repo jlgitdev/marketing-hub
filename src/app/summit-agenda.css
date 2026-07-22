@@ -5,6 +5,18 @@
 .live-pulse { width: 7px; height: 7px; border-radius: 50%; background: #ff7658; box-shadow: 0 0 0 5px rgba(255, 118, 88, .12), 0 0 18px rgba(255, 118, 88, .5); }
 .agenda-skeleton { height: 780px; margin-top: 18px; border-radius: 24px; }
 
+.agenda-empty-title { display: flex; align-items: center; justify-content: center; gap: 8px; }
+.agenda-empty-title h2 { margin: 0; }
+.agenda-agent-guide { position: relative; display: inline-flex; }
+.agenda-guide-trigger { display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 10px; color: #526bd3; background: var(--accent-soft); cursor: help; }
+.agenda-guide-trigger:hover, .agenda-guide-trigger:focus-visible { color: #fff; background: var(--primary); outline: none; }
+.agenda-guide-popover { position: absolute; z-index: 30; left: 50%; bottom: calc(100% + 10px); width: min(520px, calc(100vw - 64px)); padding: 18px; border: 1px solid var(--line); border-radius: 18px; color: var(--ink); background: rgba(255, 255, 255, .98); box-shadow: var(--shadow-pop); text-align: left; opacity: 0; visibility: hidden; pointer-events: none; transform: translate(-50%, 5px); transition: opacity .16s ease, transform .16s ease, visibility .16s ease; }
+.agenda-agent-guide:hover .agenda-guide-popover, .agenda-agent-guide:focus-within .agenda-guide-popover, .agenda-agent-guide.open .agenda-guide-popover { opacity: 1; visibility: visible; pointer-events: auto; transform: translate(-50%, 0); }
+.agenda-guide-popover > strong { display: block; font-size: 13px; }
+.agenda-guide-popover > p { margin: 5px 0 11px; color: var(--muted); font-size: 10.5px; line-height: 1.5; }
+.agenda-guide-popover textarea { width: 100%; min-height: 176px; resize: vertical; padding: 11px 12px; border-radius: 12px; color: var(--ink-soft); background: var(--surface-soft); font-size: 10.5px; line-height: 1.5; }
+.agenda-guide-popover .button { width: 100%; justify-content: center; margin-top: 10px; }
+
 .agenda-command {
   position: sticky; top: 16px; z-index: 12;
   display: grid; grid-template-columns: auto minmax(180px, 1fr) auto; align-items: center; gap: 18px;
@@ -137,6 +149,9 @@
 
 @media (max-width: 700px) {
   .summit-agenda-page { padding-left: 18px; padding-right: 18px; }
+  .agenda-empty-title { align-items: flex-start; }
+  .agenda-guide-popover { position: fixed; left: 50%; bottom: 84px; width: calc(100vw - 32px); max-height: calc(100dvh - 168px); overflow: auto; transform: translate(-50%, 5px); }
+  .agenda-agent-guide:hover .agenda-guide-popover, .agenda-agent-guide:focus-within .agenda-guide-popover, .agenda-agent-guide.open .agenda-guide-popover { transform: translate(-50%, 0); }
   .agenda-command { grid-template-columns: 1fr; }
   .agenda-day-tabs { width: 100%; }
   .agenda-day-tabs button { flex: 1; min-width: 0; }

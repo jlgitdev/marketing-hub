@@ -108,7 +108,7 @@ export const SocialBundleSchema = z.object({
   campaignConcept: z.string(),
   warnings: z.array(z.string()),
   posts: z.array(z.object({
-    platform: z.enum(["x", "linkedin", "instagram"]),
+    platform: z.enum(["general", "x", "linkedin", "instagram"]),
     text: z.string(),
     hook: z.string(),
     callToAction: z.string(),
@@ -120,6 +120,37 @@ export const SocialBundleSchema = z.object({
     warnings: z.array(z.string()),
     styleGuideStatus: z.enum(["selected_guide", "web_research", "fallback"])
   }).strict())
+}).strict();
+
+export const AssistantCreativeBundleSchema = z.object({
+  post: z.object({
+    text: z.string().min(1).max(12_000),
+    hook: z.string().max(600),
+    callToAction: z.string().max(600),
+    hashtags: z.string().max(800)
+  }).strict(),
+  graphic: z.object({
+    prompt: z.string().min(20).max(6_000),
+    headline: z.string().max(80),
+    subheadline: z.string().max(140),
+    footer: z.string().max(160),
+    altText: z.string().min(1).max(1_000),
+    aspectRatio: z.string().min(3).max(24),
+    textPlacement: z.enum(["left", "center", "right"]),
+    overlayText: z.boolean(),
+    logoPlacement: z.enum(["top_left", "top_right", "bottom_left", "bottom_right", "none"])
+  }).strict(),
+  notes: z.array(z.string().min(1).max(500)).max(12)
+}).strict();
+
+export const AssistantContextDraftSchema = z.object({
+  title: z.string().min(2).max(160),
+  type: z.string().min(1).max(80),
+  body: z.string().min(1).max(120_000),
+  summary: z.string().min(1).max(600),
+  tags: z.array(z.string().min(1).max(60)).max(40),
+  platforms: z.array(z.enum(["x", "linkedin", "instagram"])).max(3),
+  purposes: z.array(z.enum(["research", "outreach", "content", "speaker_spotlight"])).max(4)
 }).strict();
 
 export const SpeakerPostSchema = z.object({
@@ -154,5 +185,7 @@ export type ResearchBundle = z.infer<typeof ResearchBundleSchema>;
 export type DiscoveryBundle = z.infer<typeof DiscoveryBundleSchema>;
 export type OutreachBundle = z.infer<typeof OutreachBundleSchema>;
 export type SocialBundle = z.infer<typeof SocialBundleSchema>;
+export type AssistantCreativeBundle = z.infer<typeof AssistantCreativeBundleSchema>;
+export type AssistantContextDraft = z.infer<typeof AssistantContextDraftSchema>;
 export type SpeakerPost = z.infer<typeof SpeakerPostSchema>;
 export type SpeakerSpotlightTemplateBlueprint = z.infer<typeof SpeakerSpotlightTemplateBlueprintSchema>;

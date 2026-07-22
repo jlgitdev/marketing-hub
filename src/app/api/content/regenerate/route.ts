@@ -6,7 +6,7 @@ import { startAiOperation } from "@/server/operations/manager";
 export const runtime = "nodejs";
 export const maxDuration = 210;
 
-const PlatformSchema = z.enum(["x", "linkedin", "instagram"]);
+const PlatformSchema = z.enum(["general", "x", "linkedin", "instagram"]);
 const Schema = z.object({ campaignId: z.string().uuid(), platform: PlatformSchema.optional(), platforms: z.array(PlatformSchema).min(1).optional() }).refine((value) => Boolean(value.platform) !== Boolean(value.platforms), "Provide either platform or platforms.");
 
 export async function POST(request: Request) {

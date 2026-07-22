@@ -338,6 +338,8 @@ details[open] > summary { color: var(--ink); }
   transition: border-color .2s var(--ease-out), box-shadow .2s var(--ease-out);
 }
 .document-card:hover { border-color: var(--line-strong); box-shadow: var(--shadow-hover); }
+.document-card.context-targeted { scroll-margin-top: 110px; border-color: var(--accent-border); box-shadow: 0 0 0 4px rgba(95, 121, 234, .12), var(--shadow-hover); }
+.document-card.context-targeted:focus { outline: none; }
 .document-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
 .document-top h3 { margin-top: 8px; }
 .document-top .badge { margin-left: 6px; }
@@ -547,6 +549,34 @@ details[open] > summary { color: var(--ink); }
 /* ------------------------------ Content page ------------------------------ */
 
 .content-workspace { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(330px, .8fr); gap: 16px; align-items: start; }
+.content-workspace.single-post { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.campaign-prompt-panel { overflow: visible; padding: clamp(22px, 3vw, 34px); }
+.campaign-prompt-panel .panel-heading { align-items: flex-start; }
+.campaign-prompt-panel .panel-heading > div:first-child { display: flex; align-items: flex-start; gap: 12px; }
+.campaign-prompt-panel .panel-heading h2 { margin-bottom: 5px; }
+.campaign-prompt-icon { flex: 0 0 auto; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 14px; color: #526bd3; background: var(--accent-soft); }
+.campaign-prompt-form { display: grid; gap: 10px; }
+.campaign-prompt-label-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.campaign-prompt-label-row > label { margin: 0; color: var(--ink); font-size: 12px; font-weight: 720; }
+.campaign-prompt-help { position: relative; display: inline-flex; }
+.campaign-prompt-help > button { display: grid; place-items: center; width: 30px; height: 30px; border: 0; border-radius: 10px; color: var(--muted); background: var(--surface-soft); cursor: help; }
+.campaign-prompt-help > span { position: absolute; z-index: 30; right: 0; bottom: calc(100% + 8px); width: min(360px, 80vw); padding: 12px 13px; border: 1px solid var(--line); border-radius: 12px; color: var(--ink-soft); background: var(--surface); box-shadow: var(--shadow-hover); font-size: 10.5px; line-height: 1.55; opacity: 0; pointer-events: none; transform: translateY(4px); transition: opacity .16s ease, transform .16s ease; }
+.campaign-prompt-help:hover > span, .campaign-prompt-help:focus-within > span { opacity: 1; transform: translateY(0); }
+.campaign-prompt-form textarea { min-height: 176px; resize: vertical; padding: 17px 18px; border-radius: 18px; font-size: 14px; line-height: 1.6; }
+.campaign-prompt-footer { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-top: 3px; }
+.campaign-prompt-footer p { max-width: 660px; margin: 0; color: var(--muted); font-size: 10.5px; line-height: 1.5; }
+.campaign-create-button { min-width: 170px; }
+.campaign-notes { display: grid; grid-template-columns: auto minmax(0,1fr); gap: 8px; margin: 12px 0; padding: 11px 13px; border: 1px solid var(--warning-border); border-radius: 12px; color: var(--warning); background: var(--warning-soft); }
+.campaign-notes p { margin: 0; font-size: 10.5px; line-height: 1.45; }
+.campaign-notes p + p { margin-top: 4px; }
+.image-result-panel { min-width: 0; }
+.image-result-panel .panel-heading { align-items: flex-start; }
+.image-result-panel .panel-heading h2 { margin: 7px 0 4px; }
+.image-result-kicker { display: inline-flex; align-items: center; gap: 6px; color: #526bd3; font-size: 9px; font-weight: 760; letter-spacing: .08em; text-transform: uppercase; }
+.graphic-empty { display: grid; place-items: center; gap: 7px; min-height: 220px; padding: 28px; border: 1px dashed var(--line-strong); border-radius: 18px; color: var(--faint); text-align: center; }
+.graphic-empty strong { color: var(--ink-soft); font-size: 12px; }
+.graphic-empty p { max-width: 290px; margin: 0; color: var(--muted); font-size: 10.5px; line-height: 1.5; }
+.one-shot-note { margin: 13px 2px 0; color: var(--faint); font-size: 9.5px; line-height: 1.5; }
 .platform-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .platform-card {
   min-width: 0;
@@ -691,7 +721,7 @@ details[open] > summary { color: var(--ink); }
 @media (max-width: 1180px) {
   .page { padding: 34px 30px 64px; }
   .platform-grid { grid-template-columns: 1fr; }
-  .content-workspace { grid-template-columns: minmax(0, 1.25fr) minmax(300px, .75fr); }
+  .content-workspace, .content-workspace.single-post { grid-template-columns: minmax(0, 1.25fr) minmax(300px, .75fr); }
   .asset-upload { grid-template-columns: 1fr 1fr; }
   .asset-upload .button { align-self: end; }
 }
@@ -713,7 +743,7 @@ details[open] > summary { color: var(--ink); }
   .grid.two, .settings-grid { grid-template-columns: 1fr; }
   .context-layout { grid-template-columns: 1fr; }
   .sticky-panel, .image-composer { position: static; }
-  .content-workspace { grid-template-columns: 1fr; }
+  .content-workspace, .content-workspace.single-post { grid-template-columns: 1fr; }
   .lead-card { grid-template-columns: 26px minmax(0, 1fr); }
   .lead-review select { width: auto; }
   .strategy-grid { grid-template-columns: 1fr; }
@@ -991,6 +1021,12 @@ details[open] > summary { color: var(--ink); }
   .activity-chevron, .nav-link, .button, .icon-button, .action-card, .text-link svg { transition: none; }
 }
 
+@media (max-width: 640px) {
+  .campaign-prompt-panel .panel-heading, .campaign-prompt-footer { align-items: stretch; flex-direction: column; }
+  .campaign-create-button { width: 100%; }
+  .campaign-prompt-help > span { right: -4px; }
+}
+
 /* --------------------------------------------------------------------------
    Soft Orbit — full visual redesign
    Generous islands, soft color, rounded geometry, and quiet motion.
@@ -1064,12 +1100,6 @@ body::before {
     radial-gradient(ellipse 48% 38% at 57% 48%, rgba(211, 224, 255, .58), transparent 72%);
   filter: blur(34px) saturate(1.08);
   transform: translate3d(0, 0, 0) scale(1.02);
-  animation: ambient-bloom 18s ease-in-out infinite alternate;
-}
-
-@keyframes ambient-bloom {
-  0% { transform: translate3d(-1.5%, -1%, 0) scale(1.02); }
-  100% { transform: translate3d(1.5%, 1%, 0) scale(1.07); }
 }
 
 ::selection { background: #ccd6ff; color: var(--ink); }
@@ -1265,6 +1295,7 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); backgr
 
 /* Content, runs, spotlights, settings */
 .content-workspace { grid-template-columns: minmax(0,1.65fr) minmax(350px,.75fr); gap: 22px; }
+.content-workspace.single-post { grid-template-columns: repeat(2, minmax(0,1fr)); }
 .platform-grid { gap: 15px; }
 .platform-card { padding: 20px; border-radius: 22px; }
 .platform-mark { width: 40px; height: 40px; border: 0; border-radius: 14px; color: #526bd3; background: var(--accent-soft); }
@@ -1314,7 +1345,7 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); backgr
   .app-frame { grid-template-columns: 232px minmax(0, 1fr); }
   .brand-copy small { display: none; }
   .page { padding-inline: 30px; }
-  .content-workspace { grid-template-columns: 1fr; }
+  .content-workspace, .content-workspace.single-post { grid-template-columns: 1fr; }
   .image-composer { position: static; }
   .platform-grid { grid-template-columns: repeat(3, minmax(240px,1fr)); overflow-x: auto; padding-bottom: 4px; }
 }
@@ -1339,6 +1370,7 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); backgr
   .grid.two, .grid.three, .settings-grid { grid-template-columns: 1fr; }
   .context-layout { grid-template-columns: 1fr; }
   .sticky-panel { position: static; }
+  .content-workspace.single-post { grid-template-columns: 1fr; }
   .platform-grid { grid-template-columns: 1fr; overflow: visible; }
   .spotlight-output-grid { grid-template-columns: 1fr; }
 }
@@ -1375,8 +1407,4 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); backgr
   .lead-signals, .lead-snapshot, .evidence { margin-left: 0; }
   .lead-snapshot, .lead-detail-grid { grid-template-columns: 1fr; }
   .activity-dock { right: 10px; bottom: 10px; width: calc(100vw - 20px); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  body::before { animation: none; }
 }
