@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   ArrowDown,
   ArrowRight,
+  ArrowUp,
   BookOpenText,
   Check,
   Circle,
@@ -16,7 +17,6 @@ import {
   Paperclip,
   PenLine,
   Search,
-  Send,
   Sparkles,
   Trash2,
   TriangleAlert,
@@ -647,6 +647,7 @@ function AssistantWorkspaceClient() {
 
   const canSend = !sending && !transcriptLoading && Boolean(prompt.trim() || (mode === "context" && attachments.length));
   const selectedMode = modeOption(mode);
+  const SelectedModeIcon = selectedMode.icon;
   const attachmentAccept = mode === "create" ? "image/png,image/jpeg,image/webp" : "image/png,image/jpeg,image/webp,.md,.txt,text/markdown,text/plain";
 
   if (!workspace.state) return <PageState loading={workspace.loading} error={workspace.error} retry={workspace.refresh}/>;
@@ -655,9 +656,9 @@ function AssistantWorkspaceClient() {
   return <div className="page assistant-page" aria-labelledby="assistant-title">
     <header className="assistant-page-header">
       <div>
-        <span className="eyebrow">Three focused workflows</span>
+        <span className="eyebrow">Your summit co-pilot</span>
         <h1 id="assistant-title">Summit Assistant</h1>
-        <p className="lede">Ask grounded questions, create one polished social post, or turn source material into reusable summit context.</p>
+        <p className="lede">Research, create, and organize—without leaving your summit workspace.</p>
       </div>
       <div className="assistant-header-actions">
         <ConnectionBadge state={workspace.state}/>
@@ -678,23 +679,30 @@ function AssistantWorkspaceClient() {
 
       <form className="assistant-composer" onSubmit={submit} onDragEnter={(event) => { event.preventDefault(); if (mode !== "ask" && !sending) setDragActive(true); }} onDragOver={(event) => event.preventDefault()} onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragActive(false); }} onDrop={(event) => { event.preventDefault(); setDragActive(false); if (!sending) void addFiles(Array.from(event.dataTransfer.files)); }}>
         <div className="assistant-composer-inner">
-          <fieldset className="assistant-mode-switcher">
-            <legend className="sr-only">Assistant mode</legend>
-            {MODE_OPTIONS.map(({ value, label, icon: Icon }) => <button key={value} type="button" className={`assistant-mode-button mode-${value}`} aria-pressed={mode === value} disabled={sending} onClick={() => selectMode(value)}><Icon size={15} aria-hidden="true"/><span>{label}</span></button>)}
-          </fieldset>
+          <div className={`assistant-composer-card mode-${mode} ${dragActive ? "drag-active" : ""}`}>
+            <div className="assistant-mode-summary">
+              <span className="assistant-mode-summary-icon"><SelectedModeIcon size={17} aria-hidden="true"/></span>
+              <span><strong>{selectedMode.label}</strong><small>{selectedMode.description}</small></span>
+              {mode === "context" && <label className="assistant-source-toggle"><input type="checkbox" checked={sourceOfTruth} disabled={sending} onChange={(event) => setSourceOfTruth(event.target.checked)}/><span><strong>Primary source</strong><small>Approved facts</small></span></label>}
+            </div>
 
-          <div className="assistant-mode-controls">
-            <div className="assistant-mode-summary"><selectedMode.icon size={16} aria-hidden="true"/><span><strong>{selectedMode.label}</strong>{selectedMode.description}</span></div>
-            {mode === "context" && <label className="assistant-source-toggle"><input type="checkbox" checked={sourceOfTruth} disabled={sending} onChange={(event) => setSourceOfTruth(event.target.checked)}/><span><strong>Primary source</strong><small>Use for approved event facts only</small></span></label>}
-          </div>
+            {attachments.length > 0 && <div className="assistant-attachments" aria-label="Attached files">{attachments.map((attachment) => <div className={`assistant-attachment ${attachment.kind}`} key={attachment.id}>{attachment.previewUrl ? <Image unoptimized src={attachment.previewUrl} width={44} height={44} alt=""/> : <span><FileText size={17}/></span>}<span><strong>{attachment.file.name}</strong><small>{attachment.kind === "image" ? formatBytes(attachment.file.size) : `${attachment.text.length.toLocaleString()} characters`}</small></span><button type="button" disabled={sending} onClick={() => removeAttachment(attachment.id)} aria-label={`Remove ${attachment.file.name}`}><X size={14}/></button></div>)}</div>}
 
-          {attachments.length > 0 && <div className="assistant-attachments" aria-label="Attached files">{attachments.map((attachment) => <div className={`assistant-attachment ${attachment.kind}`} key={attachment.id}>{attachment.previewUrl ? <Image unoptimized src={attachment.previewUrl} width={44} height={44} alt=""/> : <span><FileText size={17}/></span>}<span><strong>{attachment.file.name}</strong><small>{attachment.kind === "image" ? formatBytes(attachment.file.size) : `${attachment.text.length.toLocaleString()} characters`}</small></span><button type="button" disabled={sending} onClick={() => removeAttachment(attachment.id)} aria-label={`Remove ${attachment.file.name}`}><X size={14}/></button></div>)}</div>}
+            <div className="assistant-editor">
+              <label className="sr-only" htmlFor="assistant-prompt">Message Summit Assistant</label>
+              <textarea ref={textareaRef} id="assistant-prompt" rows={1} value={prompt} maxLength={mode === "ask" ? 12_000 : mode === "create" ? 1_800 : MAX_ATTACHED_TEXT} disabled={sending} placeholder={PLACEHOLDERS[mode]} aria-describedby="assistant-composer-help assistant-composer-error" onChange={(event) => { setPrompt(event.target.value); setComposerError(null); resizeComposer(event.target); }} onPaste={(event) => { const files = Array.from(event.clipboardData.files); if (files.length && mode !== "ask") { event.preventDefault(); void addFiles(files); } }} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); if (canSend) event.currentTarget.form?.requestSubmit(); } }}/>
+            </div>
 
-          <div className={`assistant-editor ${mode === "ask" ? "without-attachment" : ""} ${dragActive ? "drag-active" : ""}`}>
-            {mode !== "ask" && <><input ref={fileInputRef} hidden id="assistant-attachments" type="file" multiple={mode === "context"} accept={attachmentAccept} disabled={sending} onChange={(event) => void addFiles(Array.from(event.target.files || []))}/><button className="assistant-attach-button" type="button" disabled={sending} onClick={() => fileInputRef.current?.click()} aria-label={mode === "create" ? "Attach a reference image" : "Attach images, Markdown, or text files"} title={mode === "create" ? "Attach reference image" : "Attach source material"}><Paperclip size={18}/></button></>}
-            <label className="sr-only" htmlFor="assistant-prompt">Message Summit Assistant</label>
-            <textarea ref={textareaRef} id="assistant-prompt" rows={1} value={prompt} maxLength={mode === "ask" ? 12_000 : mode === "create" ? 1_800 : MAX_ATTACHED_TEXT} disabled={sending} placeholder={PLACEHOLDERS[mode]} aria-describedby="assistant-composer-help assistant-composer-error" onChange={(event) => { setPrompt(event.target.value); setComposerError(null); resizeComposer(event.target); }} onPaste={(event) => { const files = Array.from(event.clipboardData.files); if (files.length && mode !== "ask") { event.preventDefault(); void addFiles(files); } }} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); if (canSend) event.currentTarget.form?.requestSubmit(); } }}/>
-            <button className="assistant-send-button" disabled={!canSend} aria-label={sending ? "Assistant is working" : `Send in ${selectedMode.label} mode`}><Send size={18}/></button>
+            <div className="assistant-composer-toolbar">
+              <fieldset className="assistant-mode-switcher">
+                <legend className="sr-only">Assistant mode</legend>
+                {MODE_OPTIONS.map(({ value, label, icon: Icon }) => <button key={value} type="button" className={`assistant-mode-button mode-${value}`} aria-pressed={mode === value} disabled={sending} onClick={() => selectMode(value)}><Icon size={15} aria-hidden="true"/><span>{label}</span></button>)}
+              </fieldset>
+              <div className="assistant-composer-actions">
+                {mode !== "ask" && <><input ref={fileInputRef} hidden id="assistant-attachments" type="file" multiple={mode === "context"} accept={attachmentAccept} disabled={sending} onChange={(event) => void addFiles(Array.from(event.target.files || []))}/><button className="assistant-attach-button" type="button" disabled={sending} onClick={() => fileInputRef.current?.click()} aria-label={mode === "create" ? "Attach a reference image" : "Attach images, Markdown, or text files"} title={mode === "create" ? "Attach reference image" : "Attach source material"}><Paperclip size={18}/></button></>}
+                <button className="assistant-send-button" disabled={!canSend} aria-label={sending ? "Assistant is working" : `Send in ${selectedMode.label} mode`}><ArrowUp size={19}/></button>
+              </div>
+            </div>
           </div>
           <div className="assistant-composer-footer">
             <p id="assistant-composer-help">{mode === "ask" ? "Answers use active local context." : mode === "create" ? "Describe everything in one prompt. Platform, copy, style, logo treatment, and format are inferred · one GPT Image 2 pass." : "Text files are read locally; images are uploaded for OCR."}</p>
@@ -721,11 +729,12 @@ function AssistantWorkspaceClient() {
 
 function Welcome({ onSelect }: { onSelect: (mode: AssistantMode) => void }) {
   return <section className="assistant-welcome" aria-labelledby="assistant-welcome-title">
+    <div className="assistant-welcome-orbit" aria-hidden="true"><span/><span/><span/></div>
     <span className="assistant-welcome-mark"><Sparkles size={25}/></span>
-    <span className="eyebrow">Summit work, routed clearly</span>
-    <h2 id="assistant-welcome-title">What should we work on?</h2>
-    <p>Choose a focused workflow. The Assistant will show exactly what it is doing and return the first completed result.</p>
-    <div className="assistant-starters">{MODE_OPTIONS.map(({ value, label, description, example, icon: Icon }) => <button className={`assistant-starter mode-${value}`} type="button" key={value} onClick={() => onSelect(value)}><span className="assistant-starter-icon"><Icon size={19}/></span><span><strong>{label}</strong><small>{description}</small><em>{example}</em></span><ArrowRight size={16}/></button>)}</div>
+    <span className="eyebrow">Ready when you are</span>
+    <h2 id="assistant-welcome-title">What should we make happen?</h2>
+    <p>Start with a question, a creative brief, or something the team should remember. Pick a lane below, then tell me what you need.</p>
+    <div className="assistant-starters">{MODE_OPTIONS.map(({ value, label, description, example, icon: Icon }, index) => <button className={`assistant-starter mode-${value}`} type="button" key={value} onClick={() => onSelect(value)}><span className="assistant-starter-number">0{index + 1}</span><span className="assistant-starter-icon"><Icon size={19}/></span><span className="assistant-starter-copy"><strong>{label}</strong><small>{description}</small><em>{example}</em></span><span className="assistant-starter-arrow"><ArrowRight size={15}/></span></button>)}</div>
   </section>;
 }
 
