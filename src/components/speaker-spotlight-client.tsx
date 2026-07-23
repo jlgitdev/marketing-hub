@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Check, Clipboard, Download, ImagePlus, LoaderCircle, MicVocal, Plus, RotateCcw, Trash2, TriangleAlert } from "lucide-react";
+import { Check, Clipboard, Download, ImagePlus, MicVocal, Plus, RotateCcw, Trash2, TriangleAlert } from "lucide-react";
 import type { SpeakerSpotlightBatch, SpeakerSpotlightBatchSummary, SpeakerSpotlightTemplate } from "@/lib/types";
 import { apiRequest, ConnectionBadge, formatDateTime, PageState, useWorkspace } from "./workspace";
 import { InlineOperation, useOperations } from "./operations";
@@ -135,7 +135,7 @@ export function SpeakerSpotlightClient({ initialBatchId = null }: { initialBatch
           const operation = templateOperationIds.map((id) => operations.findOperation({ id })).find((item) => item?.resultEntityId === template.id || item?.targetKey === `spotlight:template:${template.id}`) || null;
           return <article className={`template-card ${template.selected ? "selected" : ""}`} key={template.id}>
             <div className="template-thumb"><Image src={`/api/speaker-spotlights/templates/asset?id=${template.id}&thumbnail=1`} alt={`${template.name} template`} fill sizes="(max-width: 560px) 100vw, 260px" loading={templateIndex === 0 ? "eager" : "lazy"} style={{ objectFit: "contain" }} unoptimized/>{template.selected && <span className="template-selected-badge"><Check size={12}/>Selected</span>}</div>
-            <div className="template-card-body"><div><h3>{template.name}</h3><p>v{template.version} · {template.aspectRatio} · {template.sourceType === "builtin" ? "example" : "uploaded"}</p></div><span className={`badge ${template.status === "ready" ? "success" : template.status === "failed" ? "danger" : "warning"}`}>{template.status === "analyzing" && <LoaderCircle className="spin" size={12}/>} {template.status}</span></div>
+            <div className="template-card-body"><div><h3>{template.name}</h3><p>v{template.version} · {template.aspectRatio} · {template.sourceType === "builtin" ? "example" : "uploaded"}</p></div><span className={`badge ${template.status === "ready" ? "success" : template.status === "failed" ? "danger" : "warning"}`}>{template.status}</span></div>
             {template.error && <p className="template-error">{template.error}</p>}
             {operation && <InlineOperation operation={operation} compact/>}
             <div className="row-actions">{template.status === "ready" && !template.selected && <button className="button secondary small" disabled={templateActionId === template.id} onClick={() => void chooseTemplate(template.id)}>Use template</button>}<button className="icon-button danger-text" disabled={templateActionId === template.id || template.status === "analyzing"} onClick={() => void removeTemplate(template)} aria-label={`Delete ${template.name}`} title={template.status === "analyzing" ? "Wait for analysis to finish before deleting" : "Delete template"}><Trash2 size={15}/></button></div>

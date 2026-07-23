@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { Activity, Check, ChevronRight, Circle, Clock3, LoaderCircle, RotateCcw, Square, TriangleAlert, X } from "lucide-react";
+import { Activity, Check, ChevronRight, Circle, Clock3, RotateCcw, Square, TriangleAlert, X } from "lucide-react";
 import type { AiOperation, AiOperationKind } from "@/lib/types";
+import { AiThinkingOrb, operationOrbState, operationOrbWord } from "./ai-thinking-orb";
 import { apiRequest, useWorkspace } from "./workspace";
 
 const ACTIVE_STATUSES = new Set(["queued", "running", "cancel_requested"]);
@@ -131,7 +133,7 @@ export function useOperations() {
   return value;
 }
 
-export function InlineOperation({ operation, compact = false }: { operation: AiOperation | null; compact?: boolean }) {
+export function InlineOperation({ operation, compact = false, showOrb = true }: { operation: AiOperation | null; compact?: boolean; showOrb?: boolean }) {
   const { operations, cancelOperation, dismissOperation, retryOperation } = useOperations();
   const seconds = useOperationSeconds(operation);
   if (!operation) return null;
@@ -140,11 +142,10 @@ export function InlineOperation({ operation, compact = false }: { operation: AiO
   const queued = operations.filter((item) => item.status === "queued").sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   const queuePosition = operation.status === "queued" ? queued.findIndex((item) => item.id === operation.id) + 1 : 0;
   return <section className={`operation-card ${compact ? "compact" : ""} status-${operation.status}`} aria-busy={active} aria-label={`${operation.label} progress`}>
-    <div className="operation-signal" aria-hidden="true"><OperationSignalIcon operation={operation}/></div>
+    <div className={`operation-signal ${operation.status === "running" && showOrb ? "thinking" : ""}`} aria-hidden="true">{operation.status === "running" && showOrb ? <AiThinkingOrb state={operationOrbState(operation)} size={compact ? 20 : 64} label={`${activeStep?.label || operation.label} in progress`}/> : <OperationSignalIcon operation={operation}/>}</div>
     <div className="operation-main">
-      <div className="operation-title-row"><div><span className="operation-kicker">{statusLabel(operation.status)}</span><h3>{operation.label}</h3>{!active && <time className="operation-created" dateTime={operation.createdAt}>{formatOperationTime(operation.createdAt)}</time>}</div><Elapsed operation={operation}/></div>
+      <div className="operation-title-row"><div><span className="operation-kicker">{operation.status === "running" ? operationOrbWord(operation) : statusLabel(operation.status)}</span><h3>{operation.label}</h3>{!active && <time className="operation-created" dateTime={operation.createdAt}>{formatOperationTime(operation.createdAt)}</time>}</div><Elapsed operation={operation}/></div>
       <div className="operation-live" role="status" aria-live="polite"><strong>{operation.status === "queued" ? "Waiting for the current task" : active ? activeStep?.label || statusLabel(operation.status) : terminalHeadline(operation.status)}</strong>{active && activeStep?.detail ? <span>{activeStep.detail}</span> : !active && <span>{terminalDetail(operation.status)}</span>}</div>
-      {active && <div className="operation-rail" aria-hidden="true"><span/></div>}
       {operation.totalUnits !== null && <p className="operation-count"><strong>{operation.completedUnits || 0} of {operation.totalUnits}</strong> {operation.unitLabel || "items"} {active ? "processed" : operation.status === "completed" ? "complete" : "succeeded"}</p>}
       {!compact && <ol className="operation-steps">{operation.steps.map((step) => <li className={step.state} key={step.id}><StepIcon state={step.state}/><span>{step.label}</span></li>)}</ol>}
       {active && <p className="operation-away">You can move to another screen—this work will keep running locally.{queuePosition ? ` Queue position ${queuePosition}.` : ""}</p>}
@@ -173,25 +174,27 @@ function ActiveConnectionTestProgress() {
   }, []);
   const seconds = Math.max(0, Math.floor((now - startedAt) / 1000));
   return <div className="connection-test-progress" role="status" aria-live="polite">
-    <span className="activity-orb working" aria-hidden="true"><Activity size={15}/></span>
+    <AiThinkingOrb state="searching" size={20} label="Testing the OpenAI connection"/>
     <div><strong>Sending a small test request</strong><span aria-hidden="true">{Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, "0")}</span><p>{seconds >= 45 ? "OpenAI is taking a little longer to answer. Keep this screen open while the secure session is established." : "This finishes on this screen so the secure HttpOnly session cookie can be set."}</p></div>
   </div>;
 }
 
 function ActivityDock() {
   const { operations, connectionError, refreshOperations } = useOperations();
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const active = operations.find((operation) => operation.status === "running" || operation.status === "cancel_requested") || operations.find((operation) => operation.status === "queued");
   const queued = operations.filter((operation) => operation.status === "queued").length;
   if (!operations.length && !connectionError) return null;
   const activeStep = active?.steps.find((step) => step.state === "active");
+  const showDockOrb = Boolean(active?.status === "running" && pathname !== active.originPath && pathname !== "/runs");
   return <aside className={`activity-dock ${open ? "open" : ""} ${active || connectionError ? "active" : "idle"}`} aria-label="Workspace activity">
     <button className="activity-trigger" onClick={() => setOpen((value) => !value)} aria-expanded={open} title={!active && !connectionError ? "Open workspace activity" : undefined}>
-      <span className={connectionError ? "activity-orb" : active ? "activity-orb working" : "activity-orb"}>{connectionError ? <TriangleAlert size={16}/> : <Activity size={16}/>}</span>
+      <span className="activity-orb">{connectionError ? <TriangleAlert size={16}/> : showDockOrb && active ? <AiThinkingOrb state={operationOrbState(active)} size={20} label={`${activeStep?.label || active.label} in progress`}/> : <Activity size={16}/>}</span>
       <span><strong>{connectionError ? "Local server unavailable" : active ? activeStep?.label || statusLabel(active.status) : "Workspace activity"}</strong><small>{connectionError ? "Retrying automatically" : active ? <><Elapsed operation={active} short/> {queued > 0 && `· ${queued} queued`}</> : "Recent work and results"}</small></span>
       <ChevronRight className="activity-chevron" size={16}/>
     </button>
-    {open && <div className="activity-drawer"><div className="activity-drawer-heading"><div><h2>Workspace activity</h2><p className="muted">{connectionError ? "Connection interrupted" : active ? "Work in progress" : "Recent work"}</p></div><button className="icon-button" onClick={() => setOpen(false)} aria-label="Close workspace activity"><X size={16}/></button></div>{connectionError && <div className="warnings"><TriangleAlert size={15}/><span>{connectionError}</span><button className="button secondary small" onClick={() => void refreshOperations()}>Retry now</button></div>}<div className="activity-list">{operations.slice(0, 8).map((operation) => <InlineOperation key={operation.id} operation={operation} compact/>)}</div></div>}
+    {open && <div className="activity-drawer"><div className="activity-drawer-heading"><div><h2>Workspace activity</h2><p className="muted">{connectionError ? "Connection interrupted" : active ? "Work in progress" : "Recent work"}</p></div><button className="icon-button" onClick={() => setOpen(false)} aria-label="Close workspace activity"><X size={16}/></button></div>{connectionError && <div className="warnings"><TriangleAlert size={15}/><span>{connectionError}</span><button className="button secondary small" onClick={() => void refreshOperations()}>Retry now</button></div>}<div className="activity-list">{operations.slice(0, 8).map((operation) => <InlineOperation key={operation.id} operation={operation} compact showOrb={false}/>)}</div></div>}
   </aside>;
 }
 
@@ -224,13 +227,14 @@ function useOperationSeconds(operation: AiOperation | null) {
 
 function StepIcon({ state }: { state: AiOperation["steps"][number]["state"] }) {
   if (state === "completed") return <Check size={13}/>;
-  if (state === "active") return <LoaderCircle className="spin" size={13}/>;
+  if (state === "active") return <Circle className="active-step-dot" size={11}/>;
   if (state === "failed") return <TriangleAlert size={13}/>;
   return <Circle size={11}/>;
 }
 
 function OperationSignalIcon({ operation }: { operation: AiOperation }) {
-  if (ACTIVE_STATUSES.has(operation.status)) return <LoaderCircle className="spin" size={18}/>;
+  if (operation.status === "queued") return <Clock3 size={17}/>;
+  if (operation.status === "running" || operation.status === "cancel_requested") return <Activity size={17}/>;
   if (operation.status === "completed") return <Check size={18}/>;
   if (operation.status === "canceled") return <Square size={16}/>;
   return <TriangleAlert size={18}/>;

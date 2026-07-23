@@ -8,12 +8,10 @@ import {
   ArrowUp,
   BookOpenText,
   Check,
-  Circle,
   Clipboard,
   Download,
   FileText,
   Image as ImageIcon,
-  LoaderCircle,
   Paperclip,
   PenLine,
   Search,
@@ -27,6 +25,8 @@ import ReactMarkdown from "react-markdown";
 import rehypeSanitize from "rehype-sanitize";
 import remarkGfm from "remark-gfm";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
+import type { OrbState } from "@/vendor/thinking-orbs";
+import { AiThinkingOrb } from "./ai-thinking-orb";
 import { apiRequest, cleanDocumentTitle, ConnectionBadge, PageState, useWorkspace } from "./workspace";
 
 type AssistantMode = "ask" | "create" | "context";
@@ -798,12 +798,18 @@ function MessageCard({ message, contextDocument, sourceDocuments, copied, onCopy
 function StreamingReply({ mode, stages, content, asset, contextDocument }: { mode: AssistantMode; stages: WorkflowStage[]; content: string; asset: { id: string; width: number; height: number } | null; contextDocument: SavedContextDocument | null }) {
   const option = modeOption(mode);
   const ModeIcon = option.icon;
+  const activeStage = stages.find((stage) => stage.state === "active") || stages.find((stage) => stage.state === "pending");
+  const orbState = assistantOrbState(mode, activeStage?.id);
   return <article className="assistant-message assistant streaming" aria-label="Summit Assistant is working" aria-busy="true">
-    <div className="assistant-avatar working" aria-hidden="true"><LoaderCircle size={16}/></div>
+    <div className="assistant-avatar" aria-hidden="true"><ModeIcon size={16}/></div>
     <div className="assistant-response">
-      <header><span><strong>Summit Assistant</strong><small><ModeIcon size={12}/>{option.label}</small></span><span className="assistant-working-label"><span/>Working</span></header>
+      <header><span><strong>Summit Assistant</strong><small><ModeIcon size={12}/>{option.label}</small></span><span className="assistant-working-label">{orbStatusWord(orbState)}</span></header>
+      <div className="assistant-thinking-focus" role="status" aria-live="polite">
+        <AiThinkingOrb state={orbState} size={64} label={activeStage?.label || "Summit Assistant is working"}/>
+        <span><small>{orbStatusWord(orbState)}</small><strong>{activeStage?.label || "Preparing your response"}</strong><p>{orbStatusDetail(orbState)}</p></span>
+      </div>
       <WorkflowLanes stages={stages}/>
-      {content ? <MarkdownContent content={content}/> : <div className="assistant-stream-placeholder" aria-hidden="true"><span/><span/><span/></div>}
+      {content ? <MarkdownContent content={content}/> : null}
       {asset && <GeneratedAsset assetId={asset.id} width={asset.width} height={asset.height} altText="Generated summit campaign graphic"/>}
       {contextDocument && <ContextResult document={contextDocument} documentId={contextDocument.id}/>} 
     </div>
@@ -811,7 +817,28 @@ function StreamingReply({ mode, stages, content, asset, contextDocument }: { mod
 }
 
 function WorkflowLanes({ stages }: { stages: WorkflowStage[] }) {
-  return <div className={`assistant-workflow ${stages.length > 2 ? "many" : ""}`} aria-label="Workflow progress">{stages.map((stage) => <div className={`assistant-workflow-lane ${stage.state}`} key={stage.id}><span className="assistant-stage-icon" aria-hidden="true">{stage.state === "active" ? <LoaderCircle size={14}/> : stage.state === "completed" ? <Check size={14}/> : stage.state === "failed" ? <TriangleAlert size={14}/> : <Circle size={11}/>}</span><span><strong>{stage.label}</strong>{stage.detail && <small>{stage.detail}</small>}</span><em>{stageStatusLabel(stage.state)}</em></div>)}</div>;
+  return <div className={`assistant-workflow ${stages.length > 2 ? "many" : ""}`} aria-label="Workflow progress">{stages.map((stage, index) => <div className={`assistant-workflow-lane ${stage.state}`} key={stage.id}><span className="assistant-stage-icon" aria-hidden="true">{stage.state === "completed" ? <Check size={14}/> : stage.state === "failed" ? <TriangleAlert size={14}/> : <b>{index + 1}</b>}</span><span><strong>{stage.label}</strong>{stage.detail && <small>{stage.detail}</small>}</span><em>{stageStatusLabel(stage.state)}</em></div>)}</div>;
+}
+
+function assistantOrbState(mode: AssistantMode, stageId?: string): OrbState {
+  if (mode === "create") return stageId === "context" ? "searching" : stageId === "image" ? "shaping" : "composing";
+  if (mode === "context") return stageId === "read" ? "listening" : stageId === "save" ? "working" : "solving";
+  return stageId === "retrieve" ? "searching" : "composing";
+}
+
+function orbStatusWord(state: OrbState) {
+  return ({ working: "Finishing", searching: "Searching", solving: "Organizing", listening: "Reading", composing: "Composing", shaping: "Shaping" } as const)[state];
+}
+
+function orbStatusDetail(state: OrbState) {
+  return ({
+    working: "Putting the final pieces in place and saving them safely.",
+    searching: "Gathering the most relevant summit context for this step.",
+    solving: "Connecting the details into a clear, reusable structure.",
+    listening: "Reading your source material carefully before changing its form.",
+    composing: "Drafting the response in the voice and format you requested.",
+    shaping: "Turning the approved direction into the finished visual."
+  } as const)[state];
 }
 
 const MarkdownContent = memo(function MarkdownContent({ content }: { content: string }) {

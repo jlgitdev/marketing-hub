@@ -81,12 +81,12 @@ export function ContentClient({ initialCampaignId = null }: { initialCampaignId?
       <InlineOperation operation={regenOperation} compact/>
       {campaign && <SavedContextSummary campaign={campaign} documents={state.contextDocuments}/>}
       {campaign?.warnings.length ? <div className="campaign-notes"><TriangleAlert size={15}/><div>{campaign.warnings.map((warning) => <p key={warning}>{warning}</p>)}</div></div> : null}
-      {campaign?.status === "failed" ? <div className="empty-state danger"><TriangleAlert/><h3>This campaign stopped before a plan was ready</h3><p>{campaign.error || "Content generation did not complete."}</p><p>The failed run remains saved for inspection and did not replace an earlier campaign.</p></div> : campaign ? <div className={`content-workspace ${campaign.posts.length === 1 ? "single-post" : ""}`}><div className="platform-grid">{campaign.posts.map((post) => <PostEditor key={`${post.id}-${post.version}`} post={post} onRefresh={workspace.refresh} onMessage={setMessage}/>)}</div><ImageResult campaign={campaign} operation={imageOperation} onRetry={retryGraphic} onRefresh={workspace.refresh} onMessage={setMessage}/></div> : <div className="empty-state"><PenLine size={28}/><h3>Start with a prompt</h3><p>Describe the outcome in your own words. Campaign fields, platform targets, copy, art direction, and brand treatment will be inferred.</p></div>}
+      {campaign?.status === "failed" ? <div className="empty-state danger"><TriangleAlert/><h3>This campaign stopped before a plan was ready</h3><p>{campaign.error || "Content generation did not complete."}</p><p>The failed run remains saved for inspection and did not replace an earlier campaign.</p></div> : campaign ? <div className={`content-workspace ${campaign.posts.length === 1 ? "single-post" : ""}`}><div className="platform-grid">{campaign.posts.map((post) => <PostEditor key={`${post.id}-${post.version}`} post={post} primaryOperationId={regenOperation?.id || null} onRefresh={workspace.refresh} onMessage={setMessage}/>)}</div><ImageResult campaign={campaign} operation={imageOperation} onRetry={retryGraphic} onRefresh={workspace.refresh} onMessage={setMessage}/></div> : <div className="empty-state"><PenLine size={28}/><h3>Start with a prompt</h3><p>Describe the outcome in your own words. Campaign fields, platform targets, copy, art direction, and brand treatment will be inferred.</p></div>}
     </section>
   </div>;
 }
 
-function PostEditor({ post, onRefresh, onMessage }: { post: PlatformPost; onRefresh: () => Promise<void>; onMessage: (value: string) => void }) {
+function PostEditor({ post, primaryOperationId, onRefresh, onMessage }: { post: PlatformPost; primaryOperationId: string | null; onRefresh: () => Promise<void>; onMessage: (value: string) => void }) {
   const [text, setText] = useState(post.text);
   const [hook, setHook] = useState(post.hook);
   const [callToAction, setCallToAction] = useState(post.callToAction);
@@ -123,7 +123,7 @@ function PostEditor({ post, onRefresh, onMessage }: { post: PlatformPost; onRefr
     <details><summary>Accessibility</summary><div className="form-stack inner"><label>Graphic alt text<textarea rows={3} value={alt} onChange={(event) => setAlt(event.target.value)}/></label></div></details>
     {post.warnings.length > 0 && <div className="warnings"><TriangleAlert size={15}/><ul>{post.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul></div>}
     <div className="row-actions wrap"><button className="button secondary small" onClick={() => void navigator.clipboard.writeText(`${text}${hashtags ? `\n\n${hashtags}` : ""}`)}><Clipboard size={14}/>Copy</button><button className="button secondary small" onClick={() => void save()}><Save size={14}/>Save</button><button className="button secondary small" disabled={busy} onClick={() => void regenerate()}><RefreshCw size={14}/>{busy ? "Regenerating…" : "Regenerate"}</button><button className="button small" disabled={text.length > config.characterLimit} onClick={() => void save(true)}><Check size={14}/>Review</button></div>
-    <InlineOperation operation={operation} compact/>
+    <InlineOperation operation={operation?.id === primaryOperationId ? null : operation} compact/>
   </article>;
 }
 
